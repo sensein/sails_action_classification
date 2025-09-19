@@ -1,9 +1,16 @@
+import sys
+import os
+
+# Add mmpose to Python path (remove depending on your setup - this allows me to avoid moving the script into the mmpose directory)
+mmpose_path = os.path.join(os.path.dirname(__file__), 'mmpose')
+if os.path.exists(mmpose_path) and mmpose_path not in sys.path:
+    sys.path.insert(0, mmpose_path)
+
 import mmcv
 from mmcv import imread
 import mmengine
 from mmengine.registry import init_default_scope
 import numpy as np
-import os
 import cv2
 import ffmpeg
 from tqdm import tqdm
@@ -1407,7 +1414,7 @@ def main():
     # Process video
     DATA_DIR = "/orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external"
     VID_LOCAL_PATH = "/H.L._Home_Videos_AMES_A6Y4Y7X2G1/12-16 month videos/Dec 2018 (14m)/12-29-2018.MOV"
-    TARGET_VIDEO_PATH = "/orcd/data/satra/001/users/brukew/test_nb/outputs/modular_pipeline_output.mp4"
+    TARGET_VIDEO_PATH = "your_output_video.mp4"
     SOURCE_VIDEO_PATH = DATA_DIR + VID_LOCAL_PATH
 
     pipeline.process_video(SOURCE_VIDEO_PATH, TARGET_VIDEO_PATH)
