@@ -39,6 +39,11 @@ from mmpose.registry import VISUALIZERS
 from mmpose.structures import merge_data_samples
 from mmdet.apis import inference_detector, init_detector
 from filterpy.kalman import KalmanFilter
+from tracking_exporter import TrackingDataCollector
+
+# ================== HARDCODED PATHS ==================
+DATA_DIR = "/orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external"
+TRACKING_EXPORT_DIR = "/orcd/data/satra/002/projects/SAILS/feature_processing/pipeline_outputs/tracking_exports"
 
 
 # ================== CONFIGURATION SYSTEM ==================
@@ -108,12 +113,21 @@ class VisualizationConfig:
     line_width: int = 1
 
 @dataclass
+class ExportConfig:
+    """Configuration for data export"""
+    enable_export: bool = True
+    export_json: bool = True
+    export_csv: bool = True
+    output_dir: str = "tracking_results"
+
+@dataclass
 class PipelineConfig:
     """Main pipeline configuration"""
     models: ModelConfig = field(default_factory=ModelConfig)
     features: FeatureConfig = field(default_factory=FeatureConfig)
     processing: ProcessingConfig = field(default_factory=ProcessingConfig)
     visualization: VisualizationConfig = field(default_factory=VisualizationConfig)
+    export: ExportConfig = field(default_factory=ExportConfig)
 
 
 # ================== DETECTION MODULE ==================
@@ -1171,6 +1185,9 @@ class MultiPersonTrackingPipeline:
             self.pose_module.visualizer
         ) if config.visualization.enable_visualization else None
 
+        # Data export
+        self.data_collector = TrackingDataCollector() if config.export.enable_export else None
+
         # Performance tracking
         self.timing_stats = defaultdict(list)
         self.global_start_time = None
@@ -1239,6 +1256,14 @@ class MultiPersonTrackingPipeline:
         person_assignments = self.tracking_module.update(detections)
         self.timing_stats['tracking'].append(time.time() - track_start)
 
+        # Data collection
+        if self.data_collector:
+            data_collect_start = time.time()
+            self.data_collector.collect_frame_data(
+                self.tracking_module.frame_count, detections, person_assignments
+            )
+            self.timing_stats['data_collection'].append(time.time() - data_collect_start)
+
         # Visualization
         vis_frame = frame
         if self.visualization_module:
@@ -1271,6 +1296,10 @@ class MultiPersonTrackingPipeline:
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+
+        # Initialize data collector with video metadata
+        if self.data_collector:
+            self.data_collector.set_video_info(input_path, total_frames, fps, width, height)
 
         # Setup ffmpeg for h264 encoding
         ffmpeg_cmd = [
@@ -1348,6 +1377,20 @@ class MultiPersonTrackingPipeline:
         torch.cuda.empty_cache()
         gc.collect()
 
+        # Export tracking data
+        # TODO: CHANGE AT SOME POINT
+        if self.data_collector:
+            total_runtime = time.time() - self.global_start_time
+
+            # Create output directory if needed
+            os.makedirs(self.config.export.output_dir, exist_ok=True)
+
+            # Generate output filename based on input video
+            input_basename = os.path.splitext(os.path.basename(input_path))[0]
+            json_output_path = os.path.join(self.config.export.output_dir, f"{input_basename}_tracking.json")
+
+            self.data_collector.export_data(json_output_path, total_runtime)
+
         print(f"Processing complete. Output saved: {output_path}")
         print(f"Total persons tracked: {len(self.tracking_module.person_profiles)}")
         self.print_performance_stats()
@@ -1401,6 +1444,10 @@ def create_custom_config() -> PipelineConfig:
     # config.visualization.enable_visualization = False
     config.visualization.enable_pose_drawing = False
 
+    # Enable data export
+    config.export.enable_export = True
+    config.export.output_dir = TRACKING_EXPORT_DIR
+
     return config
 
 def main():
@@ -1414,7 +1461,7 @@ def main():
     # Process video
     DATA_DIR = "/orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external"
     VID_LOCAL_PATH = "/H.L._Home_Videos_AMES_A6Y4Y7X2G1/12-16 month videos/Dec 2018 (14m)/12-29-2018.MOV"
-    TARGET_VIDEO_PATH = "your_output_video.mp4"
+    TARGET_VIDEO_PATH = "test_export.mp4"
     SOURCE_VIDEO_PATH = DATA_DIR + VID_LOCAL_PATH
 
     pipeline.process_video(SOURCE_VIDEO_PATH, TARGET_VIDEO_PATH)
