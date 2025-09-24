@@ -118,7 +118,7 @@ class ExportConfig:
     enable_export: bool = True
     export_json: bool = True
     export_csv: bool = True
-    output_dir: str = "tracking_results"
+    output_path: str = "tracking_results"
 
 @dataclass
 class PipelineConfig:
@@ -588,7 +588,20 @@ class FeatureExtractionModule:
         if len(bbox) < 4 or bbox[2] - bbox[0] < 50 or bbox[3] - bbox[1] < 100:
             return None
 
-        keypoints = pose.pred_instances.keypoints[0]
+        keypoints_xy = pose.pred_instances.keypoints[0]
+        keypoint_scores = pose.pred_instances.keypoint_scores[0]
+
+        # Combine keypoints and scores into [x, y, confidence] format
+        if torch.is_tensor(keypoints_xy):
+            keypoints_xy = keypoints_xy.cpu().numpy()
+        if torch.is_tensor(keypoint_scores):
+            keypoint_scores = keypoint_scores.cpu().numpy()
+
+        # Create combined keypoints array [x, y, confidence]
+        keypoints = np.concatenate([
+            keypoints_xy,
+            keypoint_scores.reshape(-1, 1)
+        ], axis=1)
         confidence = float(bbox[4]) if len(bbox) > 4 else 1.0
         pose_type = self._determine_pose_type(keypoints)
 
@@ -1171,7 +1184,7 @@ class VisualizationModule:
 class MultiPersonTrackingPipeline:
     """Main pipeline orchestrator"""
 
-    def __init__(self, config: PipelineConfig):
+    def __init__(self, config: PipelineConfig, data_collector: TrackingDataCollector = None):
         self.config = config
 
         # Initialize modules
@@ -1186,7 +1199,7 @@ class MultiPersonTrackingPipeline:
         ) if config.visualization.enable_visualization else None
 
         # Data export
-        self.data_collector = TrackingDataCollector() if config.export.enable_export else None
+        self.data_collector = (data_collector or TrackingDataCollector()) if config.export.enable_export else None
 
         # Performance tracking
         self.timing_stats = defaultdict(list)
@@ -1226,6 +1239,15 @@ class MultiPersonTrackingPipeline:
         # Clean up GPU memory
         torch.cuda.empty_cache()
         gc.collect()
+
+        if self.data_collector:
+            total_runtime = time.time() - self.global_start_time
+
+            # Create output directory if needed
+            os.makedirs(os.path.dirname(self.config.export.output_path), exist_ok=True)
+
+
+            self.data_collector.export_data(self.config.export.output_path, total_runtime)
 
         # Print performance stats
         print(f"\nPartial processing complete after {self.tracking_module.frame_count} frames")
@@ -1383,13 +1405,13 @@ class MultiPersonTrackingPipeline:
             total_runtime = time.time() - self.global_start_time
 
             # Create output directory if needed
-            os.makedirs(self.config.export.output_dir, exist_ok=True)
+            os.makedirs(os.path.dirname(self.config.export.output_path), exist_ok=True)
 
             # Generate output filename based on input video
-            input_basename = os.path.splitext(os.path.basename(input_path))[0]
-            json_output_path = os.path.join(self.config.export.output_dir, f"{input_basename}_tracking.json")
+            # input_basename = os.path.splitext(os.path.basename(input_path))[0]
+            # json_output_path = os.path.join(self.config.export.output_dir, f"{input_basename}_tracking.json")
 
-            self.data_collector.export_data(json_output_path, total_runtime)
+            self.data_collector.export_data(self.config.export.output_path, total_runtime)
 
         print(f"Processing complete. Output saved: {output_path}")
         print(f"Total persons tracked: {len(self.tracking_module.person_profiles)}")
@@ -1441,12 +1463,12 @@ def create_custom_config() -> PipelineConfig:
     # config.processing.combined_reid_threshold = 0.8
 
     # Example: Disable visualization
-    # config.visualization.enable_visualization = False
+    config.visualization.enable_visualization = True
     config.visualization.enable_pose_drawing = False
 
     # Enable data export
     config.export.enable_export = True
-    config.export.output_dir = TRACKING_EXPORT_DIR
+    config.export.output_path = "/orcd/data/satra/001/users/brukew/test_pose_export.json"
 
     return config
 
@@ -1461,7 +1483,7 @@ def main():
     # Process video
     DATA_DIR = "/orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external"
     VID_LOCAL_PATH = "/H.L._Home_Videos_AMES_A6Y4Y7X2G1/12-16 month videos/Dec 2018 (14m)/12-29-2018.MOV"
-    TARGET_VIDEO_PATH = "test_export.mp4"
+    TARGET_VIDEO_PATH = "test_pose_export.mp4"
     SOURCE_VIDEO_PATH = DATA_DIR + VID_LOCAL_PATH
 
     pipeline.process_video(SOURCE_VIDEO_PATH, TARGET_VIDEO_PATH)

@@ -120,8 +120,9 @@ class TrackingDataExporter:
 class TrackingDataCollector:
     """Collects tracking data during processing"""
 
-    def __init__(self):
+    def __init__(self, output_path: Optional[str] = None):
         self.exporter = TrackingDataExporter()
+        self.output_path = output_path
 
     def collect_frame_data(self, frame_number: int, detections: List[Dict],
                           person_assignments: Dict[int, int]):
@@ -138,4 +139,4 @@ class TrackingDataCollector:
     def export_data(self, output_path: str, processing_time: float):
         """Export all collected data"""
         self.exporter.finalize_data(processing_time)
-        self.exporter.export_to_json(output_path)
+        self.exporter.export_to_json(self.output_path or output_path)

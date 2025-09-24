@@ -144,26 +144,38 @@ class BatchProcessor:
 
         return source_path
 
-    def _create_output_path(self, video_info: Dict) -> str:
-        """Create output path for processed video"""
+    def _create_output_paths(self, video_info: Dict) -> tuple:
+        """Create output paths for processed video and tracking data"""
         filename = video_info['filename']
         video_id = video_info['video_id']
         coder = video_info['coder']
 
         # Remove extension and add .mp4
         base_name = os.path.splitext(filename)[0]
-        output_filename = f"{video_id}_{coder}_{base_name}_processed.mp4"
+        base = f"{video_id}_{coder}_{base_name}"
+        output_filename = f"{base}.mp4"
+        tracking_filename = f"{base}_tracking.json"
 
-        return os.path.join(self.output_dir, output_filename)
+        # Create subdirectories
+        video_dir = os.path.join(self.output_dir, "videos")
+        tracking_dir = os.path.join(self.output_dir, "tracking")
+        os.makedirs(video_dir, exist_ok=True)
+        os.makedirs(tracking_dir, exist_ok=True)
+
+        video_path = os.path.join(video_dir, output_filename)
+        tracking_path = os.path.join(tracking_dir, tracking_filename)
+
+        return video_path, tracking_path
 
     def _process_single_video(self, video_info: Dict) -> bool:
         """Process a single video"""
         source_path = self._convert_path(video_info['source_file'])
-        output_path = self._create_output_path(video_info)
+        vid_output_path, tracking_output_path = self._create_output_paths(video_info)
 
         print(f"\nProcessing: {video_info['filename']}")
         print(f"Source: {source_path}")
-        print(f"Output: {output_path}")
+        print(f"Video Output: {vid_output_path}")
+        print(f"Tracking Output: {tracking_output_path}")
 
         # Check if source file exists
         if not os.path.exists(source_path):
@@ -171,17 +183,18 @@ class BatchProcessor:
             return False
 
         # Check if output already exists
-        if os.path.exists(output_path):
-            print(f"Output file already exists, skipping: {output_path}")
+        if os.path.exists(vid_output_path):
+            print(f"Output file already exists, skipping: {vid_output_path}")
             return True
 
         try:
             # Initialize fresh pipeline for each video to avoid memory issues
             config = create_custom_config()
+            config.export.output_path = tracking_output_path
             self.pipeline = MultiPersonTrackingPipeline(config)
 
             # Process the video
-            self.pipeline.process_video(source_path, output_path)
+            self.pipeline.process_video(source_path, vid_output_path)
 
             print(f"✅ Successfully processed: {video_info['filename']}")
             return True
@@ -193,10 +206,11 @@ class BatchProcessor:
             print(f"❌ Error processing {video_info['filename']}: {e}")
 
             # Clean up partial output file
-            if os.path.exists(output_path):
+            if os.path.exists(vid_output_path):
                 try:
-                    os.remove(output_path)
-                    print(f"Cleaned up partial output file: {output_path}")
+                    os.remove(vid_output_path)
+                    os.remove(tracking_output_path)
+                    print(f"Cleaned up partial output files: {vid_output_path}, {tracking_output_path}")
                 except:
                     pass
 
