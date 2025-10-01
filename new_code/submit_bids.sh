@@ -1,12 +1,12 @@
 #!/bin/bash
 #SBATCH --job-name=bids_processing
 #SBATCH --partition=mit_normal
-#SBATCH --array=0-50
+#SBATCH --array=0-90
 #SBATCH --output=logs/bids_%A_%a.out
 #SBATCH --error=logs/bids_%A_%a.err
-#SBATCH --mem=10G
+#SBATCH --mem=5G
 #SBATCH --time=10:00:00
-#SBATCH --cpus-per-task=10
+#SBATCH --cpus-per-task=5
 
 mkdir -p logs
 

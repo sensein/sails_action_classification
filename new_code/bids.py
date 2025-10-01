@@ -73,14 +73,14 @@ def determine_session_from_folder(folder_name: str) -> Optional[str]:
 
     # Check for 12-16 month patterns (including spaces and variations)
     if any(pattern in folder_lower for pattern in [
-        '12-16 month', '12-14 month', '12_16', '12_14', '12-16month', '12-14month'
+        '12-16 month', '12-14 month', '12_16', '12_14', '12-16month', '12-14month', '12-16_month_videos'
     ]):
         return "01"
 
     # Check for 34-38 month patterns (including spaces, typos, and variations)
     elif any(pattern in folder_lower for pattern in [
         '34-38 month', '34-28 month', '34-48 month', '34_38', '34_28', '34_48',
-        '34-38month', '34-28month', '34-48month'
+        '34-38month', '34-28month', '34-48month','34-38_month_videos'
     ]):
         return "02"
 
@@ -560,7 +560,7 @@ def process_single_video(video_info: Dict, excel_df: pd.DataFrame,
         os.makedirs(source_subj_dir, exist_ok=True)
 
         # Create BIDS filenames with run number
-        ext = os.path.splitext(filename)[1]
+        ext = os.path.splitext(filename)[1][1:] 
         run_number = get_next_run_number(participant_id, session_id, task_label, final_bids_root)
         
         raw_video_name = create_bids_filename(participant_id, session_id, task_label, "beh", "mp4", run_number)
@@ -889,7 +889,7 @@ def main():
     # Configuration
     EXCEL_FILE = "/orcd/data/satra/002/datasets/SAILS/data4analysis/Video Rating Data/SAILS_RATINGS_ALL_8.8.25.xlsx"
     VIDEO_ROOT = "/orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external/"
-    OUTPUT_DIR = "/home/aparnabg/orcd/scratch/bidsdata"
+    OUTPUT_DIR = "/home/aparnabg/orcd/scratch/BIDS"
     TARGET_RESOLUTION = "1280x720"
     TARGET_FRAMERATE = 30
 
@@ -935,7 +935,7 @@ def main():
         print("ERROR: No video files found")
         sys.exit(1)
 
-    # Create BIDS structure files 
+    # Create BIDS structure files (only for task 0 to avoid conflicts)
     if my_task_id == 0:
         try:
             safe_print("Creating BIDS structure files...")
@@ -984,11 +984,11 @@ def main():
     except Exception as e:
         safe_print(f"ERROR: Failed to save processing logs: {e}")
 
-    # clean up temp directory
+    # Clean up temp directory
     if os.path.exists(TEMP_DIR):
         shutil.rmtree(TEMP_DIR)
 
-    # summary
+    # Print summary
     end_time = time.time()
     total_time = end_time - start_time
     print_summary(all_processed, all_failed)
