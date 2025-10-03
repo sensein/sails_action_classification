@@ -129,6 +129,9 @@ class PipelineConfig:
     visualization: VisualizationConfig = field(default_factory=VisualizationConfig)
     export: ExportConfig = field(default_factory=ExportConfig)
 
+    # Processing mode
+    detection_only: bool = False  # If True, only run detection and skip tracking/pose
+
 
 # ================== DETECTION MODULE ==================
 
@@ -1189,14 +1192,22 @@ class MultiPersonTrackingPipeline:
 
         # Initialize modules
         self.detection_module = DetectionModule(config.models, config.processing)
-        self.pose_module = PoseEstimationModule(config.models, config.visualization)
-        self.feature_module = FeatureExtractionModule(config.features)
-        self.tracking_module = TrackingModule(config.processing)
-        self.visualization_module = VisualizationModule(
-            config.visualization,
-            self.pose_module.pose_estimator,
-            self.pose_module.visualizer
-        ) if config.visualization.enable_visualization else None
+
+        # Only initialize pose/tracking modules if not in detection-only mode
+        if not config.detection_only:
+            self.pose_module = PoseEstimationModule(config.models, config.visualization)
+            self.feature_module = FeatureExtractionModule(config.features)
+            self.tracking_module = TrackingModule(config.processing)
+            self.visualization_module = VisualizationModule(
+                config.visualization,
+                self.pose_module.pose_estimator,
+                self.pose_module.visualizer
+            ) if config.visualization.enable_visualization else None
+        else:
+            self.pose_module = None
+            self.feature_module = None
+            self.tracking_module = None
+            self.visualization_module = None
 
         # Data export
         self.data_collector = (data_collector or TrackingDataCollector()) if config.export.enable_export else None
@@ -1250,8 +1261,11 @@ class MultiPersonTrackingPipeline:
             self.data_collector.export_data(self.config.export.output_path, total_runtime)
 
         # Print performance stats
-        print(f"\nPartial processing complete after {self.tracking_module.frame_count} frames")
-        print(f"Total persons tracked: {len(self.tracking_module.person_profiles)}")
+        if self.config.detection_only:
+            print(f"\nPartial processing complete")
+        else:
+            print(f"\nPartial processing complete after {self.tracking_module.frame_count} frames")
+            print(f"Total persons tracked: {len(self.tracking_module.person_profiles)}")
         self.print_performance_stats()
 
         sys.exit(0)
@@ -1263,6 +1277,15 @@ class MultiPersonTrackingPipeline:
         bboxes = self.detection_module.detect_single(frame)
         self.timing_stats['detection'].append(time.time() - det_start)
 
+        # Detection-only mode: draw bboxes and return
+        if self.config.detection_only:
+            vis_frame = frame.copy()
+            for bbox in bboxes:
+                x1, y1, x2, y2 = bbox[:4].astype(int)
+                cv2.rectangle(vis_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            return vis_frame, {}
+
+        # Full tracking mode
         # Pose estimation
         pose_start = time.time()
         pose_results = self.pose_module.estimate_single(frame, bboxes)
@@ -1329,7 +1352,7 @@ class MultiPersonTrackingPipeline:
             "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{width}x{height}", "-r", f"{fps}", "-i", "-",
             "-an",
             "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            "-preset", "veryfast", "-crf", "18",
+            # "-preset", "veryfast", "-crf", "18",
             output_path
         ]
         proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -1364,7 +1387,7 @@ class MultiPersonTrackingPipeline:
                         self.timing_stats['total_frame'].append(time.time() - frame_start)
 
                         # Progress update
-                        if self.tracking_module.frame_count % 50 == 0:
+                        if not self.config.detection_only and self.tracking_module.frame_count % 50 == 0:
                             torch.cuda.empty_cache()
                             gc.collect()
                             print(f"Frame {self.tracking_module.frame_count}: "
@@ -1373,7 +1396,8 @@ class MultiPersonTrackingPipeline:
                                   f"Total={len(self.tracking_module.person_profiles)}")
 
                     except Exception as e:
-                        print(f"Error processing frame {self.tracking_module.frame_count}: {e}")
+                        frame_num = self.tracking_module.frame_count if not self.config.detection_only else len(self.timing_stats.get('detection', []))
+                        print(f"Error processing frame {frame_num}: {e}")
                         # Write original frame on error
                         try:
                             if frame.shape[0] != height or frame.shape[1] != width:
@@ -1414,7 +1438,8 @@ class MultiPersonTrackingPipeline:
             self.data_collector.export_data(self.config.export.output_path, total_runtime)
 
         print(f"Processing complete. Output saved: {output_path}")
-        print(f"Total persons tracked: {len(self.tracking_module.person_profiles)}")
+        if not self.config.detection_only:
+            print(f"Total persons tracked: {len(self.tracking_module.person_profiles)}")
         self.print_performance_stats()
 
     def print_performance_stats(self):
@@ -1439,7 +1464,7 @@ class MultiPersonTrackingPipeline:
 
         if self.global_start_time:
             total_runtime = time.time() - self.global_start_time
-            frames_processed = self.tracking_module.frame_count
+            frames_processed = self.tracking_module.frame_count if not self.config.detection_only else len(self.timing_stats.get('detection', []))
             fps = frames_processed / total_runtime if total_runtime > 0 else 0
             print(f"Overall Stats:")
             print(f"  Total runtime: {total_runtime:.2f}s")
@@ -1459,7 +1484,7 @@ def create_custom_config() -> PipelineConfig:
     # config.features.enable_face_features = False
 
     # Example: Change thresholds
-    # config.processing.detection_confidence_threshold = 0.4
+    config.processing.detection_confidence_threshold = 0.4
     # config.processing.combined_reid_threshold = 0.8
 
     # Example: Disable visualization
@@ -1469,6 +1494,11 @@ def create_custom_config() -> PipelineConfig:
     # Enable data export
     config.export.enable_export = True
     config.export.output_path = "/orcd/data/satra/001/users/brukew/test_pose_export.json"
+
+    # Detection-only mode: set to True to only run detection without tracking/pose
+    # This is much faster and useful for just detecting people in the video
+    # config.detection_only = True
+    # config.processing.nms_threshold = 0.9
 
     return config
 
@@ -1482,8 +1512,8 @@ def main():
 
     # Process video
     DATA_DIR = "/orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external"
-    VID_LOCAL_PATH = "/S.V._Home_Videos_AMES_B1L0B3F6F1/12-16 month videos/August 11 2020.MOV"
-    TARGET_VIDEO_PATH = "test_B1L0B3F6F1_S.V.mp4"
+    VID_LOCAL_PATH = "/S.V._Home_Videos_AMES_B1L0B3F6F1/34-38 month videos/September 10 2022.MOV"
+    TARGET_VIDEO_PATH = "test_mmdet.mp4"
     SOURCE_VIDEO_PATH = DATA_DIR + VID_LOCAL_PATH
 
     pipeline.process_video(SOURCE_VIDEO_PATH, TARGET_VIDEO_PATH)
