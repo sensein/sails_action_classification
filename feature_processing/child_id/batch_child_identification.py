@@ -177,7 +177,7 @@ class ChildIdentificationProcessor:
                     "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{width}x{height}", "-r", f"{fps}", "-i", "-",
                     "-an",
                     "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                    "-preset", "veryfast", "-crf", "18",
+                    # "-preset", "veryfast", "-crf", "18",
                     str(output_path)
                 ]
                 proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
@@ -373,10 +373,17 @@ class ChildIdentificationProcessor:
 
         self.logger.info(f"Analysis log saved: {log_path}")
 
-    def process_single_file(self, json_path: Path) -> bool:
+    def process_single_file(self, json_path: Path, skip_existing: bool = True) -> bool:
         """Process a single tracking JSON file"""
         filename = json_path.stem.replace('_tracking', '')
         self.logger.info(f"\n=== Processing: {filename} ===")
+
+        # Check if output already exists
+        if skip_existing:
+            output_video_path = self.output_video_dir / f"{filename}_child_identified.mp4"
+            if output_video_path.exists():
+                self.logger.info(f"⊘ Skipping {filename} (already processed)")
+                return True
 
         try:
             # Load tracking data
@@ -430,7 +437,7 @@ class ChildIdentificationProcessor:
             traceback.print_exc()
             return False
 
-    def process_batch(self, max_files: Optional[int] = None, test_mode: bool = False, max_workers: Optional[int] = None, aggressive_sampling: bool = False):
+    def process_batch(self, max_files: Optional[int] = None, test_mode: bool = False, max_workers: Optional[int] = None, aggressive_sampling: bool = False, skip_existing: bool = True):
         """Process all tracking files in batch"""
         # Find all tracking JSON files
         json_files = list(self.input_dir.glob("*_tracking.json"))
@@ -462,7 +469,7 @@ class ChildIdentificationProcessor:
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 # Submit all tasks
                 future_to_path = {
-                    executor.submit(self.process_single_file, json_path): json_path
+                    executor.submit(self.process_single_file, json_path, skip_existing): json_path
                     for json_path in json_files
                 }
 
@@ -486,7 +493,7 @@ class ChildIdentificationProcessor:
             for i, json_path in enumerate(json_files, 1):
                 self.logger.info(f"\n--- Progress: {i}/{len(json_files)} ---")
 
-                if self.process_single_file(json_path):
+                if self.process_single_file(json_path, skip_existing=skip_existing):
                     success_count += 1
                 else:
                     failed_count += 1
@@ -501,10 +508,12 @@ class ChildIdentificationProcessor:
 def main():
     parser = argparse.ArgumentParser(description='Batch child identification and video generation')
     parser.add_argument('target_folder', help='Directory within pipeline outputs to process')
+    parser.add_argument('--output-dir', help='Optional parent directory of pipeline outputs')
     parser.add_argument('--test', action='store_true', help='Test mode: process only first 3 files')
     parser.add_argument('--max-files', type=int, help='Maximum number of files to process')
     parser.add_argument('--workers', type=int, help='Number of parallel workers (default: sequential)')
     parser.add_argument('--aggressive', action='store_true', help='Use aggressive sampling (5%% frames, max 8)')
+    parser.add_argument('--no-skip', action='store_true', help='Reprocess all files (do not skip existing)')
 
     args = parser.parse_args()
 
@@ -515,8 +524,10 @@ def main():
     if not input_dir.exists():
         print(f"Input directory does not exist: {input_dir}")
         return
-    output_video_dir = target_dir / "child_classifications/videos"
-    output_log_dir = target_dir / "child_classifications/logs"
+    
+    parent = f"child_classifications/{args.output_dir}" if args.output_dir else "child_classifications"
+    output_video_dir = target_dir / (parent + "/videos")
+    output_log_dir = target_dir / (parent + "/logs")
 
     # Create output directories
     output_video_dir.mkdir(parents=True, exist_ok=True)
@@ -533,8 +544,8 @@ def main():
         enable_roi_size_filter=False,  # Don't filter by size
 
         # Sampling settings
-        sampling_percentage=0.15,
-        sampling_max_frames_per_track=20,
+        sampling_percentage=0.25,
+        sampling_max_frames_per_track=30,
         min_track_frames=10,
 
         # Smart sampling settings
@@ -545,12 +556,17 @@ def main():
         age_child_years_threshold=10.0,
         age_tau=2.5,
 
+        # Pose Ratio settings
+        enable_skeleton_ratios = False,
+        skeleton_min_confidence = 0.3,
+        skeleton_min_visible_for_ratio = 2,
+
         # Weights
         w_age_default=1.0,
         w_skel_default=0.0,  # Skeleton scoring not implemented
 
         # Continuity settings
-        continuity_gap_seconds=2.0,
+        continuity_gap_seconds=6.0,
         intra_id_gamma=0.3,
         intra_id_tau=1.0
     )
@@ -561,7 +577,8 @@ def main():
         max_files=args.max_files,
         test_mode=args.test,
         max_workers=args.workers,
-        aggressive_sampling=args.aggressive
+        aggressive_sampling=args.aggressive,
+        skip_existing=not args.no_skip
     )
 
 if __name__ == "__main__":

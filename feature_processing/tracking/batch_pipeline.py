@@ -27,13 +27,14 @@ from config_examples import get_config
 class BatchProcessor:
     """Batch processor for running pipeline on multiple videos"""
 
-    def __init__(self, csv_path: str, output_base_dir: str, base_video_dir: str, exp_id: Optional[str] = None, config_name: str = 'usual'):
+    def __init__(self, csv_path: str, output_base_dir: str, base_video_dir: str, exp_id: Optional[str] = None, config_name: str = 'usual', reuse_pipeline: bool = True):
         self.csv_path = csv_path
         self.output_base_dir = output_base_dir
         self.base_video_dir = base_video_dir
         self.exp_id = exp_id
+        self.reuse_pipeline = reuse_pipeline
         try:
-            self.config: PipelineConfig = get_config(config_name) 
+            self.config: PipelineConfig = get_config(config_name)
         except ValueError:
             print(f"Warning: Unknown config name '{config_name}', using 'usual' config.")
             self.config: PipelineConfig = get_config('usual')
@@ -45,7 +46,12 @@ class BatchProcessor:
         # Create subset name from CSV filename
         csv_name = Path(csv_path).stem
         self.subset_name = csv_name
-        self.output_dir = os.path.join(output_base_dir, self.subset_name + f"_{exp_id}")
+
+        parent_dir = self.subset_name
+        if self.exp_id:
+            parent_dir += f"_{self.exp_id}"
+
+        self.output_dir = os.path.join(output_base_dir, parent_dir)
 
         # Ensure output directory exists
         os.makedirs(self.output_dir, exist_ok=True)
@@ -54,21 +60,57 @@ class BatchProcessor:
         self.progress_file = os.path.join(self.output_dir, "processing_progress.json")
         self._load_progress()
 
-        # Initialize pipeline
+        # Initialize pipeline once if reusing
         self.pipeline = None
+        if self.reuse_pipeline:
+            print("Initializing shared pipeline (models will be loaded once)...")
+            from tracking_exporter import TrackingDataCollector
+            self.pipeline = MultiPersonTrackingPipeline(self.config, batch_signal_handler=self._signal_handler)
 
     def _signal_handler(self, signum, frame):
         """Handle graceful shutdown on Ctrl+C"""
-        print(f"\n\nBatch processing interrupted! Saving progress...")
+        print(f"\n\nBatch processing interrupted! Cleaning up and saving progress...")
         self.interrupted = True
+
+        # Clean up partial files from current video
+        if self.current_video:
+            print(f"Cleaning up partial files for: {self.current_video}")
+
+            # Find the video info for current video
+            videos = self._read_video_list()
+            current_video_info = None
+            for v in videos:
+                if v['filename'] == self.current_video:
+                    current_video_info = v
+                    break
+
+            if current_video_info:
+                vid_output_path, tracking_output_path = self._create_output_paths(current_video_info)
+
+                cleanup_files = []
+                if tracking_output_path and os.path.exists(tracking_output_path):
+                    cleanup_files.append(tracking_output_path)
+                if vid_output_path and os.path.exists(vid_output_path):
+                    cleanup_files.append(vid_output_path)
+
+                for filepath in cleanup_files:
+                    try:
+                        os.remove(filepath)
+                        print(f"  Removed partial file: {filepath}")
+                    except Exception as e:
+                        print(f"  Warning: Could not remove {filepath}: {e}")
+
+                # Ensure current video is NOT in completed list
+                if self.current_video in self.completed_videos:
+                    self.completed_videos.remove(self.current_video)
 
         # Save current progress
         self._save_progress()
 
-        print(f"Progress saved to: {self.progress_file}")
+        print(f"\nProgress saved to: {self.progress_file}")
         print(f"Completed videos: {len(self.completed_videos)}")
         if self.current_video:
-            print(f"Current video was: {self.current_video}")
+            print(f"Interrupted during: {self.current_video}")
             print("You can resume processing by running the script again with the same parameters.")
 
         sys.exit(0)
@@ -164,12 +206,16 @@ class BatchProcessor:
         tracking_filename = f"{base}_tracking.json"
 
         # Create subdirectories
-        video_dir = os.path.join(self.output_dir, "videos")
         tracking_dir = os.path.join(self.output_dir, "tracking")
-        os.makedirs(video_dir, exist_ok=True)
         os.makedirs(tracking_dir, exist_ok=True)
 
-        video_path = os.path.join(video_dir, output_filename)
+        # Only create video directory if visualization is enabled
+        video_path = None
+        if self.config.visualization.enable_visualization:
+            video_dir = os.path.join(self.output_dir, "videos")
+            os.makedirs(video_dir, exist_ok=True)
+            video_path = os.path.join(video_dir, output_filename)
+
         tracking_path = os.path.join(tracking_dir, tracking_filename)
 
         return video_path, tracking_path
@@ -181,7 +227,8 @@ class BatchProcessor:
 
         print(f"\nProcessing: {video_info['filename']}")
         print(f"Source: {source_path}")
-        print(f"Video Output: {vid_output_path}")
+        if vid_output_path:
+            print(f"Video Output: {vid_output_path}")
         print(f"Tracking Output: {tracking_output_path}")
 
         # Check if source file exists
@@ -189,15 +236,24 @@ class BatchProcessor:
             print(f"ERROR: Source file not found: {source_path}")
             return False
 
-        # Check if output already exists
-        if os.path.exists(vid_output_path):
-            print(f"Output file already exists, skipping: {vid_output_path}")
+        # Check if tracking output already exists
+        if os.path.exists(tracking_output_path):
+            print(f"Tracking file already exists, skipping: {tracking_output_path}")
             return True
 
         try:
-            # Initialize fresh pipeline for each video to avoid memory issues
-            self.config.export.output_path = tracking_output_path
-            self.pipeline = MultiPersonTrackingPipeline(self.config)
+            # Setup pipeline
+            if self.reuse_pipeline:
+                # Reset state for new video
+                self.pipeline.reset_for_next_video()
+                self.config.export.output_path = tracking_output_path
+                # Create fresh data collector for this video
+                from tracking_exporter import TrackingDataCollector
+                self.pipeline.data_collector = TrackingDataCollector() if self.config.export.enable_export else None
+            else:
+                # Initialize fresh pipeline for each video
+                self.config.export.output_path = tracking_output_path
+                self.pipeline = MultiPersonTrackingPipeline(self.config, batch_signal_handler=self._signal_handler)
 
             # Process the video
             self.pipeline.process_video(source_path, vid_output_path)
@@ -211,28 +267,32 @@ class BatchProcessor:
         except Exception as e:
             print(f"❌ Error processing {video_info['filename']}: {e}")
 
-            # Clean up partial output file
-            if os.path.exists(vid_output_path):
-                try:
-                    os.remove(vid_output_path)
-                    os.remove(tracking_output_path)
-                    print(f"Cleaned up partial output files: {vid_output_path}, {tracking_output_path}")
-                except:
-                    pass
+            # Clean up partial output files
+            cleanup_files = [tracking_output_path]
+            if vid_output_path:
+                cleanup_files.append(vid_output_path)
+
+            for filepath in cleanup_files:
+                if os.path.exists(filepath):
+                    try:
+                        os.remove(filepath)
+                        print(f"Cleaned up partial output file: {filepath}")
+                    except:
+                        pass
 
             return False
         finally:
-            # Clean up pipeline to free memory
-            if self.pipeline:
+            # Clean up pipeline to free memory (only if not reusing)
+            if not self.reuse_pipeline and self.pipeline:
                 del self.pipeline
                 self.pipeline = None
 
-            # Force garbage collection
-            import gc
-            import torch
-            if torch.cuda.is_available():
-                torch.cuda.empty_cache()
-            gc.collect()
+                # Force garbage collection
+                import gc
+                import torch
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+                gc.collect()
 
     def process_all(self):
         """Process all videos in the CSV file"""
@@ -316,6 +376,8 @@ def main():
                        help='Optional experiment identifier to append to output directory name')
     parser.add_argument('--config', default='usual',
                        help='Pipeline Configuration preset to use (default: usual) - see config_examples.py for options')
+    parser.add_argument('--no-reuse-pipeline', action='store_true',
+                       help='Create new pipeline for each video instead of reusing (slower but safer)')
 
     args = parser.parse_args()
 
@@ -332,7 +394,14 @@ def main():
     os.makedirs(args.output_dir, exist_ok=True)
 
     # Initialize and run batch processor
-    processor = BatchProcessor(args.csv_file, args.output_dir, args.video_dir, args.exp_id, args.config)
+    processor = BatchProcessor(
+        args.csv_file,
+        args.output_dir,
+        args.video_dir,
+        args.exp_id,
+        args.config,
+        reuse_pipeline=not args.no_reuse_pipeline
+    )
 
     processor.process_all()
 

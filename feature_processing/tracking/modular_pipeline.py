@@ -65,6 +65,7 @@ class ModelConfig:
 @dataclass
 class FeatureConfig:
     """Configuration for feature extraction"""
+    enable_features: bool = True
     enable_face_features: bool = True
     enable_upper_body_features: bool = True
     enable_lower_body_features: bool = True
@@ -606,34 +607,37 @@ class FeatureExtractionModule:
             keypoint_scores.reshape(-1, 1)
         ], axis=1)
         confidence = float(bbox[4]) if len(bbox) > 4 else 1.0
-        pose_type = self._determine_pose_type(keypoints)
 
         # Extract features
+        pose_type = None
         face_feature = None
         upper_feature = None
         lower_feature = None
+        
+        if self.config.enable_features:
+            pose_type = self._determine_pose_type(keypoints)
 
-        if frame_count % self.config.feature_update_interval == 0:
-            # Face feature
-            if self.config.enable_face_features:
-                face_result = self.region_extractor.extract_face_region(frame, keypoints, bbox[:4])
-                if face_result:
-                    face_roi, _ = face_result
-                    face_feature = self.face_extractor.extract(face_roi)
+            if frame_count % self.config.feature_update_interval == 0:
+                # Face feature
+                if self.config.enable_face_features:
+                    face_result = self.region_extractor.extract_face_region(frame, keypoints, bbox[:4])
+                    if face_result:
+                        face_roi, _ = face_result
+                        face_feature = self.face_extractor.extract(face_roi)
 
-            # Lower body feature
-            if self.config.enable_lower_body_features:
-                lower_result = self.region_extractor.extract_lower_body_region(frame, keypoints, bbox[:4], pose_type)
-                if lower_result:
-                    lower_roi, _ = lower_result
-                    lower_feature = self.body_extractor.extract(lower_roi)
+                # Lower body feature
+                if self.config.enable_lower_body_features:
+                    lower_result = self.region_extractor.extract_lower_body_region(frame, keypoints, bbox[:4], pose_type)
+                    if lower_result:
+                        lower_roi, _ = lower_result
+                        lower_feature = self.body_extractor.extract(lower_roi)
 
-        # Always extract upper body if enabled
-        if self.config.enable_upper_body_features:
-            upper_result = self.region_extractor.extract_upper_body_region(frame, keypoints, bbox[:4], pose_type)
-            if upper_result:
-                upper_roi, _ = upper_result
-                upper_feature = self.body_extractor.extract(upper_roi)
+            # Always extract upper body if enabled
+            if self.config.enable_upper_body_features:
+                upper_result = self.region_extractor.extract_upper_body_region(frame, keypoints, bbox[:4], pose_type)
+                if upper_result:
+                    upper_roi, _ = upper_result
+                    upper_feature = self.body_extractor.extract(upper_roi)
 
         return {
             'bbox': bbox[:4],
@@ -1187,8 +1191,9 @@ class VisualizationModule:
 class MultiPersonTrackingPipeline:
     """Main pipeline orchestrator"""
 
-    def __init__(self, config: PipelineConfig, data_collector: TrackingDataCollector = None):
+    def __init__(self, config: PipelineConfig, data_collector: TrackingDataCollector = None, batch_signal_handler=None):
         self.config = config
+        self.batch_signal_handler = batch_signal_handler
 
         # Initialize modules
         self.detection_module = DetectionModule(config.models, config.processing)
@@ -1268,7 +1273,11 @@ class MultiPersonTrackingPipeline:
             print(f"Total persons tracked: {len(self.tracking_module.person_profiles)}")
         self.print_performance_stats()
 
-        sys.exit(0)
+        # Call batch signal handler if provided
+        if self.batch_signal_handler:
+            self.batch_signal_handler(None, None)
+        else:
+            sys.exit(0)
 
     def process_frame(self, frame: np.ndarray) -> Tuple[np.ndarray, Dict[int, int]]:
         """Process single frame"""
@@ -1279,10 +1288,12 @@ class MultiPersonTrackingPipeline:
 
         # Detection-only mode: draw bboxes and return
         if self.config.detection_only:
-            vis_frame = frame.copy()
-            for bbox in bboxes:
-                x1, y1, x2, y2 = bbox[:4].astype(int)
-                cv2.rectangle(vis_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+            vis_frame = frame
+            if self.config.enable_visualization:
+                vis_frame = frame.copy()
+                for bbox in bboxes:
+                    x1, y1, x2, y2 = bbox[:4].astype(int)
+                    cv2.rectangle(vis_frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
             return vis_frame, {}
 
         # Full tracking mode
@@ -1320,7 +1331,7 @@ class MultiPersonTrackingPipeline:
 
         return vis_frame, person_assignments
 
-    def process_video(self, input_path: str, output_path: str):
+    def process_video(self, input_path: str, output_path: str = None):
         """Process entire video"""
         self.global_start_time = time.time()
 
@@ -1346,16 +1357,18 @@ class MultiPersonTrackingPipeline:
         if self.data_collector:
             self.data_collector.set_video_info(input_path, total_frames, fps, width, height)
 
-        # Setup ffmpeg for h264 encoding
-        ffmpeg_cmd = [
-            "ffmpeg", "-y",
-            "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{width}x{height}", "-r", f"{fps}", "-i", "-",
-            "-an",
-            "-c:v", "libx264", "-pix_fmt", "yuv420p",
-            # "-preset", "veryfast", "-crf", "18",
-            output_path
-        ]
-        proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
+        # Setup ffmpeg for h264 encoding only if visualization is enabled
+        proc = None
+        if self.config.visualization.enable_visualization and output_path:
+            ffmpeg_cmd = [
+                "ffmpeg", "-y",
+                "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{width}x{height}", "-r", f"{fps}", "-i", "-",
+                "-an",
+                "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                # "-preset", "veryfast", "-crf", "18",
+                output_path
+            ]
+            proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
 
         # Store reference for signal handler
         self._proc = proc
@@ -1372,17 +1385,19 @@ class MultiPersonTrackingPipeline:
 
                         vis_frame, person_assignments = self.process_frame(frame)
 
-                        # Ensure frame size matches what we told ffmpeg
-                        if vis_frame.shape[0] != height or vis_frame.shape[1] != width:
-                            vis_frame = cv2.resize(vis_frame, (width, height), interpolation=cv2.INTER_LINEAR)
+                        # Write frame to ffmpeg stdin only if video output is enabled
+                        if proc:
+                            # Ensure frame size matches what we told ffmpeg
+                            if vis_frame.shape[0] != height or vis_frame.shape[1] != width:
+                                vis_frame = cv2.resize(vis_frame, (width, height), interpolation=cv2.INTER_LINEAR)
 
-                        # Write frame to ffmpeg stdin
-                        try:
-                            proc.stdin.write(vis_frame.tobytes())
-                        except BrokenPipeError:
-                            # ffmpeg died early; print its error and stop
-                            err = proc.stderr.read().decode(errors="ignore")
-                            raise RuntimeError(f"ffmpeg exited early.\n{err}")
+                            # Write frame to ffmpeg stdin
+                            try:
+                                proc.stdin.write(vis_frame.tobytes())
+                            except BrokenPipeError:
+                                # ffmpeg died early; print its error and stop
+                                err = proc.stderr.read().decode(errors="ignore")
+                                raise RuntimeError(f"ffmpeg exited early.\n{err}")
 
                         self.timing_stats['total_frame'].append(time.time() - frame_start)
 
@@ -1398,27 +1413,29 @@ class MultiPersonTrackingPipeline:
                     except Exception as e:
                         frame_num = self.tracking_module.frame_count if not self.config.detection_only else len(self.timing_stats.get('detection', []))
                         print(f"Error processing frame {frame_num}: {e}")
-                        # Write original frame on error
-                        try:
-                            if frame.shape[0] != height or frame.shape[1] != width:
-                                frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
-                            proc.stdin.write(frame.tobytes())
-                        except BrokenPipeError:
-                            break
+                        # Write original frame on error (only if video output is enabled)
+                        if proc:
+                            try:
+                                if frame.shape[0] != height or frame.shape[1] != width:
+                                    frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
+                                proc.stdin.write(frame.tobytes())
+                            except BrokenPipeError:
+                                break
 
                     pbar.update(1)
 
         finally:
             cap.release()
-            if proc.stdin:
-                try:
-                    proc.stdin.close()
-                except BrokenPipeError:
-                    pass
-            rc = proc.wait()
-            if rc != 0:
-                err = proc.stderr.read().decode(errors="ignore")
-                raise RuntimeError(f"ffmpeg failed (code {rc}).\n{err}")
+            if proc:
+                if proc.stdin:
+                    try:
+                        proc.stdin.close()
+                    except BrokenPipeError:
+                        pass
+                rc = proc.wait()
+                if rc != 0:
+                    err = proc.stderr.read().decode(errors="ignore")
+                    raise RuntimeError(f"ffmpeg failed (code {rc}).\n{err}")
 
         torch.cuda.empty_cache()
         gc.collect()
@@ -1437,10 +1454,36 @@ class MultiPersonTrackingPipeline:
 
             self.data_collector.export_data(self.config.export.output_path, total_runtime)
 
-        print(f"Processing complete. Output saved: {output_path}")
+        print("Processing complete.")
+        if output_path and self.config.visualization.enable_visualization:
+            print(f"Output video saved: {output_path}")
         if not self.config.detection_only:
             print(f"Total persons tracked: {len(self.tracking_module.person_profiles)}")
         self.print_performance_stats()
+
+    def reset_for_next_video(self):
+        """Reset state between videos while keeping models loaded"""
+        # Reset tracking state
+        if self.tracking_module:
+            self.tracking_module.frame_count = 0
+            self.tracking_module.next_track_id = 1
+            self.tracking_module.active_tracks.clear()
+            self.tracking_module.lost_tracks.clear()
+            self.tracking_module.person_profiles.clear()
+
+        # Reset timing stats
+        self.timing_stats.clear()
+
+        # Reset interruption state
+        self._interrupted = False
+        self._proc = None
+        self._cap = None
+        self.global_start_time = None
+
+        # Clear GPU cache
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+        gc.collect()
 
     def print_performance_stats(self):
         """Print performance statistics"""
@@ -1481,14 +1524,14 @@ def create_custom_config() -> PipelineConfig:
     config = PipelineConfig()
 
     # Example: Disable face features for faster processing
-    # config.features.enable_face_features = False
+    config.features.enable_features = False
 
     # Example: Change thresholds
     config.processing.detection_confidence_threshold = 0.4
     # config.processing.combined_reid_threshold = 0.8
 
-    # Example: Disable visualization
-    config.visualization.enable_visualization = True
+    # Example: Disable visualization to skip video creation and only get tracking results
+    config.visualization.enable_visualization = False
     config.visualization.enable_pose_drawing = False
 
     # Enable data export
@@ -1499,6 +1542,9 @@ def create_custom_config() -> PipelineConfig:
     # This is much faster and useful for just detecting people in the video
     # config.detection_only = True
     # config.processing.nms_threshold = 0.9
+
+    # To only return tracking results without creating a video:
+    # config.visualization.enable_visualization = False
 
     return config
 

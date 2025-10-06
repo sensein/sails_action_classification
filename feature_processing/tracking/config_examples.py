@@ -203,6 +203,21 @@ def config_high_detection_sensitivity():
 
     return config
 
+def config_no_viz():
+    """Configuration with high detection sensitivity"""
+    config = create_usual_config()
+
+    config.visualization.enable_visualization = False
+
+    return config
+
+def config_no_viz_no_feat():
+    """Configuration with high detection sensitivity"""
+    config = config_no_viz()
+
+    config.features.enable_features = False
+
+    return config
 
 # Dictionary of all configurations for easy access
 CONFIGS = {
@@ -216,6 +231,8 @@ CONFIGS = {
     'real_time': config_real_time,
     'research': config_research_quality,
     'high_detection_sensitivity': config_high_detection_sensitivity,
+    'no_viz': config_no_viz,
+    'no_viz_no_feat': config_no_viz_no_feat,
     'usual': create_usual_config
 }
 
