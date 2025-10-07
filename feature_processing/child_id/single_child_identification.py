@@ -35,6 +35,13 @@ try:
 except Exception:
     cv2 = None  # type: ignore
 
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except Exception:
+    NUMPY_AVAILABLE = False
+    np = None  # type: ignore
+
 
 # --------------------------- Config & Inputs ---------------------------
 
@@ -74,11 +81,20 @@ class ChildIdentificationConfig:
     w_age_default: float = 0.5
     w_skel_default: float = 0.5
 
+    # Skeleton ratio configuration
+    enable_skeleton_ratios: bool = True  # Enable skeleton-based child detection
+    skeleton_min_confidence: float = 0.3  # Minimum keypoint confidence
+    skeleton_min_visible_for_ratio: int = 2  # Min keypoints visible for each ratio
+
     # Continuity / merging
     continuity_gap_seconds: float = 1.0
     intra_id_gamma: float = 0.2  # base same-ID bonus scale
     intra_id_tau: float = 0.75   # decay for same-ID bonus by gap (seconds)
     switch_epsilon: float = 0.05 # minimal gain to switch near boundaries
+
+    # Edge penalties
+    age_inconsistency_penalty_weight: float = 2.0  # Higher = stricter penalty
+    age_inconsistency_threshold: float = 0.3  # Min score difference to trigger penalty
 
 
 @dataclass
@@ -174,6 +190,272 @@ class ChildResult:
     confidence: float
     uncertainty: Optional[str] = None
     diagnostics: Dict[str, Any] = field(default_factory=dict)
+
+
+# --------------------------- Skeleton Utilities ---------------------------
+
+
+@dataclass
+class SkeletonRatios:
+    """Scale-invariant skeleton ratios for child detection."""
+    head_shoulder: Optional[float] = None  # head_height / shoulder_width
+    leg_torso: Optional[float] = None  # leg_length / torso_height
+    shoulder_hip: Optional[float] = None  # shoulder_width / hip_width
+    arm_torso: Optional[float] = None  # arm_length / torso_height
+
+
+def compute_scale_invariant_ratios(
+    keypoints: Any,
+    min_confidence: float = 0.3
+) -> SkeletonRatios:
+    """Compute scale-invariant skeleton ratios from COCO pose keypoints.
+
+    COCO pose keypoint indices:
+    0: nose, 1-2: eyes, 3-4: ears
+    5-6: shoulders (L, R), 7-8: elbows, 9-10: wrists
+    11-12: hips (L, R), 13-14: knees, 15-16: ankles
+
+    Args:
+        keypoints: Array or list of keypoints, shape (17, 3) with [x, y, conf]
+        min_confidence: Minimum confidence threshold for using a keypoint
+
+    Returns:
+        SkeletonRatios with computed ratios (None if keypoints insufficient)
+    """
+    if not NUMPY_AVAILABLE or keypoints is None:
+        return SkeletonRatios()
+
+    try:
+        # Convert to numpy array if needed
+        if not isinstance(keypoints, np.ndarray):
+            keypoints = np.array(keypoints)
+
+        if len(keypoints) < 17 or keypoints.shape[-1] < 3:
+            return SkeletonRatios()
+
+        # Extract keypoints with confidence check
+        def get_kp(idx):
+            if idx < len(keypoints) and keypoints[idx][2] > min_confidence:
+                return keypoints[idx][:2]
+            return None
+
+        nose = get_kp(0)
+        l_shoulder, r_shoulder = get_kp(5), get_kp(6)
+        l_elbow, r_elbow = get_kp(7), get_kp(8)
+        l_wrist, r_wrist = get_kp(9), get_kp(10)
+        l_hip, r_hip = get_kp(11), get_kp(12)
+        l_knee, r_knee = get_kp(13), get_kp(14)
+        l_ankle, r_ankle = get_kp(15), get_kp(16)
+
+        ratios = SkeletonRatios()
+
+        # Ratio 1: head_height / shoulder_width
+        # Children have larger heads relative to shoulders
+        if nose is not None and l_shoulder is not None and r_shoulder is not None:
+            shoulder_width = np.linalg.norm(r_shoulder - l_shoulder)
+            shoulder_mid = (l_shoulder + r_shoulder) / 2
+            head_height = np.linalg.norm(nose - shoulder_mid)
+            if shoulder_width > 1e-6:
+                ratios.head_shoulder = float(head_height / shoulder_width)
+
+        # Ratio 2: leg_length / torso_height
+        # Children have shorter legs relative to torso
+        if l_shoulder is not None and r_shoulder is not None and l_hip is not None and r_hip is not None:
+            shoulder_mid = (l_shoulder + r_shoulder) / 2
+            hip_mid = (l_hip + r_hip) / 2
+            torso_height = np.linalg.norm(shoulder_mid - hip_mid)
+
+            # Use whichever leg is more visible (more keypoints)
+            left_leg_visible = sum(x is not None for x in [l_hip, l_knee, l_ankle])
+            right_leg_visible = sum(x is not None for x in [r_hip, r_knee, r_ankle])
+
+            leg_length = None
+            if left_leg_visible >= 2 and l_hip is not None:
+                if l_knee is not None and l_ankle is not None:
+                    leg_length = (np.linalg.norm(l_hip - l_knee) +
+                                 np.linalg.norm(l_knee - l_ankle))
+                elif l_knee is not None:
+                    leg_length = np.linalg.norm(l_hip - l_knee) * 2  # Approximate full leg
+            elif right_leg_visible >= 2 and r_hip is not None:
+                if r_knee is not None and r_ankle is not None:
+                    leg_length = (np.linalg.norm(r_hip - r_knee) +
+                                 np.linalg.norm(r_knee - r_ankle))
+                elif r_knee is not None:
+                    leg_length = np.linalg.norm(r_hip - r_knee) * 2
+
+            if leg_length is not None and torso_height > 1e-6:
+                ratios.leg_torso = float(leg_length / torso_height)
+
+        # Ratio 3: shoulder_width / hip_width
+        # Children have more similar shoulder and hip widths
+        if l_shoulder is not None and r_shoulder is not None and l_hip is not None and r_hip is not None:
+            shoulder_width = np.linalg.norm(r_shoulder - l_shoulder)
+            hip_width = np.linalg.norm(r_hip - l_hip)
+            if hip_width > 1e-6:
+                ratios.shoulder_hip = float(shoulder_width / hip_width)
+
+        # Ratio 4: arm_length / torso_height
+        # Children have shorter arms relative to torso
+        if l_shoulder is not None and r_shoulder is not None and l_hip is not None and r_hip is not None:
+            shoulder_mid = (l_shoulder + r_shoulder) / 2
+            hip_mid = (l_hip + r_hip) / 2
+            torso_height = np.linalg.norm(shoulder_mid - hip_mid)
+
+            # Use whichever arm is more visible
+            left_arm_visible = sum(x is not None for x in [l_shoulder, l_elbow, l_wrist])
+            right_arm_visible = sum(x is not None for x in [r_shoulder, r_elbow, r_wrist])
+
+            arm_length = None
+            if left_arm_visible >= 2 and l_shoulder is not None:
+                if l_elbow is not None and l_wrist is not None:
+                    arm_length = (np.linalg.norm(l_shoulder - l_elbow) +
+                                 np.linalg.norm(l_elbow - l_wrist))
+                elif l_elbow is not None:
+                    arm_length = np.linalg.norm(l_shoulder - l_elbow) * 2
+            elif right_arm_visible >= 2 and r_shoulder is not None:
+                if r_elbow is not None and r_wrist is not None:
+                    arm_length = (np.linalg.norm(r_shoulder - r_elbow) +
+                                 np.linalg.norm(r_elbow - r_wrist))
+                elif r_elbow is not None:
+                    arm_length = np.linalg.norm(r_shoulder - r_elbow) * 2
+
+            if arm_length is not None and torso_height > 1e-6:
+                ratios.arm_torso = float(arm_length / torso_height)
+
+        return ratios
+
+    except Exception:
+        return SkeletonRatios()
+
+
+def ratio_to_child_score(ratios: SkeletonRatios) -> Optional[float]:
+    """Map skeleton ratios to child-likelihood score.
+
+    Based on anthropometric research:
+    - Children have larger heads relative to body (head_shoulder: 0.8-1.2 vs 0.5-0.7 adults)
+    - Children have shorter legs relative to torso (leg_torso: 1.2-1.8 vs 2.0-2.5 adults)
+    - Children have more similar shoulder/hip widths (shoulder_hip: 0.9-1.1 vs 0.7-0.9 adults)
+    - Children have shorter arms relative to torso (arm_torso: 1.0-1.5 vs 1.8-2.2 adults)
+
+    Returns:
+        Float in [0, 1] representing child likelihood, or None if insufficient data
+    """
+    scores = []
+
+    # Head-shoulder ratio (higher = more child-like)
+    if ratios.head_shoulder is not None:
+        hs = ratios.head_shoulder
+        if hs > 1.0:
+            score = 0.9  # Very child-like
+        elif hs > 0.8:
+            score = 0.5 + (hs - 0.8) * 2.0  # Linear 0.8->0.5, 1.0->0.9
+        elif hs > 0.6:
+            score = 0.2 + (hs - 0.6) * 1.5  # Linear 0.6->0.2, 0.8->0.5
+        else:
+            score = 0.1  # Very adult-like
+        scores.append(score)
+
+    # Leg-torso ratio (lower = more child-like)
+    if ratios.leg_torso is not None:
+        lt = ratios.leg_torso
+        if lt < 1.5:
+            score = 0.9  # Very child-like
+        elif lt < 2.0:
+            score = 0.9 - (lt - 1.5) * 0.8  # Linear 1.5->0.9, 2.0->0.5
+        elif lt < 2.5:
+            score = 0.5 - (lt - 2.0) * 0.6  # Linear 2.0->0.5, 2.5->0.2
+        else:
+            score = 0.1  # Very adult-like
+        scores.append(score)
+
+    # Shoulder-hip ratio (closer to 1.0 = more child-like)
+    if ratios.shoulder_hip is not None:
+        sh = ratios.shoulder_hip
+        deviation_from_1 = abs(sh - 1.0)
+        if deviation_from_1 < 0.1:
+            score = 0.9  # Very child-like
+        elif deviation_from_1 < 0.2:
+            score = 0.7  # Likely child
+        elif deviation_from_1 < 0.3:
+            score = 0.4  # Uncertain
+        else:
+            score = 0.2  # Likely adult
+        scores.append(score)
+
+    # Arm-torso ratio (lower = more child-like)
+    if ratios.arm_torso is not None:
+        at = ratios.arm_torso
+        if at < 1.3:
+            score = 0.9  # Very child-like
+        elif at < 1.8:
+            score = 0.9 - (at - 1.3) * 0.8  # Linear 1.3->0.9, 1.8->0.5
+        elif at < 2.2:
+            score = 0.5 - (at - 1.8) * 0.75  # Linear 1.8->0.5, 2.2->0.2
+        else:
+            score = 0.1  # Very adult-like
+        scores.append(score)
+
+    if not scores:
+        return None
+
+    # Return weighted average (could be refined with learned weights)
+    return float(sum(scores) / len(scores))
+
+
+def aggregate_skeleton_ratios_over_track(
+    keypoints_list: List[Any],
+    min_confidence: float = 0.3
+) -> Optional[float]:
+    """Aggregate skeleton ratios across all frames in a track.
+
+    Computes scale-invariant ratios for each frame, then takes the median
+    of each ratio type before computing the final child score.
+
+    Args:
+        keypoints_list: List of keypoint arrays for each frame
+        min_confidence: Minimum confidence for keypoint visibility
+
+    Returns:
+        Aggregated child probability from skeleton ratios, or None if insufficient data
+    """
+    if not keypoints_list:
+        return None
+
+    # Collect ratios from all frames
+    all_head_shoulder = []
+    all_leg_torso = []
+    all_shoulder_hip = []
+    all_arm_torso = []
+
+    for kp in keypoints_list:
+        if kp is None:
+            continue
+        ratios = compute_scale_invariant_ratios(kp, min_confidence)
+        if ratios.head_shoulder is not None:
+            all_head_shoulder.append(ratios.head_shoulder)
+        if ratios.leg_torso is not None:
+            all_leg_torso.append(ratios.leg_torso)
+        if ratios.shoulder_hip is not None:
+            all_shoulder_hip.append(ratios.shoulder_hip)
+        if ratios.arm_torso is not None:
+            all_arm_torso.append(ratios.arm_torso)
+
+    # Compute median ratios (robust to outliers/noise)
+    if not NUMPY_AVAILABLE:
+        return None
+
+    median_ratios = SkeletonRatios()
+    if all_head_shoulder:
+        median_ratios.head_shoulder = float(np.median(all_head_shoulder))
+    if all_leg_torso:
+        median_ratios.leg_torso = float(np.median(all_leg_torso))
+    if all_shoulder_hip:
+        median_ratios.shoulder_hip = float(np.median(all_shoulder_hip))
+    if all_arm_torso:
+        median_ratios.arm_torso = float(np.median(all_arm_torso))
+
+    # Map median ratios to child score
+    return ratio_to_child_score(median_ratios)
 
 
 # --------------------------- Main Identifier ---------------------------
@@ -376,25 +658,67 @@ class SingleChildIdentifier:
 
         return None
 
+    def _compute_skeleton_prob(self, tl: Tracklet, flags: List[str]) -> Optional[float]:
+        """Compute skeleton-based child probability for a tracklet.
+
+        Uses scale-invariant ratios from keypoints:
+        - head_height / shoulder_width
+        - leg_length / torso_height
+        - shoulder_width / hip_width
+        - arm_length / torso_height
+
+        Returns median-aggregated child probability across frames.
+        """
+        if not NUMPY_AVAILABLE:
+            flags.append("numpy_not_available")
+            return None
+
+        if not getattr(tl, "keypoints", None) or not tl.keypoints:
+            flags.append("no_keypoints")
+            return None
+
+        try:
+            child_prob = aggregate_skeleton_ratios_over_track(
+                keypoints_list=tl.keypoints,
+                min_confidence=self.cfg.skeleton_min_confidence
+            )
+
+            if child_prob is None:
+                flags.append("skeleton_insufficient_data")
+                return None
+
+            return child_prob
+
+        except Exception as e:
+            flags.append(f"skeleton_error_{type(e).__name__}")
+            return None
+
     def _compute_evidence(self, tl: Tracklet) -> Evidence:
-        """Stage 0: age-only evidence via DeepFace on sampled frames.
+        """Compute evidence for child identification.
+
+        Stage 0 (Age-only): DeepFace/SigLIP age estimation
+        Stage 1 (Skeleton): Scale-invariant skeleton ratios
 
         - Evenly sample up to sampling_percentage frames (capped by
           sampling_max_frames_per_track) from face_crops.
-        - Run DeepFace age and take the median age.
-        - Map to child probability via a simple logistic.
+        - Run age estimation and take the median.
+        - Compute skeleton ratios if keypoints available.
+        - Map to child probability via empirical mappings.
 
         Future: quality gating, calibration with priors, batching/caching.
         """
         flags: List[str] = []
 
-        # Age via DeepFace (multi-sample median)
+        # Age evidence
         p_age: Optional[float] = None
         p_age = self._compute_age_prob(tl, flags)
 
-        # Skeleton evidence not implemented in Stage 0
+        # Skeleton evidence (Stage 1)
         p_skel: Optional[float] = None
-        flags.append("skeleton_unimplemented")
+        if self.cfg.enable_skeleton_ratios:
+            p_skel = self._compute_skeleton_prob(tl, flags)
+        else:
+            flags.append("skeleton_disabled")
 
         return Evidence(p_age=p_age, p_skeleton=p_skel, flags=flags)
 
@@ -421,6 +745,38 @@ class SingleChildIdentifier:
         return NodeScore(tracklet=tl, score=score, weight=weight, evidence=ev)
 
     # -------- Edge building & scoring --------
+
+    def _compute_age_inconsistency_penalty(
+        self,
+        src_node: NodeScore,
+        dst_node: NodeScore
+    ) -> float:
+        """Penalize edges connecting nodes with inconsistent age evidence.
+
+        Returns penalty in [0, 1] where:
+        - 0 = no penalty (both have similar/missing evidence)
+        - 1 = maximum penalty (high confidence in one, none/opposite in other)
+        """
+        src_age = src_node.evidence.p_age
+        dst_age = dst_node.evidence.p_age
+
+        # Case 1: Both missing → no penalty (can't judge)
+        if src_age is None and dst_age is None:
+            return 0.0
+
+        # Case 2: One missing → penalize if the other is confident
+        if src_age is None:
+            return abs(dst_age - 0.5) if dst_age is not None else 0.0
+        if dst_age is None:
+            return abs(src_age - 0.5)
+
+        # Case 3: Both present → penalize large differences
+        diff = abs(src_age - dst_age)
+        if diff < self.cfg.age_inconsistency_threshold:
+            return 0.0  # Similar enough
+
+        # Scale penalty: larger difference = higher penalty
+        return min(1.0, diff / (1.0 - self.cfg.age_inconsistency_threshold))
 
     def _build_edges(self, nodes: List[NodeScore]) -> List[EdgeScore]:
         """Build candidate edges between non-overlapping, time-adjacent nodes.
@@ -451,7 +807,7 @@ class SingleChildIdentifier:
                     # too far; since list is sorted, further dst will also be too far
                     break
 
-                # Temporal adjacency term (0..1) 
+                # Temporal adjacency term (0..1)
                 temporal = max(0.0, 1.0 - (gap_sec / max(1e-6, self.cfg.continuity_gap_seconds)))
 
                 # Same-ID bonus with exponential decay by gap (Not relevant if IDs are distinct)
@@ -461,7 +817,13 @@ class SingleChildIdentifier:
                     bonus = self.cfg.intra_id_gamma * math.exp(-gap_sec / max(1e-6, self.cfg.intra_id_tau))
                     reasons["same_id_bonus"] = bonus
 
-                score = temporal + bonus
+                # Age inconsistency penalty
+                age_penalty = self._compute_age_inconsistency_penalty(nodes[i], nodes[j])
+                weighted_penalty = age_penalty * self.cfg.age_inconsistency_penalty_weight
+                if age_penalty > 0:
+                    reasons["age_inconsistency_penalty"] = age_penalty
+
+                score = temporal + bonus - weighted_penalty
                 edges.append(EdgeScore(src_index=i, dst_index=j, score=score, reasons=reasons))
 
         return edges
@@ -544,10 +906,12 @@ def identify_single_child(
       quality flags) used to adapt future evidence weighting.
     - cfg: Optional configuration. If None, sensible defaults are used.
 
-    Current behavior (Stage 0)
+    Current behavior (Stage 0-1)
     - Splits: one Tracklet per Track (no intra-ID splitting yet).
-    - Evidence: age via DeepFace on a single middle face crop; skeleton
-      unimplemented (flagged).
+    - Evidence:
+      * Age via DeepFace/SigLIP on sampled frames
+      * Skeleton via scale-invariant ratios (head/shoulder, leg/torso,
+        shoulder/hip, arm/torso) with median aggregation
     - Node scoring: score = childness × duration (childness from available
       signals; missing signals are ignored via weight renormalization).
     - Edge scoring: temporal adjacency term plus a decaying same-ID bonus; no
