@@ -19,7 +19,8 @@ import torch.nn.functional as F
 from PIL import Image
 from torchvision import transforms
 from ultralytics import YOLO
-
+import subprocess
+import ffmpeg
 warnings.filterwarnings("ignore")
 
 sys.path.append('/home/aparnabg/reid/CLIP-ReID')
@@ -40,7 +41,7 @@ class Config:
     CONFIG_FILE = 'configs/person/vit_clipreid.yml'
     
     # Model parameters
-    NUM_CLASSES = 751 # msm 1041 occ 702 market 751
+    NUM_CLASSES = 751 #,msm 1041 occ 702 market 751
     CAMERA_NUM = 6 #msm 15 occ 8 market 6
     VIEW_NUM = 1
     EXPECTED_FEATURE_DIM = 768  # 768 for ViT-B-16, otherwise 1280
@@ -498,7 +499,7 @@ class PersonMatcher:
         query_features = query_features.to(device=database.device)
         database.ensure_dtype_match(query_features.dtype)
         
-        print(f"  Computing similarity matrix ({num_queries} queries vs {database.size()} persons)...")
+        print(f"Computing similarity matrix ({num_queries} queries vs {database.size()} persons)...")
         
         # Build similarity matrix: (num_queries, num_persons)
         similarity_matrix = torch.zeros((num_queries, database.size()))
@@ -511,17 +512,14 @@ class PersonMatcher:
                 sim = self.compute_person_similarity(query, person_features)
                 similarity_matrix[q_idx, p_idx] = sim
         
-        print(f"  Similarity range: [{similarity_matrix.min():.3f}, {similarity_matrix.max():.3f}]")
-
+        print(f"Similarity range: [{similarity_matrix.min():.3f}, {similarity_matrix.max():.3f}]")
         
-        # Convert similarity to cost matrix for Hungarian algorithm
-        # Cost = 1 - similarity (lower cost = better match)
+        # Convert similarity to cost for Hungarian algorithm
         cost_matrix = 1.0 - similarity_matrix.cpu().numpy()
         
         # Apply threshold: set cost to a very high value for similarities below threshold
         cost_matrix[similarity_matrix.cpu().numpy() < self.similarity_threshold] = 1e6
-        
-        print(f"  Applying Hungarian algorithm for optimal assignment...")
+
         
         try:
             from scipy.optimize import linear_sum_assignment
@@ -543,7 +541,7 @@ class PersonMatcher:
                     # Update person's feature gallery
                     database.add_feature_to_person(reid_id, query_features[q_idx:q_idx+1], frame_count)
                     
-                    print(f"  Track {track_id}: Matched to ID {reid_id}, sim={similarity:.4f}")
+                    print(f" Track {track_id}: Matched to ID {reid_id}, sim={similarity:.4f}")
             
             # Assign new IDs to unmatched queries
             for q_idx in range(num_queries):
@@ -704,12 +702,13 @@ class VideoProcessor:
             )
         return self.id_colors[person_id]
     
+    
     def process_video(self):
         """
         video processing loop.
         
         Reads the video frame by frame, runs YOLO tracking, performs ReID periodically,
-        and writes the annotated frames to an output video file.
+        and writes the annotated frames to an output video file using FFmpeg for proper encoding.
         """
         # Open video
         cap = cv2.VideoCapture(Config.VIDEO_PATH)
@@ -719,183 +718,138 @@ class VideoProcessor:
         
         # Get video properties
         fps = cap.get(cv2.CAP_PROP_FPS)
+        if not fps or np.isnan(fps):
+            fps = 30.0
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        
-        # Setup video writer
-        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-        out = cv2.VideoWriter(Config.OUTPUT_VIDEO_PATH, fourcc, fps, (width, height))
         
         print(f"Processing video: {Config.VIDEO_PATH}")
         print(f"Resolution: {width}x{height}, FPS: {fps:.2f}")
         print(f"Output: {Config.OUTPUT_VIDEO_PATH}\n")
         
-        frame_count = 0
-        fps_display = 0
-        reid_fps_display = 0
-        last_time = time.time()
-        
-        print("Starting video processing...\n")
-        
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            
-            # Calculate FPS
-            current_time = time.time()
-            loop_time = current_time - last_time
-            last_time = current_time
-            fps_display = 1.0 / loop_time if loop_time > 0 else 0
-            
-            # Convert to RGB
-            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-            
-            # Run detection and tracking (YOLO + ByteTrack)
-            tracking_results = self.detection_model.track(
-                frame_rgb,
-                imgsz=Config.DETECTION_IMGSZ,
-                conf=Config.DETECTION_CONF,
-                iou=Config.DETECTION_IOU,
-                classes=[Config.PERSON_CLASS_ID],
-                device=Config.DETECTION_DEVICE,
-                persist=True,
-                tracker='bytetrack.yaml',
-                verbose=False
-            )[0]
-            
-            # Process tracked objects
-            reid_processed = False
-            current_tracks = {}
-            
-            if tracking_results.boxes.id is not None:
-                boxes = tracking_results.boxes.xyxy.cpu().numpy()
-                track_ids = tracking_results.boxes.id.cpu().numpy().astype(int)
-                
-                # Store current tracks
-                for box, track_id in zip(boxes, track_ids):
-                    current_tracks[track_id] = box
-                
-                # Run ReID periodically
-                if frame_count % Config.REID_INTERVAL == 0:
-                    reid_processed = True
-                    reid_start = time.time()
-                    
-                    print(f"\n--- Frame {frame_count}: Running Re-Identification ---")
-                    
-                    # Prepare crops
-                    crops = []
-                    track_ids_list = []
-                    
-                    for track_id, box in current_tracks.items():
-                        x1, y1, x2, y2 = map(int, box)
-                        crop = frame_rgb[y1:y2, x1:x2]
-                        
-                        if crop.shape[0] < 1 or crop.shape[1] < 1:
-                            print(f"  Invalid crop for track {track_id}")
-                            continue
-                        
-                        crops.append(crop)
-                        track_ids_list.append(track_id)
-                    
-                    # Extract features and match
-                    if crops:
-                        features = self.feature_extractor.extract_batch(crops)
-                        
-                        if features is not None:
-                            # Ensure database dtype matches features
-                            self.database.ensure_dtype_match(features.dtype)
-                            
-                            # Perform batch matching with Hungarian algorithm
-                            assignments = self.matcher.match_batch_with_hungarian(
-                                features,
-                                track_ids_list,
-                                self.database,
-                                frame_count = frame_count
-                            )
-                            
-                            # Update track-to-reid mapping
-                            for track_id, reid_id in assignments.items():
-                                self.track_to_reid[track_id] = reid_id
-                    
-                    # Calculate ReID FPS
-                    reid_time = time.time() - reid_start
-                    reid_fps_display = 1.0 / reid_time if reid_time > 0 else 0
-                    print(f"--- ReID Time: {reid_time:.4f}s (FPS: {reid_fps_display:.2f}) ---\n")
-            
-            # Draw results
-            if tracking_results.boxes.id is not None:
-                for box, track_id in zip(boxes, track_ids):
-                    if track_id in self.track_to_reid:
-                        reid_id = self.track_to_reid[track_id]
-                        x1, y1, x2, y2 = map(int, box)
-                        color = self.get_color_for_id(reid_id)
-                        
-                        # Draw box
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
-                        
-                        # Draw label
-                        label = f"ID {reid_id}"
-                        label_size, baseline = cv2.getTextSize(
-                            label,
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.7,
-                            2
-                        )
-                        label_y = max(y1 - 10, label_size[1] + 10)
-                        
-                        cv2.rectangle(
-                            frame,
-                            (x1, label_y - label_size[1] - baseline),
-                            (x1 + label_size[0], label_y + baseline),
-                            color,
-                            cv2.FILLED
-                        )
-                        cv2.putText(
-                            frame,
-                            label,
-                            (x1, label_y),
-                            cv2.FONT_HERSHEY_SIMPLEX,
-                            0.7,
-                            (255, 255, 255),
-                            2
-                        )
-            
-            # Display FPS
-            cv2.putText(
-                frame,
-                f"Overall FPS: {fps_display:.2f}",
-                (10, 30),
-                cv2.FONT_HERSHEY_SIMPLEX,
-                1.0,
-                (0, 0, 255),
-                2
-            )
-            
-            if reid_processed:
-                cv2.putText(
-                    frame,
-                    f"ReID FPS: {reid_fps_display:.2f}",
-                    (10, 70),
-                    cv2.FONT_HERSHEY_SIMPLEX,
-                    1.0,
-                    (0, 255, 0),
-                    2
-                )
-            
+        ffmpeg_cmd = [
+            "ffmpeg", "-y",
+            "-f", "rawvideo",
+            "-pix_fmt", "bgr24",
+            "-s", f"{width}x{height}",
+            "-r", f"{fps}",
+            "-i", "-",              # input from stdin
+            "-an",                  # no audio
+            "-c:v", "libx264",      # H.264 codec
+            "-pix_fmt", "yuv420p",
+            "-preset", "veryfast",
+            "-crf", "18",
+            Config.OUTPUT_VIDEO_PATH
+        ]
+        proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     
-            out.write(frame)
-            frame_count += 1
-        
-        cap.release()
-        out.release()
-        
-        # summary
+        frame_count = 0
+        last_time = time.time()
+        reid_fps_display = 0
+    
+        try:
+            while True:
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                
+                current_time = time.time()
+                loop_time = current_time - last_time
+                last_time = current_time
+                fps_display = 1.0 / loop_time if loop_time > 0 else 0
+                
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                
+                tracking_results = self.detection_model.track(
+                    frame_rgb,
+                    imgsz=Config.DETECTION_IMGSZ,
+                    conf=Config.DETECTION_CONF,
+                    iou=Config.DETECTION_IOU,
+                    classes=[Config.PERSON_CLASS_ID],
+                    device=Config.DETECTION_DEVICE,
+                    persist=True,
+                    tracker='bytetrack.yaml',
+                    verbose=False
+                )[0]
+    
+                reid_processed = False
+                current_tracks = {}
+    
+                if tracking_results.boxes.id is not None:
+                    boxes = tracking_results.boxes.xyxy.cpu().numpy()
+                    track_ids = tracking_results.boxes.id.cpu().numpy().astype(int)
+                    
+                    for box, track_id in zip(boxes, track_ids):
+                        current_tracks[track_id] = box
+    
+                    if frame_count % Config.REID_INTERVAL == 0:
+                        reid_processed = True
+                        reid_start = time.time()
+                        crops, track_ids_list = [], []
+    
+                        for track_id, box in current_tracks.items():
+                            x1, y1, x2, y2 = map(int, box)
+                            crop = frame_rgb[y1:y2, x1:x2]
+                            if crop.shape[0] < 1 or crop.shape[1] < 1:
+                                continue
+                            crops.append(crop)
+                            track_ids_list.append(track_id)
+    
+                        if crops:
+                            features = self.feature_extractor.extract_batch(crops)
+                            if features is not None:
+                                self.database.ensure_dtype_match(features.dtype)
+                                assignments = self.matcher.match_batch_with_hungarian(
+                                    features, track_ids_list, self.database, frame_count=frame_count
+                                )
+                                for track_id, reid_id in assignments.items():
+                                    self.track_to_reid[track_id] = reid_id
+    
+                        reid_time = time.time() - reid_start
+                        reid_fps_display = 1.0 / reid_time if reid_time > 0 else 0
+    
+                if tracking_results.boxes.id is not None:
+                    for box, track_id in zip(boxes, track_ids):
+                        if track_id in self.track_to_reid:
+                            reid_id = self.track_to_reid[track_id]
+                            x1, y1, x2, y2 = map(int, box)
+                            color = self.get_color_for_id(reid_id)
+                            cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                            label = f"ID {reid_id}"
+                            label_size, baseline = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
+                            label_y = max(y1 - 10, label_size[1] + 10)
+                            cv2.rectangle(frame, (x1, label_y - label_size[1] - baseline),
+                                          (x1 + label_size[0], label_y + baseline), color, cv2.FILLED)
+                            cv2.putText(frame, label, (x1, label_y), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+    
+
+    
+                try:
+                    proc.stdin.write(frame.tobytes())
+                except BrokenPipeError:
+                    break
+    
+                frame_count += 1
+    
+        finally:
+            cap.release()
+            if proc.stdin:
+                try:
+                    proc.stdin.close()
+                except BrokenPipeError:
+                    pass
+            rc = proc.wait()
+            if rc != 0:
+                err = proc.stderr.read().decode(errors="ignore")
+                raise RuntimeError(f"FFmpeg failed (code {rc}).\n{err}")
+    
         print("PROCESSING COMPLETE")
         print(f"Output saved: {Config.OUTPUT_VIDEO_PATH}")
         print(f"Total frames processed: {frame_count}")
         print(f"Unique persons identified: {len(self.database.ids)}")
         print(f"Database size: {self.database.total_features()} features")
+    
+
 
 
 # MAIN FUNCTION
@@ -905,11 +859,11 @@ class VideoProcessor:
     {'input_path': '/path/to/video2.mp4', 'output_path': '/output/video2.mp4'},
 ]'''
 
-csv_file = "/home/aparnabg/orcd/scratch/tracking/clip_reid/muti_child_Facebodyhighvisi_andlight_1ormoreadult.csv"
+csv_file = "/home/aparnabg/orcd/scratch/tracking/clip_reid2/muti_child_Facebodyhighvisi_andlight_1ormoreadult.csv"
 muti_child_df = pd.read_csv(csv_file)
 old_base = '/Volumes/T7 Shield/AMES_Phase_III/Phase_III_videos/'
 new_input_base = '/orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external/'
-output_base = '/home/aparnabg/orcd/scratch/tracking/clip_reid/output_Market1501_clipreid'
+output_base = '/home/aparnabg/orcd/scratch/tracking/clip_reid2/output_Market1501_clipreid'
 
 video_chunks = []
 for _, row in muti_child_df.iterrows():
@@ -918,20 +872,20 @@ for _, row in muti_child_df.iterrows():
     
     input_path = source_file.replace(old_base, new_input_base)
     
+
     video_chunks.append({
         'input_path': input_path,
-        'output_path': f'{output_base}/{filename}'
+        'output_path': os.path.join(output_base, f"{os.path.splitext(filename)[0]}.mp4")
     })
+
 
 os.makedirs(output_base, exist_ok=True)
 for i, video_info in enumerate(video_chunks, 1):
     print(f"PROCESSING VIDEO {i}/{len(video_chunks)}")
     
-    # Update paths
     Config.VIDEO_PATH = video_info['input_path']
     Config.OUTPUT_VIDEO_PATH = video_info['output_path']
     
-    # fresh database each video 
     processor = VideoProcessor()
     processor.setup()
     
