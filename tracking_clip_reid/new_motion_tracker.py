@@ -1,0 +1,306 @@
+from __future__ import annotations
+from collections import deque
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any, Iterable, Optional, Tuple
+import numpy as np
+import cv2
+# ----------------------------- Configuration ---------------------------------
+
+
+@dataclass(frozen=True)
+class TrackerConfig:
+    """Adaptive tracking thresholds constraints.
+
+    Values mirror the provided notebook script. These can be tuned per video.
+    """
+
+    base_iou_threshold: float = 0.20
+    base_motion_confidence: float = 0.25
+    base_center_weight: float = 0.75
+    max_lost_frames: int = 150
+    confidence_decay_rate: float = 0.06
+    max_jump_factor: float = 2.5
+
+
+# ----------------------- Camera Motion Compensation --------------------------
+
+# I changed the function estimate_camera_motion
+class CameraMotionCompensator:
+    """Estimate camera motion between frames using feature matching."""
+    
+    def __init__(self) -> None:
+        self.prev_frame_gray: Optional[np.ndarray] = None
+        self.prev_points: Optional[np.ndarray] = None
+        self.motion_history: deque = deque(maxlen=5)
+        self.frame_shape: Optional[Tuple[int, int]] = None  # Track frame dimensions
+    
+    def estimate_camera_motion(self, frame: np.ndarray) -> tuple[float, float]:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+        # --- Initialize ORB and first frame ---
+        if self.prev_frame_gray is None:
+            self.prev_frame_gray = gray
+            self.orb = cv2.ORB_create(nfeatures=1000)
+    
+            if not hasattr(self, "motion_history"):
+                from collections import deque
+                self.motion_history = deque(maxlen=5)
+            return 0.0, 0.0
+    
+        h, w = gray.shape
+        mask = np.zeros_like(gray)
+        border_width = 0.2  # Use 20% frame edges only
+        mask[int(h * border_width):int(h * (1 - border_width)),
+             int(w * border_width):int(w * (1 - border_width))] = 255
+    
+        kp1, desc1 = self.orb.detectAndCompute(self.prev_frame_gray, mask)
+        kp2, desc2 = self.orb.detectAndCompute(gray, mask)
+    
+        if desc1 is None or desc2 is None or len(kp1) < 20 or len(kp2) < 20:
+            self.prev_frame_gray = gray
+            self.motion_history.append((0.0, 0.0))
+            return 0.0, 0.0
+    
+        matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
+        matches = matcher.match(desc1, desc2)
+    
+        if len(matches) < 10:
+            self.prev_frame_gray = gray
+            self.motion_history.append((0.0, 0.0))
+            return 0.0, 0.0
+    
+        src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
+        dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
+    
+        motions = np.linalg.norm(dst_pts - src_pts, axis=2).flatten()
+        motion_threshold = np.percentile(motions, 75)  # Keep slowest 75%
+        slow_moving = motions < motion_threshold
+        src_pts_filtered = src_pts[slow_moving]
+        dst_pts_filtered = dst_pts[slow_moving]
+    
+        if len(src_pts_filtered) < 8:
+            self.prev_frame_gray = gray
+            self.motion_history.append((0.0, 0.0))
+            return 0.0, 0.0
+    
+        M, _ = cv2.findHomography(src_pts_filtered, dst_pts_filtered, cv2.RANSAC, 3.0)
+    
+        if M is None:
+            self.prev_frame_gray = gray
+            self.motion_history.append((0.0, 0.0))
+            return 0.0, 0.0
+    
+        dx, dy = float(M[0, 2]), float(M[1, 2])
+    
+        max_expected_motion = 50.0
+        if abs(dx) > max_expected_motion or abs(dy) > max_expected_motion:
+            dx, dy = 0.0, 0.0
+    
+        if self.motion_history:
+            alpha = 0.3
+            last_dx, last_dy = self.motion_history[-1]
+            dx = alpha * dx + (1 - alpha) * last_dx
+            dy = alpha * dy + (1 - alpha) * last_dy
+    
+        self.motion_history.append((dx, dy))
+        self.prev_frame_gray = gray
+    
+        return dx, dy
+
+
+
+# ------------------------------ Similarities ---------------------------------
+
+
+def calculate_iou(box1: np.ndarray | Iterable[float], box2: np.ndarray | Iterable[float]) -> float:
+    """Compute IoU between two boxes: [x1, y1, x2, y2]."""
+    x1_1, y1_1, x2_1, y2_1 = map(float, box1)
+    x1_2, y1_2, x2_2, y2_2 = map(float, box2)
+    x1_i, y1_i = max(x1_1, x1_2), max(y1_1, y1_2)
+    x2_i, y2_i = min(x2_1, x2_2), min(y2_1, y2_2)
+    if x2_i <= x1_i or y2_i <= y1_i:
+        return 0.0
+    inter = (x2_i - x1_i) * (y2_i - y1_i)
+    area1 = (x2_1 - x1_1) * (y2_1 - y1_1)
+    area2 = (x2_2 - x1_2) * (y2_2 - y1_2)
+    union = area1 + area2 - inter
+    return float(inter / union) if union > 0 else 0.0
+
+
+def calculate_center_distance_similarity(
+    box1: np.ndarray | Iterable[float], box2: np.ndarray | Iterable[float]
+) -> float:
+    """Similarity based on bbox center distance, normalized by size."""
+    b1 = list(map(float, box1))
+    b2 = list(map(float, box2))
+    c1_x, c1_y = (b1[0] + b1[2]) / 2, (b1[1] + b1[3]) / 2
+    c2_x, c2_y = (b2[0] + b2[2]) / 2, (b2[1] + b2[3]) / 2
+    size1 = np.sqrt(max(1e-6, (b1[2] - b1[0]) * (b1[3] - b1[1])))
+    size2 = np.sqrt(max(1e-6, (b2[2] - b2[0]) * (b2[3] - b2[1])))
+    avg_size = (size1 + size2) / 2
+    dist = np.hypot(c1_x - c2_x, c1_y - c2_y)
+    normalized = dist / (avg_size * 0.7)
+    return float(max(0.0, 1.0 - normalized))
+
+
+def calculate_combined_similarity(
+    box1: np.ndarray | Iterable[float], box2: np.ndarray | Iterable[float], center_weight: float
+) -> float:
+    """Combine IoU and center-distance similarity with a weight."""
+    iou = calculate_iou(box1, box2)
+    center_sim = calculate_center_distance_similarity(box1, box2)
+    return float((1 - center_weight) * iou + center_weight * center_sim)
+
+
+def calculate_scene_crowding(bboxes: list[list[float]] | np.ndarray) -> float:
+    """Estimate crowding from pairwise center distances relative to size.
+
+    Returns:
+        0.0 (isolated) → 1.0 (very crowded)
+    """
+    if len(bboxes) <= 1:
+        return 0.0
+    centers = []
+    sizes = []
+    for b in bboxes:
+        cx, cy = (b[0] + b[2]) / 2, (b[1] + b[3]) / 2
+        size = np.sqrt(max(1e-6, (b[2] - b[0]) * (b[3] - b[1])))
+        centers.append([cx, cy])
+        sizes.append(size)
+    centers_a = np.array(centers, dtype=float)
+    avg_size = float(np.mean(sizes))
+    if avg_size <= 1e-6:
+        return 0.0
+    min_d = float("inf")
+    for i in range(len(centers_a)):
+        for j in range(i + 1, len(centers_a)):
+            d = float(np.linalg.norm(centers_a[i] - centers_a[j])) / avg_size
+            min_d = min(min_d, d)
+    if not np.isfinite(min_d):
+        return 0.0
+    if min_d < 1.0:
+        return 1.0
+    if min_d < 2.0:
+        return 0.7
+    if min_d < 3.0:
+        return 0.4
+    return 0.0
+
+
+def get_adaptive_thresholds(cfg: TrackerConfig, crowding_factor: float) -> tuple[float, float, float]:
+    """Interpolate thresholds based on crowding.
+
+    Returns:
+        (iou_threshold, center_weight, motion_conf)
+    """
+    iou_threshold = cfg.base_iou_threshold + (crowding_factor * 0.20)
+    center_weight = cfg.base_center_weight - (crowding_factor * 0.35)
+    motion_conf = cfg.base_motion_confidence + (crowding_factor * 0.25)
+    return float(iou_threshold), float(center_weight), float(motion_conf)
+
+
+def is_spatially_plausible(
+    det_bbox: Iterable[float], predicted_bbox: Iterable[float], max_jump_factor: float
+) -> bool:
+    """Hard constraint to avoid impossible matches between frames."""
+    db = list(map(float, det_bbox))
+    pb = list(map(float, predicted_bbox))
+    det_cx, det_cy = (db[0] + db[2]) / 2, (db[1] + db[3]) / 2
+    pred_cx, pred_cy = (pb[0] + pb[2]) / 2, (pb[1] + pb[3]) / 2
+    det_size = np.sqrt(max(1e-6, (db[2] - db[0]) * (db[3] - db[1])))
+    pred_size = np.sqrt(max(1e-6, (pb[2] - pb[0]) * (pb[3] - pb[1])))
+    avg_size = (det_size + pred_size) / 2
+    dist = np.hypot(det_cx - pred_cx, det_cy - pred_cy)
+    return bool(dist < (avg_size * max_jump_factor))
+
+
+# ----------------------------- Kalman Utilities ------------------------------
+
+
+def create_kalman_filter(initial_bbox: Iterable[float]):
+    """Create a Kalman filter for bbox tracking.
+
+    State: [cx, cy, w, h, vx, vy, vw, vh]
+    Measurement: [cx, cy, w, h]
+    Depth-aware noise: higher for size terms to accommodate approach/retreat.
+    """
+    try:
+        from filterpy.kalman import KalmanFilter  # type: ignore
+    except Exception as exc:  # pragma: no cover - dependency gate
+        raise ImportError("Install filterpy for Kalman filtering: pip install filterpy") from exc
+
+    kf = KalmanFilter(dim_x=8, dim_z=4)
+    kf.F = np.array(
+        [
+            [1, 0, 0, 0, 1, 0, 0, 0],
+            [0, 1, 0, 0, 0, 1, 0, 0],
+            [0, 0, 1, 0, 0, 0, 1, 0],
+            [0, 0, 0, 1, 0, 0, 0, 1],
+            [0, 0, 0, 0, 1, 0, 0, 0],
+            [0, 0, 0, 0, 0, 1, 0, 0],
+            [0, 0, 0, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 0, 0, 1],
+        ]
+    )
+    kf.H = np.array(
+        [
+            [1, 0, 0, 0, 0, 0, 0, 0],
+            [0, 1, 0, 0, 0, 0, 0, 0],
+            [0, 0, 1, 0, 0, 0, 0, 0],
+            [0, 0, 0, 1, 0, 0, 0, 0],
+        ]
+    )
+
+    b = list(map(float, initial_bbox))
+    cx = (b[0] + b[2]) / 2
+    cy = (b[1] + b[3]) / 2
+    w = b[2] - b[0]
+    h = b[3] - b[1]
+    kf.x = np.array([cx, cy, w, h, 0, 0, 0, 0], dtype=float)
+
+    # Initial covariance: fairly uncertain at start
+    kf.P *= 100
+    # Measurement noise: moderate trust in detector
+    kf.R = np.diag([3.0, 3.0, 3.0, 3.0])
+    # Process noise: low on position, high on size and size velocity
+    Q = np.eye(8, dtype=float)
+    Q[0, 0] = 0.05
+    Q[1, 1] = 0.05
+    Q[2, 2] = 2.0
+    Q[3, 3] = 2.0
+    Q[4, 4] = 0.1
+    Q[5, 5] = 0.1
+    Q[6, 6] = 3.0
+    Q[7, 7] = 3.0
+    kf.Q = Q
+    return kf
+
+
+def predict_motion_with_camera_compensation(
+    kalman_filter: Any, missed_updates: int, camera_motion: tuple[float, float], *, cfg: TrackerConfig | None = None
+) -> tuple[np.ndarray, float]:
+    """Predict next bbox and return prediction confidence.
+
+    Adds camera motion (dx, dy) to predicted center to compensate for pan/tilt.
+    Confidence decays with missed updates, bounded below by 0.1.
+    """
+    _cfg = cfg or TrackerConfig()
+    kalman_filter.predict()
+    x_center, y_center, width, height = kalman_filter.x[:4]
+    dx, dy = camera_motion
+    x_center = float(x_center + dx)
+    y_center = float(y_center + dy)
+    pred = np.array([x_center - width / 2, y_center - height / 2, x_center + width / 2, y_center + height / 2], dtype=float)
+    confidence = max(0.1, 1.0 - (missed_updates * _cfg.confidence_decay_rate))
+    return pred, float(confidence)
+
+
+def update_kalman_filter(kalman_filter: Any, measurement_bbox: Iterable[float]) -> None:
+    """Correct Kalman filter state with a measurement bbox."""
+    b = list(map(float, measurement_bbox))
+    cx = (b[0] + b[2]) / 2
+    cy = (b[1] + b[3]) / 2
+    w = b[2] - b[0]
+    h = b[3] - b[1]
+    kalman_filter.update(np.array([cx, cy, w, h], dtype=float))
