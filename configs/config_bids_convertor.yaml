@@ -1,0 +1,17 @@
+# Video Processing Configuration
+
+# Input data
+annotation_file: /orcd/data/satra/002/datasets/SAILS/data4analysis/Video Rating Data/SAILS_RATINGS_ALL_DEDUPLICATED_NotForFinalAnalyses_2025.10.csv
+video_root: /orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external_standardized
+asd_status: /orcd/data/satra/002/datasets/SAILS/data4analysis/ASD_Status.xlsx
+
+# Output data
+output_dir: /orcd/scratch/bcs/001/sensein/sails/BIDS_data
+
+# Video processing parameters
+target_resolution: 1280x720
+target_framerate: 30
+
+# Derived directory names (optional — can be built dynamically)
+final_bids_root: final_bids-dataset
+derivatives_subdir: derivatives/preprocessed
