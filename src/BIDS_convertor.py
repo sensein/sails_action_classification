@@ -270,7 +270,8 @@ def determine_session_from_excel(
         Optional[str]: Session ID ("01" or "02"), or None if not found.
     """
     filename = os.path.splitext(os.path.basename(current_path))[0]
-
+    if participant_id.endswith(" 2"):
+        participant_id = participant_id[:-2].strip()
     # Filter for the participant
     participant_excel = annotation_df[
         annotation_df["ID"].astype(str) == str(participant_id)
@@ -802,10 +803,10 @@ def create_events_file(
 
     for idx, row in group_df.iterrows():
         event = {
-            "filepath_engaging": str(full_filepath),
             "onset": 0.0,
             "duration": parse_duration(row.get("Vid_duration", "00:00:00")),
             "coder": str(row.get("Coder", "n/a")),
+            "filepath_engaging": str(full_filepath),
             "source_file": str(row.get("SourceFile", "n/a")),
             "context": str(row.get("Context", "n/a")),
             "location": str(row.get("Location", "n/a")),
@@ -1168,15 +1169,7 @@ def create_dataset_description() -> None:
     dataset_desc = {
         "Name": "SAILS Phase III Home Videos",
         "BIDSVersion": "1.9.0",
-        "DatasetType": "raw",
-        "License": "na",
-        "Authors": ["Research Team"],
-        "Acknowledgements": "participants and families",
-        "HowToAcknowledge": "na",
-        "Funding": ["na"],
-        "EthicsApprovals": ["na"],
-        "ReferencesAndLinks": ["na"],
-        "DatasetDOI": "doi:",
+        "DatasetType": "domestic videos with audio",
     }
     try:
         filepath = os.path.join(FINAL_BIDS_ROOT, "dataset_description.json")
@@ -1227,60 +1220,6 @@ def create_readme() -> None:
 This dataset contains home videos from the SAILS Phase III study,
 organized according to the Brain Imaging Data Structure (BIDS) specification.
 
-## Requirements
-The BIDS conversion and preprocessing pipeline can be run using Poetry
-for dependency management.
-
-However, note that the pipeline requires FFmpeg ≥ 6.0 compiled with the
-vidstab library.
-
-Because FFmpeg is not a Python package, it must be installed separately.
-If you don’t have administrator privileges (e.g., on a cluster), you
-can install the static binary locally as follows:
-
-```
-cd ~
-wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
-tar -xJf ffmpeg-release-amd64-static.tar.xz
-mv ffmpeg-*-static ffmpeg_static
-export PATH="$HOME/ffmpeg_static:$PATH"
-```
-
-To make this permanent, add the last line to your ~/.bashrc or ~/.bash_profile.
-
-You can verify that FFmpeg is correctly installed and supports video stabilization:
-
-ffmpeg -version
-ffmpeg -filters | grep vidstab
-
-
-✅ Expected output:
-
-T.. vidstabdetect     V->V       Video stabilization analysis
-T.. vidstabtransform  V->V       Video stabilization transform filter
-
-📦 Poetry Environment
-
-Once FFmpeg is installed and available in your PATH, install the Python
-dependencies using Poetry (at the location of the root of the project):
-
-poetry install
-
-Verify that Poetry can access FFmpeg:
-
-which ffmpeg
-
-It should point to your local binary (e.g. $HOME/ffmpeg_static/ffmpeg).
-
-You might want to submit the script on Engaging using sbatch. We've
-provided the sumbission files so you'll simply need to cd to the folder where
-you can find this README and run :
-
-jid=$(sbatch --parsable submit_bids_updated.sh)
-sbatch --dependency=afterok:$jid merge_cleanup.sh
-
-This will convert the raw video into BIDS format in a clean fashion.
-
 ## Data Collection
 Videos were collected from home environments during various activities.
 Two main age groups were included:
@@ -1303,16 +1242,20 @@ All videos underwent standardized preprocessing including:
 - Denoising and quality enhancement
 - Standardization to 720p resolution and 30fps
 - Audio extraction for speech analysis
+- Filename modication according to subject ID and task label
+- Extraction of ASD status for every subject stored in the participants.tsv file.
 
 ## Behavioral Coding
-Events files include annotations from csv file.
+Events files include manual annotations from csv file and Engaging
+location of the raw video.
 
 ## Task Labels
 Task labels are derived from the Context column in the csv.
+It allows to capture what kind of interaction was happening in the video.
 Videos without behavioral coding data use "unknown" task label.
 """
 
-    filepath = os.path.join(FINAL_BIDS_ROOT, "README")
+    filepath = os.path.join(OUTPUT_DIR, "README")
     try:
         with open(filepath, "w") as f:
             f.write(readme_content)
@@ -1320,14 +1263,16 @@ Videos without behavioral coding data use "unknown" task label.
         raise ValueError(f"Failed to create README at {filepath}: {e}")
 
 
-def create_participants_file(
-    processed_data: List[Dict[str, Any]], asd_status: pd.DataFrame, final_bids_root: str
-) -> None:
+def create_participants_file() -> None:
     """Create participants.tsv and participants.json files."""
-    processed_participants = set(entry["participant_id"] for entry in processed_data)
-
+    asd_status = pd.read_excel(ASD_STATUS_FILE)
+    ids_processed_participants = []
+    for name in os.listdir(FINAL_BIDS_ROOT):
+        full_path = os.path.join(FINAL_BIDS_ROOT, name)
+        if os.path.isdir(full_path) and name.startswith("sub-"):
+            ids_processed_participants.append(name.split("sub-")[1])
     participants_data = []
-    for participant_id in sorted(processed_participants):
+    for participant_id in sorted(ids_processed_participants):
         asd_info = asd_status[asd_status["ID"].astype(str) == str(participant_id)]
         participants_data.append(
             {
@@ -1338,7 +1283,7 @@ def create_participants_file(
 
     participants_df = pd.DataFrame(participants_data)
     participants_df.to_csv(
-        os.path.join(final_bids_root, "participants.tsv"),
+        os.path.join(FINAL_BIDS_ROOT, "participants.tsv"),
         sep="\t",
         index=False,
         na_rep="n/a",
@@ -1349,7 +1294,7 @@ def create_participants_file(
         "Group": {"Description": "ASD status"},
     }
 
-    save_json(participants_json, os.path.join(final_bids_root, "participants.json"))
+    save_json(participants_json, os.path.join(FINAL_BIDS_ROOT, "participants.json"))
 
 
 def print_summary(all_processed: List[Dict], all_failed: List[Dict]) -> None:
@@ -1413,11 +1358,11 @@ def print_summary(all_processed: List[Dict], all_failed: List[Dict]) -> None:
             print(f"  {error}: {count} videos")
 
 
-def merge_subjects(base_dir: str) -> None:
+def merge_subjects() -> None:
     """Merge duplicated subjects folders."""
     paths_to_check = [
-        Path(base_dir),
-        Path(base_dir) / "derivatives" / "preprocessed",
+        Path(FINAL_BIDS_ROOT),
+        Path(FINAL_BIDS_ROOT) / "derivatives" / "preprocessed",
     ]
 
     for folder in paths_to_check:
@@ -1429,9 +1374,8 @@ def merge_subjects(base_dir: str) -> None:
 
         for sub in subs:
             if sub.name.endswith(" 2"):
-                original_name = sub.name[:-1]  # remove the '2'
+                original_name = sub.name[:-2]
                 original_path = folder / original_name
-
                 if original_name in sub_names and original_path.exists():
                     print(f"Merging {sub} → {original_path}")
 
@@ -1579,11 +1523,6 @@ def main() -> None:
         avg_time = total_time / len(all_processed)
         safe_print(f"Average time per video: {avg_time:.1f} seconds")
 
-    merge_subjects(FINAL_BIDS_ROOT)
-
-    # -- Load ASD status file
-    asd_status = pd.read_excel(ASD_STATUS_FILE)
-    create_participants_file(all_processed, asd_status, FINAL_BIDS_ROOT)
     safe_print("Processing complete ✅")
 
 

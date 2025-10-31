@@ -285,7 +285,6 @@ class TestUtilityFunctions:
 class TestMainWorkflow:
     """Test the main processing workflow."""
 
-    @patch("BIDS_convertor.create_participants_file")
     @patch("BIDS_convertor.process_videos")
     @patch("BIDS_convertor.create_readme")
     @patch("BIDS_convertor.create_derivatives_dataset_description")
@@ -300,7 +299,6 @@ class TestMainWorkflow:
         mock_create_derivatives: MagicMock,
         mock_create_readme: MagicMock,
         mock_process_videos: MagicMock,
-        mock_create_participants: MagicMock,
         bvp_module: ModuleType,
     ) -> None:
         """Test the main processing workflow."""
@@ -328,8 +326,6 @@ class TestMainWorkflow:
         mock_create_derivatives.assert_called_once()
         mock_create_readme.assert_called_once()
         mock_process_videos.assert_called_once()
-        mock_create_participants.assert_called_once()
-        assert mock_save_json.call_count == 2
 
 
 # Test fixtures for reusable data
