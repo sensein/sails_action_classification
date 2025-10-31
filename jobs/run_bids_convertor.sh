@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=bids_processing
 #SBATCH --partition=mit_normal
-#SBATCH --array=0-90
+#SBATCH --array=0-19
 #SBATCH --output=logs/bids_%A_%a.out
 #SBATCH --error=logs/bids_%A_%a.err
 #SBATCH --mem=5G
