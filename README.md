@@ -9,7 +9,49 @@
 Welcome to the ```sailsprep``` repo! This is a Python repo for doing incredible video-based human pose estimation analyses. **STAY TUNED!**
 
 **Caution:**: this package is still under development and may change rapidly over the next few weeks.
+## General information
 
+To manage dependencies, this project uses Poetry. Make sure you've got poetry installed.
+On Engaging, you need to first run
+```
+module load miniforge
+```
+Then run
+```
+pip install poetry
+```
+Then go to the root of this repo and run
+```
+poetry install
+```
+
+## Preprocessing
+### BIDS-conversion
+The conversion pipeline requires FFmpeg ≥ 6.0 compiled with the vidstab library.
+Because FFmpeg compiled with vidstab is not a Python package, it must be installed separately.
+You'll need to run (outside any environment):
+
+```
+cd ~
+wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+tar -xJf ffmpeg-release-amd64-static.tar.xz
+mv ffmpeg-*-static ffmpeg_static
+export PATH="$HOME/ffmpeg_static:$PATH"
+
+```
+
+To make this permanent, add the last line to your ~/.bashrc or ~/.bash_profile.
+You can verify that FFmpeg has the right version (≥ 6.0):
+```
+ffmpeg -version
+```
+You'll need to submit the script on Engaging using sbatch. We've
+provided the sumbission files so you'll simply need to run (with module miniforge deactivated) :
+```
+jid=$(sbatch --parsable jobs/submit_bids_updated.sh)
+sbatch --dependency=afterok:$jid jobs/merge_cleanup.sh
+```
+This will convert the raw video into BIDS format in a clean fashion.
 ## Features
 - A few
 - Cool
