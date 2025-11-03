@@ -113,7 +113,7 @@ class TestBIDSNaming:
 
     def test_create_bids_filename(self, bvp_module: ModuleType) -> None:
         """Test BIDS filename creation."""
-        filename = bvp_module.create_bids_filename(123, "01", "mealtime", "beh", "mp4")
+        filename = bvp_module.create_bids_filename("123", "01", "mealtime", "beh", "mp4")
         expected = "sub-123_ses-01_task-mealtime_run-01_beh.mp4"
         assert filename == expected
 
