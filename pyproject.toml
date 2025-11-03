@@ -35,7 +35,7 @@ requires-poetry = ">=2.0"
 version = "0.0.0"
 
 [tool.poetry.dependencies]
-click = "~=8.2"
+click = "~=8.3"
 
 [tool.poetry.group.dev]
 optional = true
