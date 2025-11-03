@@ -26,11 +26,10 @@ ffmpeg -version
 # Activate poetry env from project root
 source $(poetry env info --path)/bin/activate
 
-cd src
 echo "Using Python from: $(which python)"
 echo "Starting BIDS conversion at $(date)"
 
 # Run your script
-python BIDS_convertor.py $SLURM_ARRAY_TASK_ID $SLURM_ARRAY_TASK_COUNT
+python -m sailsprep.BIDS_convertor $SLURM_ARRAY_TASK_ID $SLURM_ARRAY_TASK_COUNT
 
 echo "Finished at $(date)"

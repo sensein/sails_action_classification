@@ -62,5 +62,5 @@ echo "Cleanup complete at $(date)"
 
 # --- Run final Python merge ---
 echo "Running final Python merge and participant file creation..."
-poetry run python -c "from src.BIDS_convertor import merge_subjects, create_participants_file; merge_subjects(); create_participants_file()"
+poetry run python -c "from sailsprep.BIDS_convertor import merge_subjects, create_participants_file; merge_subjects(); create_participants_file()"
 echo "Final BIDS merge and participant file creation complete ✅"
