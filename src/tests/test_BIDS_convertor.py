@@ -41,7 +41,7 @@ def setup_mock_config() -> Generator[None, None, None]:
 def bvp_module(setup_mock_config: Generator[None, None, None]) -> ModuleType:
     """Import the BIDS converter module."""
     sys.path.insert(0, "src")
-    import BIDS_convertor as bvp
+    import sailsprep.BIDS_convertor as bvp
 
     return bvp
 
@@ -113,7 +113,9 @@ class TestBIDSNaming:
 
     def test_create_bids_filename(self, bvp_module: ModuleType) -> None:
         """Test BIDS filename creation."""
-        filename = bvp_module.create_bids_filename("123", "01", "mealtime", "beh", "mp4")
+        filename = bvp_module.create_bids_filename(
+            "123", "01", "mealtime", "beh", "mp4"
+        )
         expected = "sub-123_ses-01_task-mealtime_run-01_beh.mp4"
         assert filename == expected
 
@@ -285,12 +287,12 @@ class TestUtilityFunctions:
 class TestMainWorkflow:
     """Test the main processing workflow."""
 
-    @patch("BIDS_convertor.process_videos")
-    @patch("BIDS_convertor.create_readme")
-    @patch("BIDS_convertor.create_derivatives_dataset_description")
-    @patch("BIDS_convertor.create_dataset_description")
-    @patch("BIDS_convertor.create_bids_structure")
-    @patch("BIDS_convertor.save_json")
+    @patch("sailsprep.BIDS_convertor.process_videos")
+    @patch("sailsprep.BIDS_convertor.create_readme")
+    @patch("sailsprep.BIDS_convertor.create_derivatives_dataset_description")
+    @patch("sailsprep.BIDS_convertor.create_dataset_description")
+    @patch("sailsprep.BIDS_convertor.create_bids_structure")
+    @patch("sailsprep.BIDS_convertor.save_json")
     def test_main_workflow(
         self,
         mock_save_json: MagicMock,
