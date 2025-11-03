@@ -34,10 +34,12 @@ for folder in "$OUTPUT_DIR"/*/; do
     if [[ "$foldername" =~ ^[0-9]+$ ]]; then
         echo "Merging from folder: $foldername"
         if [[ -f "$folder/processing_log.json" ]]; then
-            jq -s 'add' "$merged_processed" "$folder/processing_log.json" > tmp.json && mv tmp.json "$merged_processed"
+            tmpfile=$(mktemp)
+            jq -s 'add' "$merged_processed" "$folder/processing_log.json" > "$tmpfile" && mv "$tmpfile" "$merged_processed"
         fi
         if [[ -f "$folder/not_processed.json" ]]; then
-            jq -s 'add' "$merged_failed" "$folder/not_processed.json" > tmp.json && mv tmp.json "$merged_failed"
+            tmpfile=$(mktemp)
+            jq -s 'add' "$merged_failed" "$folder/not_processed.json" > "$tmpfile" && mv "$tmpfile" "$merged_failed"
         fi
     fi
 done
