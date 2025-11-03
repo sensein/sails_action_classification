@@ -12,16 +12,10 @@ Welcome to the ```sailsprep``` repo! This is a Python repo for doing incredible 
 ## General information
 
 To manage dependencies, this project uses Poetry. Make sure you've got poetry installed.
-On Engaging, you need to first run
+On Engaging, you need to first run at the root of the repo :
 ```
 module load miniforge
-```
-Then run
-```
 pip install poetry
-```
-Then go to the root of this repo and run
-```
 poetry install
 ```
 
@@ -48,7 +42,7 @@ ffmpeg -version
 You'll need to submit the script on Engaging using sbatch. We've
 provided the sumbission files so you'll simply need to run (with module miniforge deactivated) :
 ```
-jid=$(sbatch --parsable jobs/submit_bids_updated.sh)
+jid=$(sbatch --parsable jobs/run_bids_convertor.sh)
 sbatch --dependency=afterok:$jid jobs/merge_cleanup.sh
 ```
 This will convert the raw video into BIDS format in a clean fashion.
