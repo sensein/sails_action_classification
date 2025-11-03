@@ -9,7 +9,11 @@
 #SBATCH --cpus-per-task=5
 
 # --- Environment setup ---
-cd ..
+# Determine project root dynamically
+SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+PROJECT_ROOT=$(cd -- "$SCRIPT_DIR/.." &> /dev/null && pwd)
+
+cd "$PROJECT_ROOT"
 mkdir -p logs
 export PYTHONUNBUFFERED=1
 
@@ -19,8 +23,7 @@ echo "Task ID: $SLURM_ARRAY_TASK_ID of $SLURM_ARRAY_TASK_COUNT"
 echo "FFmpeg version:"
 ffmpeg -version
 
-# Move to project and activate poetry env
-cd /orcd/data/satra/001/users/lucie271/sailsprep
+# Activate poetry env from project root
 source $(poetry env info --path)/bin/activate
 
 cd src
