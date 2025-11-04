@@ -287,6 +287,7 @@ class TestUtilityFunctions:
 class TestMainWorkflow:
     """Test the main processing workflow."""
 
+    @patch("sailsprep.BIDS_convertor.get_all_videos")
     @patch("sailsprep.BIDS_convertor.process_videos")
     @patch("sailsprep.BIDS_convertor.create_readme")
     @patch("sailsprep.BIDS_convertor.create_derivatives_dataset_description")
@@ -301,10 +302,12 @@ class TestMainWorkflow:
         mock_create_derivatives: MagicMock,
         mock_create_readme: MagicMock,
         mock_process_videos: MagicMock,
+        mock_get_all_videos: MagicMock,
         bvp_module: ModuleType,
     ) -> None:
         """Test the main processing workflow."""
         # Setup mocks
+        mock_get_all_videos.return_value = (["dummy_video_1.mp4"], [])
 
         mock_process_videos.return_value = (
             [
