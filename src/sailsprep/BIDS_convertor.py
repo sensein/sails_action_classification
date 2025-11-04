@@ -689,12 +689,13 @@ def preprocess_video(input_path: str, output_path: str, temp_dir: str) -> None:
             raise ValueError(
                 "Video stabilization failed - no intermediate file created"
             )
+
         width, height = TARGET_RESOLUTION.split("x")
         vf_filters = (
             "yadif,"
             "hqdn3d,"
             "eq=contrast=1.0:brightness=0.0:saturation=1.0,"
-            "scale=-2:{height},"
+            f"scale=-2:{height},"
             "pad=ceil(iw/2)*2:ceil(ih/2)*2,"
             f"fps={TARGET_FRAMERATE}"
         )

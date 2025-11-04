@@ -8,27 +8,34 @@
 #SBATCH --time=10:00:00
 #SBATCH --cpus-per-task=5
 
-# --- Environment setup ---
-# Determine project root dynamically
-SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
-PROJECT_ROOT=$(cd -- "$SCRIPT_DIR/.." &> /dev/null && pwd)
+mkdir -p logs
 
-cd "$PROJECT_ROOT"
+# --- Determine project root robustly ---
+if [ -n "$SLURM_SUBMIT_DIR" ]; then
+    cd "$SLURM_SUBMIT_DIR" || { echo "❌ Cannot cd to SLURM_SUBMIT_DIR=$SLURM_SUBMIT_DIR"; exit 1; }
+else
+    SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+    cd "$SCRIPT_DIR/.." || { echo "❌ Cannot cd to project root"; exit 1; }
+fi
+
+echo "Running from project root: $(pwd)"
 export PYTHONUNBUFFERED=1
 
-echo "Job started at $(date) on node $(hostname)"
-echo "Task ID: $SLURM_ARRAY_TASK_ID of $SLURM_ARRAY_TASK_COUNT"
+ffmpeg -version || echo "⚠️ FFmpeg not available"
 
-echo "FFmpeg version:"
-ffmpeg -version
+# --- Poetry setup ---
+if ! poetry env info --path &> /dev/null; then
+    echo "Creating Poetry environment..."
+    poetry install || { echo "❌ Poetry install failed"; exit 1; }
+fi
 
-# Activate poetry env from project root
-source $(poetry env info --path)/bin/activate
+ENV_PATH=$(poetry env info --path)
+source "$ENV_PATH/bin/activate" || { echo "❌ Failed to activate Poetry environment"; exit 1; }
 
 echo "Using Python from: $(which python)"
+echo "Task ID: ${SLURM_ARRAY_TASK_ID}"
 echo "Starting BIDS conversion at $(date)"
 
-# Run your script
-python -m sailsprep.BIDS_convertor $SLURM_ARRAY_TASK_ID $SLURM_ARRAY_TASK_COUNT
+python -m sailsprep.BIDS_convertor "$SLURM_ARRAY_TASK_ID" "$SLURM_ARRAY_TASK_MAX"
 
 echo "Finished at $(date)"
