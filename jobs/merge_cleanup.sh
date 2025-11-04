@@ -7,10 +7,13 @@
 
 # Clean up old logs before running
 echo "Cleaning up old logs..."
-rm -rf logs
-mkdir -p logs
+if [ -d logs ]; then
+    find logs -mindepth 1 ! -name ".gitkeep" \
+         ! -name "merge_cleanup_${SLURM_JOB_ID}.out" \
+         ! -name "merge_cleanup_${SLURM_JOB_ID}.err" -delete
+fi
 
-OUTPUT_DIR=$(poetry run python -c "import yaml; with open('configs/config_bids_convertor.yaml') as f: print(yaml.safe_load(f)['output_dir'])")
+OUTPUT_DIR=$(poetry run python -c "import yaml, sys; print(yaml.safe_load(open('configs/config_bids_convertor.yaml'))['output_dir'])")
 MERGED_DIR="$OUTPUT_DIR"
 
 mkdir -p "$MERGED_DIR"

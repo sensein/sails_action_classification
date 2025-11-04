@@ -14,7 +14,6 @@ SCRIPT_DIR=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
 PROJECT_ROOT=$(cd -- "$SCRIPT_DIR/.." &> /dev/null && pwd)
 
 cd "$PROJECT_ROOT"
-mkdir -p logs
 export PYTHONUNBUFFERED=1
 
 echo "Job started at $(date) on node $(hostname)"
