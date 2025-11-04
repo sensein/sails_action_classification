@@ -14,6 +14,7 @@ Todo:
     * check with actual data
 """
 
+import argparse
 import json
 import os
 import re
@@ -153,13 +154,13 @@ def get_video_properties(video_path: str) -> dict:
         cap.release()
 
         return {
-            "SamplingFrequency": fps,
+            "FrameRate": fps,
             "Resolution": f"{width}x{height}",
         }
 
     except Exception as e:
         print(f"Error reading video {video_path}: {e}")
-        return {"SamplingFrequency": None, "Resolution": None}
+        return {"FrameRate": None, "Resolution": None}
 
 
 def determine_session_from_folder(folder_name: str) -> Optional[str]:
@@ -629,7 +630,6 @@ def stabilize_video(input_path: str, stabilized_path: str, temp_dir: str) -> Non
         "null",
         "-",
     ]
-    print(f"[DEBUG] Running: {' '.join(detect_cmd)}")
     detect_proc = subprocess.run(detect_cmd, capture_output=True, text=True)
 
     if detect_proc.returncode != 0:
@@ -880,7 +880,7 @@ def create_video_metadata_json(
         ),
         "Context": task_info.get("context", "n/a"),
         "Activity": task_info.get("activity", "n/a"),
-        "SamplingFrequency": TARGET_FRAMERATE,
+        "FrameRate": TARGET_FRAMERATE,
         "Resolution": TARGET_RESOLUTION,
         "ProcessingPipeline": {
             "Stabilization": processing_info.get("has_stabilization", False),
@@ -924,7 +924,7 @@ def create_raw_video_json(
         "TaskDescription": task_info.get(
             "task_description", "Raw video from behavioral session"
         ),
-        "SamplingFrequency": video_props.get("SamplingFrequency", "n/a"),
+        "FrameRate": video_props.get("FrameRate", "n/a"),
         "Resolution": video_props.get("Resolution", "n/a"),
         "OriginalFilename": str(row.get("FileName", "")),
         "Duration": parse_duration(row.get("Vid_duration", "00:00:00")),
@@ -1254,7 +1254,7 @@ It allows to capture what kind of interaction was happening in the video.
 Videos without behavioral coding data use "unknown" task label.
 """
 
-    filepath = os.path.join(OUTPUT_DIR, "README")
+    filepath = os.path.join(FINAL_BIDS_ROOT, "README")
     try:
         with open(filepath, "w") as f:
             f.write(readme_content)
@@ -1358,7 +1358,7 @@ def print_summary(all_processed: List[Dict], all_failed: List[Dict]) -> None:
 
 
 def merge_subjects() -> None:
-    """Merge duplicated subjects folders."""
+    """Merge duplicated subject folders safely."""
     paths_to_check = [
         Path(FINAL_BIDS_ROOT),
         Path(FINAL_BIDS_ROOT) / "derivatives" / "preprocessed",
@@ -1381,20 +1381,42 @@ def merge_subjects() -> None:
                     for item in sub.iterdir():
                         dest = original_path / item.name
                         if item.is_dir():
-                            if not dest.exists():
-                                shutil.copytree(item, dest)
-                            else:
+                            if dest.exists():
+                                if dest.is_file():
+                                    print(
+                                        f"Conflict: {dest} is a file, "
+                                        "expected a folder. Skipping."
+                                    )
+                                    continue
                                 # merge recursively if same session already exists
                                 for subitem in item.iterdir():
                                     dest_sub = dest / subitem.name
-                                    if not dest_sub.exists():
-                                        if subitem.is_dir():
-                                            shutil.copytree(subitem, dest_sub)
-                                        else:
-                                            shutil.copy2(subitem, dest_sub)
+                                    if dest_sub.exists():
+                                        # type conflict handling
+                                        if dest_sub.is_file() != subitem.is_file():
+                                            print(
+                                                f"Type conflict for {dest_sub}, "
+                                                "skipping."
+                                            )
+                                            continue
+                                    if subitem.is_dir():
+                                        shutil.copytree(
+                                            subitem, dest_sub, dirs_exist_ok=True
+                                        )
+                                    else:
+                                        shutil.copy2(subitem, dest_sub)
+                            else:
+                                shutil.copytree(item, dest)
                         else:
-                            if not dest.exists():
-                                shutil.copy2(item, dest)
+                            if dest.exists():
+                                if dest.is_dir():
+                                    print(
+                                        f"Conflict: {dest} is a directory,"
+                                        " expected a file. Skipping."
+                                    )
+                                    continue
+                            shutil.copy2(item, dest)
+
                     shutil.rmtree(sub)
                 else:
                     print(f"No base subject found for {sub}, skipping.")
@@ -1455,12 +1477,17 @@ def process_videos(
 
 def main() -> None:
     """Main entry point for multi-task BIDS video processing."""
-    if len(sys.argv) != 3:
-        print("Usage: python updated_bids.py <task_id> <num_tasks>")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="Run updated_bids with task and total number of tasks."
+    )
+    parser.add_argument("task_id", type=int, help="ID of the current task")
+    parser.add_argument("num_tasks", type=int, help="Total number of tasks")
 
-    my_task_id = int(sys.argv[1])
-    num_tasks = int(sys.argv[2])
+    args = parser.parse_args()
+    my_task_id = args.task_id
+    num_tasks = args.num_tasks
+
+    print(f"Running task {my_task_id}/{num_tasks}")
 
     start_time = time.time()
 
