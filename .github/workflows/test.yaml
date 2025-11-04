@@ -16,11 +16,11 @@ jobs:
         os: [ubuntu-latest] # For demonstration, other OSes are commented out: macos-latest, windows-latest
         python-version: ['3.11', '3.10']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:  # no need for the history
         fetch-depth: 1
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install pipx and ensure it's up to date
@@ -33,7 +33,7 @@ jobs:
       shell: bash
     # Cache Poetry dependencies to speed up builds
     - name: Cache Poetry virtualenv
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pypoetry
         key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
@@ -55,7 +55,7 @@ jobs:
           --verbose
       shell: bash
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v4
+      uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
 
@@ -66,7 +66,7 @@ jobs:
         os: [ubuntu-latest] # For demonstration, other OSes are commented out: macos-latest, windows-latest
         python-version: ['3.11', '3.10']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:  # no need for the history
         fetch-depth: 1
     - uses: chartboost/ruff-action@v1
@@ -78,11 +78,11 @@ jobs:
         os: [ubuntu-latest] # For demonstration, other OSes are commented out: macos-latest, windows-latest
         python-version: ['3.11', '3.10']
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
       with:  # no need for the history
         fetch-depth: 1
     - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     - name: Install pipx and ensure it's up to date
@@ -95,7 +95,7 @@ jobs:
       shell: bash
     # Cache Poetry dependencies to speed up builds
     - name: Cache Poetry virtualenv
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pypoetry
         key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
