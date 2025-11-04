@@ -121,13 +121,13 @@ class TestBIDSNaming:
 
     def test_get_session_from_path_12_16_months(self, bvp_module: ModuleType) -> None:
         """Test session determination for 12-16 month videos."""
-        path = "/data/videos/12-16 month/participant_video.mp4"
+        path = "12-16 month"
         session = bvp_module.determine_session_from_folder(path)
         assert session == "01"
 
     def test_get_session_from_path_34_38_months(self, bvp_module: ModuleType) -> None:
         """Test session determination for 34-38 month videos."""
-        path = "/data/videos/34-38 month/participant_video.mp4"
+        path = "34-38 month"
         session = bvp_module.determine_session_from_folder(path)
         assert session == "02"
 
