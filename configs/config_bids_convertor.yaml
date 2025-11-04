@@ -2,7 +2,7 @@
 
 # Input data
 annotation_file: /orcd/data/satra/002/datasets/SAILS/data4analysis/Video Rating Data/SAILS_RATINGS_ALL_DEDUPLICATED_NotForFinalAnalyses_2025.10.csv
-video_root: /orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external_standardized
+video_root: /orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external
 asd_status: /orcd/data/satra/002/datasets/SAILS/data4analysis/ASD_Status.xlsx
 
 # Output data
