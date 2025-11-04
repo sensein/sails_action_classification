@@ -316,11 +316,19 @@ class TestMainWorkflow:
             ],
             [{"error": None}],
         )
-        # Mock sys.argv to simulate CLI arguments
-        with patch.object(sys, "argv", ["BIDS_convertor.py", "0", "4"]):
-            with patch("sys.exit") as mock_exit:
-                bvp_module.main()
-                mock_exit.assert_not_called()
+        with (
+            patch("sailsprep.BIDS_convertor.os.path.exists", return_value=True),
+            patch(
+                "sailsprep.BIDS_convertor.pd.read_csv",
+                return_value=pd.DataFrame(
+                    {"Context": ["playing", "unknown"], "ID": ["AZE", "RET"]}
+                ),
+            ),
+            patch.object(sys, "argv", ["BIDS_convertor.py", "0", "4"]),
+            patch("sys.exit") as mock_exit,
+        ):
+            bvp_module.main()
+            mock_exit.assert_not_called()
 
         # Verify all steps were called
         mock_create_structure.assert_called_once()

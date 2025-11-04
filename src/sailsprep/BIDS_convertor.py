@@ -1497,6 +1497,7 @@ def main() -> None:
         if not os.path.exists(path):
             print(f"ERROR: {label} not found at {path}")
             sys.exit(1)
+            return
 
     # --- Load metadata ---
     try:
@@ -1506,6 +1507,7 @@ def main() -> None:
     except Exception as e:
         safe_print(f"ERROR: Failed to load Excel file: {e}")
         sys.exit(1)
+        return
 
     # --- Discover videos ---
     safe_print("Discovering videos...")
