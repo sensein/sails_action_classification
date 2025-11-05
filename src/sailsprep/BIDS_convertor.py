@@ -32,7 +32,7 @@ import yaml
 
 
 def load_configuration(config_path: str = "config.yaml") -> Dict[str, Any]:
-    """Load configuration from YAML file.
+    """Load and validate configuration from YAML file.
 
     Args:
         config_path (str): Path to the configuration YAML file.
@@ -43,9 +43,23 @@ def load_configuration(config_path: str = "config.yaml") -> Dict[str, Any]:
     Raises:
         FileNotFoundError: If the configuration file is not found.
         yaml.YAMLError: If the YAML file is malformed.
+        KeyError: If required keys are missing in the configuration.
     """
     with open(config_path, "r") as f:
         config = yaml.safe_load(f)
+
+    required_keys = [
+        "annotation_file",
+        "video_root",
+        "output_dir",
+        "target_resolution",
+        "target_framerate",
+        "asd_status",
+    ]
+
+    missing_keys = [key for key in required_keys if key not in config]
+    if missing_keys:
+        raise KeyError(f"Missing configuration keys: {', '.join(missing_keys)}")
     return config
 
 
@@ -61,6 +75,7 @@ OUTPUT_DIR = config["output_dir"]
 TARGET_RESOLUTION = config["target_resolution"]
 TARGET_FRAMERATE = config["target_framerate"]
 ASD_STATUS_FILE = config["asd_status"]
+
 # BIDS directory structure
 FINAL_BIDS_ROOT = os.path.join(
     OUTPUT_DIR, config.get("final_bids_root", "final_bids-dataset")
@@ -343,9 +358,12 @@ def find_session_id(
         session_id = determine_session_from_folder(folder_name)
 
         if not session_id and excel:
-            session_id = determine_session_from_excel(
-                current_path, annotation_df, participant_id
-            )
+            try:
+                session_id = determine_session_from_excel(
+                    current_path, annotation_df, participant_id
+                )
+            except ValueError as e:
+                print(f"Excel lookup failed for {participant_id}: {e}")
 
         if session_id:
             return session_id
@@ -617,6 +635,8 @@ def stabilize_video(input_path: str, stabilized_path: str, temp_dir: str) -> Non
     """Stabilize video using FFmpeg vidstab filters, with error checks."""
     os.makedirs(temp_dir, exist_ok=True)
     transforms_file = os.path.join(temp_dir, "transforms.trf")
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"Video to stabilize not found: {input_path}")
 
     # Step 1: Detect transforms
     detect_cmd = [
@@ -945,40 +965,75 @@ def process_single_video(
     final_derivatives_dir: str,
     temp_dir: str,
 ) -> Tuple[Optional[Dict[str, Any]], Optional[Dict[str, Any]]]:
-    """Process a single video with all BIDS structures."""
-    participant_id = video_info["participant_id"]
-    filename = video_info["filename"]
-    session_id = video_info["session_id"]
-    input_video_path = video_info["full_path"]
-    safe_print(f"Processing: {participant_id}/{filename}")
-    filename_without_extension = os.path.splitext(filename)[0]
-    # Check if video exists in Excel or create dummy data
-
+    """Process a single video with all BIDS structures robustly."""
     try:
-        # Check if video exists in Excel or create dummy data
-        participant_excel = annotation_df[
-            annotation_df["ID"].astype(str) == str(participant_id)
-        ]
-        mask = (
-            participant_excel["FileName"].str.split(".").str[0]
-            == filename_without_extension
-        )
-        video_excel = participant_excel[mask]
-        if video_excel.empty:
-            # Create dummy data for missing Excel entries
-            dummy_data = create_dummy_excel_data(
-                input_video_path, participant_id, session_id
+        # --- Validate input --------------------------------------------------
+        if not video_info or not isinstance(video_info, dict):
+            raise ValueError("video_info is empty or invalid")
+
+        required_keys = ["participant_id", "filename", "session_id", "full_path"]
+        missing = [k for k in required_keys if k not in video_info]
+        if missing:
+            raise ValueError(f"Missing required video_info keys: {missing}")
+
+        participant_id = video_info["participant_id"]
+        filename = video_info["filename"]
+        session_id = video_info["session_id"]
+        input_video_path = video_info["full_path"]
+
+        safe_print(f"Processing: {participant_id}/{filename}")
+        filename_without_extension = os.path.splitext(filename)[0]
+
+        # --- Handle empty or invalid annotation_df ---------------------------
+        if annotation_df is None or annotation_df.empty:
+            safe_print("Annotation DataFrame is empty - using dummy data")
+            video_excel = pd.DataFrame(
+                [create_dummy_excel_data(input_video_path, participant_id, session_id)]
             )
-            video_excel = pd.DataFrame([dummy_data])
             has_excel_data = False
-            safe_print("No Excel data found - using dummy data")
         else:
-            has_excel_data = True
+            # Ensure expected columns exist
+            expected_cols = {"ID", "FileName"}
+            if not expected_cols.issubset(annotation_df.columns):
+                safe_print(
+                    "Annotation DataFrame missing required columns - using dummy data"
+                )
+                video_excel = pd.DataFrame(
+                    [
+                        create_dummy_excel_data(
+                            input_video_path, participant_id, session_id
+                        )
+                    ]
+                )
+                has_excel_data = False
+            else:
+                # Normal Excel lookup
+                participant_excel = annotation_df[
+                    annotation_df["ID"].astype(str) == str(participant_id)
+                ]
+                mask = (
+                    participant_excel["FileName"].str.split(".").str[0]
+                    == filename_without_extension
+                )
+                video_excel = participant_excel[mask]
+                if video_excel.empty:
+                    safe_print("No Excel data found - using dummy data")
+                    video_excel = pd.DataFrame(
+                        [
+                            create_dummy_excel_data(
+                                input_video_path, participant_id, session_id
+                            )
+                        ]
+                    )
+                    has_excel_data = False
+                else:
+                    has_excel_data = True
 
         excel_row = video_excel.iloc[0]
         task_label = get_task_from_excel_row(excel_row)
         activity = excel_row.get("Activity", "unknown activity")
-        # Create task information
+
+        # --- Build task info -------------------------------------------------
         task_info = {
             "task_name": task_label,
             "task_description": f"Behavioral session: {activity}",
@@ -987,18 +1042,17 @@ def process_single_video(
             "activity": str(excel_row.get("Activity", "n/a")),
         }
 
-        # Create BIDS directory structure
+        # --- Directory setup -------------------------------------------------
         raw_subj_dir = os.path.join(
             final_bids_root, f"sub-{participant_id}", f"ses-{session_id}", "beh"
         )
         deriv_subj_dir = os.path.join(
             final_derivatives_dir, f"sub-{participant_id}", f"ses-{session_id}", "beh"
         )
-
         os.makedirs(raw_subj_dir, exist_ok=True)
         os.makedirs(deriv_subj_dir, exist_ok=True)
 
-        # Create BIDS filenames with run number
+        # --- File naming -----------------------------------------------------
         ext = os.path.splitext(filename)[1]
         run_number = get_next_run_number(
             participant_id, session_id, task_label, final_bids_root
@@ -1022,15 +1076,15 @@ def process_single_video(
             participant_id, session_id, task_label, "events", "tsv", run_number
         )
 
-        # File paths
+        # --- Paths -----------------------------------------------------------
         raw_video_path = os.path.join(raw_subj_dir, raw_video_name)
         processed_video_path = os.path.join(deriv_subj_dir, processed_video_name)
         audio_path = os.path.join(deriv_subj_dir, audio_name)
         events_path = os.path.join(raw_subj_dir, events_name)
 
+        # --- Raw video preparation ------------------------------------------
         if not os.path.exists(raw_video_path):
             if ext.lower() != ".mp4":
-                # Convert to mp4 without processing
                 cmd = [
                     "ffmpeg",
                     "-y",
@@ -1043,93 +1097,69 @@ def process_single_video(
                 result = subprocess.run(
                     cmd, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE, text=True
                 )
-                # Check return code and verify output file
-                if result.returncode != 0:
+                if result.returncode != 0 or not os.path.exists(raw_video_path):
                     raise ValueError(f"FFmpeg conversion failed: {result.stderr}")
-                if not os.path.exists(raw_video_path):
-                    raise ValueError(
-                        f"FFmpeg did not create output file: {raw_video_path}"
-                    )
                 safe_print("  Converted to raw BIDS format")
             else:
                 shutil.copy2(input_video_path, raw_video_path)
-                # FIX: Verify copy succeeded
                 if not os.path.exists(raw_video_path):
                     raise ValueError(f"Failed to copy to raw BIDS: {raw_video_path}")
                 safe_print("  Copied to raw BIDS")
 
-        # Extract metadata from raw video
+        # --- Metadata extraction --------------------------------------------
         exif_data = extract_exif(raw_video_path)
-        if "error" in exif_data or "ffprobe_error" in exif_data:
+        if (
+            not isinstance(exif_data, dict)
+            or "error" in exif_data
+            or "ffprobe_error" in exif_data
+        ):
             raise ValueError("Unreadable or unsupported video format")
 
-        # Process video for derivatives
+        # --- Video processing -----------------------------------------------
         if not os.path.exists(processed_video_path):
             safe_print("  Starting video processing...")
             preprocess_video(raw_video_path, processed_video_path, temp_dir)
-            # Verify processing succeeded
-            if not os.path.exists(processed_video_path):
-                raise ValueError(
-                    f"Video processing failed - no output file: {processed_video_path}"
-                )
-            if os.path.getsize(processed_video_path) == 0:
-                raise ValueError(
-                    "Video processing failed- empty output file:"
-                    f" {processed_video_path}"
-                )
+            if (
+                not os.path.exists(processed_video_path)
+                or os.path.getsize(processed_video_path) == 0
+            ):
+                raise ValueError("Video processing failed - no valid output")
             safe_print("  Video processing complete")
 
+        # --- Audio extraction -----------------------------------------------
         if not os.path.exists(audio_path):
             safe_print("  Extracting audio...")
             extract_audio(processed_video_path, audio_path)
-            # Verify audio extraction succeeded
-            if not os.path.exists(audio_path):
-                raise ValueError(
-                    f"Audio extraction failed - no output file: {audio_path}"
-                )
-            if os.path.getsize(audio_path) == 0:
-                raise ValueError(
-                    f"Audio extraction failed - empty output file: {audio_path}"
-                )
+            if not os.path.exists(audio_path) or os.path.getsize(audio_path) == 0:
+                raise ValueError("Audio extraction failed - no valid output")
             safe_print("  Audio extraction complete")
 
-        # Create events files
+        # --- Events file ----------------------------------------------------
         create_events_file(video_excel, events_path, input_video_path)
         if not os.path.exists(events_path):
             raise ValueError(f"Failed to create events file: {events_path}")
 
-        # Create metadata JSON files
+        # --- Metadata JSONs -------------------------------------------------
         processing_info = {
             "has_stabilization": True,
             "has_denoising": True,
             "has_equalization": True,
         }
 
-        # Raw video JSON
         raw_video_json_path = raw_video_path.replace(".mp4", ".json")
-        create_raw_video_json(
-            excel_row,
-            task_info,
-            raw_video_path,
-            raw_video_json_path,
-        )
+        create_raw_video_json(excel_row, task_info, raw_video_path, raw_video_json_path)
         if not os.path.exists(raw_video_json_path):
             raise ValueError(f"Failed to create raw video JSON: {raw_video_json_path}")
 
-        # Processed video JSON
         processed_video_json_path = processed_video_path.replace(".mp4", ".json")
         create_video_metadata_json(
-            exif_data,
-            processing_info,
-            task_info,
-            processed_video_json_path,
+            exif_data, processing_info, task_info, processed_video_json_path
         )
         if not os.path.exists(processed_video_json_path):
             raise ValueError(
                 f"Failed to create processed video JSON: {processed_video_json_path}"
             )
 
-        # Audio JSON
         audio_json_path = audio_path.replace(".wav", ".json")
         create_audio_metadata_json(
             exif_data.get("duration_sec", 0), task_info, audio_json_path
@@ -1137,7 +1167,7 @@ def process_single_video(
         if not os.path.exists(audio_json_path):
             raise ValueError(f"Failed to create audio JSON: {audio_json_path}")
 
-        # Store processing information
+        # --- Success return -------------------------------------------------
         entry = {
             "participant_id": participant_id,
             "session_id": session_id,
@@ -1148,7 +1178,7 @@ def process_single_video(
             "audio_file_bids": audio_path,
             "events_file_bids": events_path,
             "filename": filename,
-            "age_folder": video_info["age_folder"],
+            "age_folder": video_info.get("age_folder", "n/a"),
             "duration_sec": exif_data.get("duration_sec", 0),
             "has_excel_data": has_excel_data,
             "excel_metadata": excel_row.to_dict(),
@@ -1160,8 +1190,11 @@ def process_single_video(
         return entry, None
 
     except Exception as e:
-        safe_print(f"  ERROR processing {input_video_path}: {str(e)}")
-        return None, {"video": input_video_path, "error": str(e)}
+        safe_print(
+            f"  ERROR processing {video_info.get('full_path', 'unknown file')}:"
+            f" {str(e)}"
+        )
+        return None, {"video": video_info.get("full_path", "unknown"), "error": str(e)}
 
 
 def create_dataset_description() -> None:
@@ -1263,12 +1296,17 @@ Videos without behavioral coding data use "unknown" task label.
         raise ValueError(f"Failed to create README at {filepath}: {e}")
 
 
-def create_participants_file() -> None:
+def create_participants_file(
+    final_bids_root: str = FINAL_BIDS_ROOT, asd_status_file: str = ASD_STATUS_FILE
+) -> None:
     """Create participants.tsv and participants.json files."""
-    asd_status = pd.read_excel(ASD_STATUS_FILE)
+    if not os.path.exists(asd_status_file):
+        raise FileNotFoundError(f"ASD status file not found: {asd_status_file}")
+
+    asd_status = pd.read_excel(asd_status_file)
     ids_processed_participants = []
-    for name in os.listdir(FINAL_BIDS_ROOT):
-        full_path = os.path.join(FINAL_BIDS_ROOT, name)
+    for name in os.listdir(final_bids_root):
+        full_path = os.path.join(final_bids_root, name)
         if os.path.isdir(full_path) and name.startswith("sub-"):
             ids_processed_participants.append(name.split("sub-")[1])
     participants_data = []
@@ -1283,7 +1321,7 @@ def create_participants_file() -> None:
 
     participants_df = pd.DataFrame(participants_data)
     participants_df.to_csv(
-        os.path.join(FINAL_BIDS_ROOT, "participants.tsv"),
+        os.path.join(final_bids_root, "participants.tsv"),
         sep="\t",
         index=False,
         na_rep="n/a",
@@ -1294,7 +1332,7 @@ def create_participants_file() -> None:
         "Group": {"Description": "ASD status"},
     }
 
-    save_json(participants_json, os.path.join(FINAL_BIDS_ROOT, "participants.json"))
+    save_json(participants_json, os.path.join(final_bids_root, "participants.json"))
 
 
 def print_summary(all_processed: List[Dict], all_failed: List[Dict]) -> None:
@@ -1358,11 +1396,11 @@ def print_summary(all_processed: List[Dict], all_failed: List[Dict]) -> None:
             print(f"  {error}: {count} videos")
 
 
-def merge_subjects() -> None:
+def merge_subjects(final_bids_root: str = FINAL_BIDS_ROOT) -> None:
     """Merge duplicated subject folders safely."""
     paths_to_check = [
-        Path(FINAL_BIDS_ROOT),
-        Path(FINAL_BIDS_ROOT) / "derivatives" / "preprocessed",
+        Path(final_bids_root),
+        Path(final_bids_root) / "derivatives" / "preprocessed",
     ]
 
     for folder in paths_to_check:
