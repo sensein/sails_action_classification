@@ -10,6 +10,7 @@ Welcome to the ```sailsprep``` repo! This is a Python repo for doing incredible 
 
 **Caution:**: this package is still under development and may change rapidly over the next few weeks.
 
+This will convert the raw video into BIDS format in a clean fashion.
 ## Features
 - A few
 - Cool
@@ -17,18 +18,39 @@ Welcome to the ```sailsprep``` repo! This is a Python repo for doing incredible 
 - These may include a wonderful CLI interface.
 
 ## Installation
+To manage dependencies, this project uses Poetry. Make sure you've got poetry installed.
+On Engaging, you need to first run at the root of the repo :
+```
+module load miniforge
+pip install poetry
+poetry install
+```
+
+The BIDS-conversion tool of sailsprep requires FFmpeg ≥ 6.0 compiled with the vidstab library.
+Because FFmpeg compiled with vidstab is not a Python package, it must be installed separately.
+You'll need to run (outside any environment):
+
+```
+cd ~
+wget https://johnvansickle.com/ffmpeg/releases/ffmpeg-release-amd64-static.tar.xz
+tar -xJf ffmpeg-release-amd64-static.tar.xz
+mv ffmpeg-*-static ffmpeg_static
+export PATH="$HOME/ffmpeg_static:$PATH"
+
+```
+
 Get the newest development version via:
 
 ```sh
 pip install git+https://github.com/sensein/sailsprep.git
 ```
-
 ## Quick start
-```Python
-from sailsprep.app import hello_world
 
-hello_world()
-```
+Tools developped in sailsprep
+|Tool|Documentation|
+|----|--------------|
+|BIDS-conversion| [link to documentation](docs/BIDS_convertor.md)
+
 
 ## Contributing
 We welcome contributions from the community! Before getting started, please review our [**CONTRIBUTING.md**](https://github.com/sensein/sailsprep/blob/main/CONTRIBUTING.md).
