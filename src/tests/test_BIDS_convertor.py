@@ -165,7 +165,7 @@ class TestInfoExtractorforBIDS:
         result = bvp_module.get_task_from_excel_row(row)
         assert result == "Playtime"  # cleaned via make_bids_task_label
 
-    def get_task_from_excel_row(self, row: pd.Series) -> None:
+    def get_task_from_excel_row(self, row: pd.Series, bvp_module: ModuleType) -> None:
         """Test get task from excel row with unknown context."""
         context = str(row.get("Context", "Other ")).strip()
         result = bvp_module.make_bids_task_label(context)
