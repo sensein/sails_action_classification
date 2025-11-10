@@ -1012,7 +1012,7 @@ def process_single_video(
                     annotation_df["ID"].astype(str) == str(participant_id)
                 ]
                 mask = (
-                    participant_excel["FileName"].str.split(".").str[0]
+                    participant_excel["FileName"].str.rsplit(".", n=1).str[0]
                     == filename_without_extension
                 )
                 video_excel = participant_excel[mask]
