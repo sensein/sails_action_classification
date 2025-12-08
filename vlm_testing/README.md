@@ -49,8 +49,6 @@ Example:
 bash run.sh timezero-7b /orcd/scratch/Automatic_Labeling/test.csv
 ```
 
-Warning: This may cause data leakage as prompts and evaluation use same data.
-
 ### Compare models
 
 ```bash
@@ -66,7 +64,6 @@ The framework reports both weighted and macro metrics to handle class imbalance:
 - Macro F1: Unweighted average F1 across classes
 - BLEU: Activity description similarity
 
-Use weighted metrics for model comparison when classes are imbalanced.
 
 ## Configuration
 
