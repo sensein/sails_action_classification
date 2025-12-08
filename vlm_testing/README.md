@@ -11,18 +11,19 @@ Five models are supported:
 - `timezero-7b`: TimeZero ActivityNet 7B (trained on ActivityNet dataset)
 - `smolvlm2-500m`: SmolVLM2 500M
 - `videollama2-7b`: VideoLLaMA2 7B
-
+## ToDo
+Add all Prompt versions, and models
 ## Installation
 
 ```bash
 bash setup.sh
 ```
 
-Creates conda environment `vlm_stable` with all dependencies.
+Creates conda environment `vlm_stable` with all dependencies. (need to fix the llama model issue)
 
 ## Usage
 
-### With train/test split (recommended)
+### With train/test split 
 
 ```bash
 bash run.sh MODEL TEST_CSV TRAIN_CSV OUTPUT_DIR
@@ -36,9 +37,8 @@ bash run.sh timezero-7b /orcd/scratch/Automatic_Labeling/test.csv /orcd/scratch/
 This:
 - Uses all 2652 samples from train.csv for prompt examples
 - Evaluates on all 663 samples from test.csv
-- Prevents data leakage
 
-### Without train data (uses test for prompts)
+### Test model
 
 ```bash
 bash run.sh MODEL TEST_CSV
