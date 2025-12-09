@@ -1,6 +1,4 @@
-"""
-prompts
-"""
+""" prompts for VLMs """
 
 
 # QWEN2-VL-7B: Structured, direct, numbered format
@@ -31,7 +29,7 @@ Select the category number (1-8) that best matches:
 Category number:"""
 
 
-# TIMEZERO-7B: Clear, direct question-answer format (Qwen-based)
+# TIMEZERO-7B: Clear, direct question-answer format 
 
 TIMEZERO_ACTIVITY_PROMPT = """What is happening in this video? 
 
@@ -59,7 +57,7 @@ Classify into exactly ONE category by responding with only its number (1-8):
 Number:"""
 
 
-# SMOLVLM2-500M: Simple, concise format (smaller model needs clarity)
+# SMOLVLM2-500M: Simple, concise format 
 
 SMOLVLM_ACTIVITY_PROMPT = """Describe what the child is doing in this video.
 
@@ -124,8 +122,8 @@ Focus on these details:
 - Where is this happening? (kitchen, playground, living room, outdoors, party)
 
 Be SPECIFIC and DESCRIPTIVE - capture what's actually happening:
-✓ Good examples: "climbing on playground equipment", "eating birthday cake with family", "adult reading picture book to child", "playing with toy blocks on floor"
-✗ Bad examples: "playing" (too vague), "motor play" (category not description), "having fun" (not specific)
+Good examples: "climbing on playground equipment", "eating birthday cake with family", "adult reading picture book to child", "playing with toy blocks on floor"
+Bad examples: "playing" (too vague), "motor play" (category not description), "having fun" (not specific)
 
 Look for visual cues:
 - Birthday cakes, candles, presents → celebration actions
