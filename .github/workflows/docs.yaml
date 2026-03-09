@@ -27,7 +27,7 @@ jobs:
     - uses: actions/checkout@v5
       with: # no need for the history
         fetch-depth: 0
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
     # Cache Poetry dependencies to speed up builds
@@ -53,7 +53,7 @@ jobs:
       id: set-deploy-output
       run: echo "::set-output name=deploy::true"
       shell: bash
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v5
       with:
         name: documentation
         path: docs
@@ -73,7 +73,7 @@ jobs:
           deploy: true   # Only deploy from this configuration
     steps:
     - uses: actions/checkout@v5
-    - uses: actions/download-artifact@v5
+    - uses: actions/download-artifact@v6
       with:
         name: documentation
         path: docs

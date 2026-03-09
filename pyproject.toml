@@ -36,25 +36,29 @@ version = "0.0.0"
 
 [tool.poetry.dependencies]
 click = "~=8.2"
+pandas = "^2.3.3"
+opencv-python = "^4.12.0.88"
+openpyxl = "^3.1.5"
+types-pyyaml = "^6.0.12.20250915"
 
 [tool.poetry.group.dev]
 optional = true
 
 [tool.poetry.group.dev.dependencies]
 pytest-xdist = {version = "~=3.8.0", extras = ["psutil"]}
-mypy = "~=1.17"
+mypy = "~=1.18"
 pre-commit = "~=4.3"
-pytest-cov = "~=6.1"
-ruff = "~=0.12"
-pandas = "^2.3.2"
-types-pyyaml = "^6.0.12.20250822"
-types-python-dateutil = "^2.9.0.20250822"
+pytest-cov = "~=7.0"
+ruff = "~=0.14"
+pandas = "^2.3.3"
+types-pyyaml = "^6.0.12.20250915"
+types-python-dateutil = "^2.9.0.20251008"
 
 [tool.poetry.group.docs]
 optional = true
 
 [tool.poetry.group.docs.dependencies]
-pdoc = "~=15.0"
+pdoc = "~=16.0"
 
 [tool.pytest.ini_options]
 pythonpath = [
