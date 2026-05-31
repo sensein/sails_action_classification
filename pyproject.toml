@@ -46,13 +46,13 @@ optional = true
 
 [tool.poetry.group.dev.dependencies]
 pytest-xdist = {version = "~=3.8.0", extras = ["psutil"]}
-mypy = "~=1.18"
-pre-commit = "~=4.3"
-pytest-cov = "~=7.0"
-ruff = "~=0.14"
+mypy = "~=2.1"
+pre-commit = "~=4.6"
+pytest-cov = "~=7.1"
+ruff = "~=0.15"
 pandas = "^2.3.3"
 types-pyyaml = "^6.0.12.20250915"
-types-python-dateutil = "^2.9.0.20251008"
+types-python-dateutil = "^2.9.0.20260518"
 
 [tool.poetry.group.docs]
 optional = true
