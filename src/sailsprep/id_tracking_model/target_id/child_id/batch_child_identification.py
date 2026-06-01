@@ -25,7 +25,7 @@ import subprocess
 # Add current directory to path for imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
-from single_child_identification import (
+from sailsprep.id_tracking_model.target_id.child_id.single_child_identification import (
     Track, AnnotationInfo, ChildIdentificationConfig,
     identify_single_child, ChildResult
 )
