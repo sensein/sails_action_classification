@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAM3 Bbox Editor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #111827; color: #e5e7eb; }
+
+        .notif {
+            position: fixed; top: 16px; right: 16px; padding: 10px 20px;
+            border-radius: 6px; font-weight: 600; z-index: 9999; color: #fff;
+            animation: slideIn 0.3s ease-out;
+        }
+        .notif.success { background: #10b981; }
+        .notif.error { background: #ef4444; }
+        .notif.info { background: #3b82f6; }
+        .notif.warning { background: #f59e0b; color: #111; }
+        @keyframes slideIn { from { transform: translateX(300px); opacity:0; } to { transform: translateX(0); opacity:1; } }
+
+        /* Header bar */
+        #header {
+            background: #1f2937; padding: 10px 20px; border-bottom: 1px solid #374151;
+            display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+        }
+        #header .title { font-size: 16px; font-weight: 700; color: #60a5fa; }
+        #header .info { font-size: 13px; font-family: monospace; color: #9ca3af; }
+        #header .status-badge {
+            padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 700;
+        }
+        .status-badge.saved { background: #065f46; color: #6ee7b7; }
+        .status-badge.unprocessed { background: #78350f; color: #fcd34d; }
+
+        /* Nav buttons row */
+        #nav {
+            background: #1f2937; padding: 8px 20px; border-bottom: 1px solid #374151;
+            display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 7px 16px; border-radius: 6px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: none; color: #fff; transition: background 0.15s;
+        }
+        .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .btn-blue { background: #3b82f6; } .btn-blue:hover:not(:disabled) { background: #2563eb; }
+        .btn-green { background: #10b981; } .btn-green:hover:not(:disabled) { background: #059669; }
+        .btn-red { background: #ef4444; } .btn-red:hover:not(:disabled) { background: #dc2626; }
+        .btn-gray { background: #4b5563; } .btn-gray:hover:not(:disabled) { background: #6b7280; }
+        .btn-purple { background: #8b5cf6; } .btn-purple:hover:not(:disabled) { background: #7c3aed; }
+        .btn-sm { padding: 4px 10px; font-size: 12px; }
+
+        .spacer { flex: 1; }
+
+        /* Main layout */
+        #main { display: flex; flex-direction: column; height: calc(100vh - 90px); }
+
+        /* Video area */
+        #video-area { padding: 12px 20px; display: flex; gap: 16px; flex: 1; min-height: 0; }
+        #video-left { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        video { width: 100%; max-height: 55vh; background: #000; border-radius: 6px; }
+
+        /* Playback row */
+        #playback { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+        #slider { flex: 1; -webkit-appearance: none; height: 5px; background: #374151; border-radius: 3px; outline: none; }
+        #slider::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px; background: #3b82f6; border-radius: 50%; cursor: pointer; }
+        #frameLabel { font-size: 12px; font-family: monospace; min-width: 130px; text-align: right; }
+        .speed-btn {
+            padding: 3px 7px; font-size: 11px; border-radius: 3px; cursor: pointer;
+            border: 1px solid #4b5563; background: transparent; color: #9ca3af;
+        }
+        .speed-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+        /* Right panel — ID controls */
+        #id-panel {
+            width: 300px; min-width: 300px; background: #1f2937; border-radius: 8px;
+            padding: 12px; border: 1px solid #374151; overflow-y: auto;
+        }
+        #id-panel h3 { font-size: 13px; font-weight: 700; color: #60a5fa; margin-bottom: 8px; }
+        #id-panel .hint { font-size: 11px; color: #6b7280; margin-bottom: 10px; }
+
+        .id-card {
+            display: flex; align-items: center; gap: 8px; padding: 8px 12px;
+            border-radius: 6px; margin-bottom: 6px; cursor: pointer;
+            border: 2px solid transparent; transition: all 0.15s; font-size: 13px;
+        }
+        .id-card .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+        .id-card .id-label { font-weight: 700; }
+        .id-card .id-info { font-size: 11px; color: #9ca3af; }
+        .id-card.keep { border-color: #10b981; background: rgba(16,185,129,0.1); }
+        .id-card.remove { border-color: #ef4444; background: rgba(239,68,68,0.1); opacity: 0.5; }
+        .id-card.remove .id-label { text-decoration: line-through; }
+
+        .quick-row { display: flex; gap: 6px; margin-top: 8px; }
+        .quick-row input {
+            flex: 1; background: #111827; border: 1px solid #4b5563; color: #e5e7eb;
+            padding: 5px 8px; border-radius: 4px; font-size: 12px;
+        }
+
+        /* Timeline row */
+        #timeline-area { padding: 0 20px 8px; }
+        #timeline-area h4 { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+        #timeline {
+            position: relative; height: 40px; background: #1f2937;
+            border: 1px solid #374151; border-radius: 4px; overflow: hidden;
+        }
+        .tl-row { position: absolute; left: 0; right: 0; }
+        .tl-block { position: absolute; height: 100%; min-width: 1px; border-radius: 1px; }
+        #playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; z-index: 10; pointer-events: none; }
+        #tl-legend { display: flex; gap: 12px; margin-top: 4px; font-size: 11px; }
+
+        /* Frame info */
+        #frame-info {
+            padding: 4px 20px 10px; font-size: 12px; font-family: monospace; color: #9ca3af;
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<div id="header">
+    <span class="title">SAM3 Bbox Editor</span>
+    <span class="info" id="hdr-counter">— / —</span>
+    <span class="status-badge unprocessed" id="hdr-status">—</span>
+    <span class="info" id="hdr-name" style="flex:1; text-align:center;">No video loaded</span>
+    <span class="info" id="hdr-ids"></span>
+</div>
+
+<!-- Nav -->
+<div id="nav">
+    <button class="btn btn-gray" id="prevBtn">◀ Prev</button>
+    <button class="btn btn-gray" id="nextBtn">Next ▶</button>
+    <button class="btn btn-purple" id="skipBtn">⏭ Skip to Unprocessed</button>
+    <button class="btn btn-blue" id="loadBtn">📂 Load</button>
+    <button class="btn btn-blue" id="playBtn" disabled>▶ Play</button>
+    <div style="display:flex;gap:2px;">
+        <button class="speed-btn" data-speed="0.25">0.25x</button>
+        <button class="speed-btn" data-speed="0.5">0.5x</button>
+        <button class="speed-btn active" data-speed="1">1x</button>
+        <button class="speed-btn" data-speed="1.5">1.5x</button>
+        <button class="speed-btn" data-speed="2">2x</button>
+    </div>
+    <span class="spacer"></span>
+    <button class="btn btn-green" id="saveBtn" disabled>💾 Save & Next</button>
+</div>
+
+<!-- Main -->
+<div id="main">
+    <div id="video-area">
+        <!-- Left: video + slider -->
+        <div id="video-left">
+            <video id="videoPlayer" preload="auto"></video>
+            <div id="playback">
+                <input type="range" id="slider" min="0" max="0" value="0" step="1">
+                <span id="frameLabel">Frame: 0 / 0</span>
+            </div>
+        </div>
+
+        <!-- Right: ID panel -->
+        <div id="id-panel">
+            <h3>Object IDs</h3>
+            <p class="hint">Click to toggle keep ✓ / remove ✗</p>
+            <div id="id-cards"></div>
+
+            <div style="margin-top:12px; border-top:1px solid #374151; padding-top:10px;">
+                <div class="hint">Keep IDs (comma-separated):</div>
+                <div class="quick-row">
+                    <input type="text" id="keepInput" placeholder="e.g. 1,3">
+                    <button class="btn btn-green btn-sm" id="applyKeepBtn">Set</button>
+                </div>
+                <div class="hint" style="margin-top:8px;">Remove IDs:</div>
+                <div class="quick-row">
+                    <input type="text" id="removeInput" placeholder="e.g. 2,5">
+                    <button class="btn btn-red btn-sm" id="applyRemoveBtn">Set</button>
+                </div>
+            </div>
+
+            <div style="margin-top:12px; border-top:1px solid #374151; padding-top:10px;">
+                <div class="hint">child_id (for H5):</div>
+                <div class="quick-row"><input type="text" id="childIdInput" placeholder="auto from folder name"></div>
+                <div class="hint" style="margin-top:4px;">timepoint_label:</div>
+                <div class="quick-row"><input type="text" id="timepointInput" placeholder="optional"></div>
+            </div>
+
+            <div id="id-stats" style="margin-top:12px; border-top:1px solid #374151; padding-top:10px; font-size:11px; color:#6b7280;"></div>
+        </div>
+    </div>
+
+    <!-- Timeline -->
+    <div id="timeline-area">
+        <h4>Detection Timeline</h4>
+        <div id="timeline"><div id="playhead" style="left:0"></div></div>
+        <div id="tl-legend"></div>
+    </div>
+
+    <!-- Frame info -->
+    <div id="frame-info" id="frame-info">—</div>
+</div>
+
+<script>
+// ── Colors (match SAM3 multi-color overlay) ──
+const COLORS = ['#00ff00','#ff4444','#00ffff','#ff00ff','#ffa500','#0080ff','#8000ff','#ffff00'];
+
+// ── State ──
+let videos = [];
+let idx = 0;
+let loaded = false;
+let totalFrames = 0;
+let frame = 0;
+let fps = 15;
+let playing = false;
+let speed = 1;
+let detData = null;
+let idStates = {};
+
+// ── DOM ──
+const vid = document.getElementById('videoPlayer');
+const slider = document.getElementById('slider');
+const frameLbl = document.getElementById('frameLabel');
+
+// ── Notify ──
+function notify(msg, type='info', dur=2000) {
+    const el = document.createElement('div');
+    el.className = `notif ${type}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.animation='slideIn 0.3s reverse'; setTimeout(()=>el.remove(),300); }, dur);
+}
+
+// ── Init ──
+async function init() {
+    const res = await fetch('/api/videos');
+    const data = await res.json();
+    videos = data.videos;
+    updateHeader();
+    setupEvents();
+
+    // Auto-skip to first unprocessed
+    const ur = await fetch('/api/first_unprocessed');
+    const ud = await ur.json();
+    if (ud.found) { idx = ud.index; updateHeader(); }
+}
+
+function updateHeader() {
+    if (!videos.length) {
+        document.getElementById('hdr-counter').textContent = '0 / 0';
+        return;
+    }
+    const v = videos[idx];
+    document.getElementById('hdr-counter').textContent = `${idx + 1} / ${videos.length}`;
+    document.getElementById('hdr-name').textContent = v.name;
+
+    const badge = document.getElementById('hdr-status');
+    badge.textContent = v.status === 'saved' ? '✓ Saved' : '○ Unprocessed';
+    badge.className = `status-badge ${v.status}`;
+
+    document.getElementById('hdr-ids').textContent = v.unique_ids.length > 0
+        ? `IDs: [${v.unique_ids.join(', ')}]` : '';
+}
+
+function setupEvents() {
+    document.getElementById('prevBtn').onclick = () => { if (idx > 0) { idx--; updateHeader(); resetUI(); } };
+    document.getElementById('nextBtn').onclick = () => { if (idx < videos.length-1) { idx++; updateHeader(); resetUI(); } };
+    document.getElementById('skipBtn').onclick = skipUnprocessed;
+    document.getElementById('loadBtn').onclick = loadVideo;
+    document.getElementById('playBtn').onclick = togglePlay;
+    document.getElementById('saveBtn').onclick = saveAndNext;
+    document.getElementById('applyKeepBtn').onclick = applyKeep;
+    document.getElementById('applyRemoveBtn').onclick = applyRemove;
+
+    slider.oninput = () => {
+        if (!loaded) return;
+        frame = parseInt(slider.value);
+        vid.currentTime = frame / fps;
+        updateFrame();
+    };
+    vid.ontimeupdate = () => {
+        if (!loaded) return;
+        frame = Math.floor(vid.currentTime * fps);
+        slider.value = frame;
+        updateFrame();
+        if (frame >= totalFrames - 1 && playing) stopPlay();
+    };
+
+    document.querySelectorAll('.speed-btn').forEach(b => {
+        b.onclick = () => {
+            speed = parseFloat(b.dataset.speed);
+            vid.playbackRate = speed;
+            document.querySelectorAll('.speed-btn').forEach(x => x.classList.toggle('active', x===b));
+        };
+    });
+
+    document.addEventListener('keydown', e => {
+        if (e.target.tagName === 'INPUT') return;
+        if (e.key === ' ') { e.preventDefault(); togglePlay(); }
+        if (e.key === 'ArrowLeft') { e.preventDefault(); seekF(e.shiftKey ? -10 : -1); }
+        if (e.key === 'ArrowRight') { e.preventDefault(); seekF(e.shiftKey ? 10 : 1); }
+    });
+}
+
+function resetUI() {
+    if (playing) stopPlay();
+    loaded = false;
+    detData = null;
+    idStates = {};
+    vid.removeAttribute('src');
+    vid.load();
+    slider.max = 0; slider.value = 0;
+    frameLbl.textContent = 'Frame: 0 / 0';
+    document.getElementById('id-cards').innerHTML = '';
+    document.getElementById('id-stats').innerHTML = '';
+    document.getElementById('timeline').querySelectorAll('.tl-row').forEach(e=>e.remove());
+    document.getElementById('tl-legend').innerHTML = '';
+    document.getElementById('frame-info').textContent = '—';
+    document.getElementById('playBtn').disabled = true;
+    document.getElementById('saveBtn').disabled = true;
+}
+
+function seekF(n) {
+    if (!loaded) return;
+    frame = Math.max(0, Math.min(totalFrames-1, frame+n));
+    slider.value = frame;
+    vid.currentTime = frame / fps;
+    updateFrame();
+}
+
+function togglePlay() {
+    if (!loaded) return;
+    if (playing) stopPlay();
+    else { vid.playbackRate = speed; vid.play(); playing = true;
+        document.getElementById('playBtn').textContent = '⏸ Pause';
+    }
+}
+function stopPlay() {
+    vid.pause(); playing = false;
+    document.getElementById('playBtn').textContent = '▶ Play';
+}
+
+async function skipUnprocessed() {
+    const r = await fetch('/api/first_unprocessed');
+    const d = await r.json();
+    if (d.found) { idx = d.index; updateHeader(); resetUI(); notify('Jumped to unprocessed', 'info', 1000); }
+    else notify('All done!', 'success');
+}
+
+// ── Load ──
+async function loadVideo() {
+    if (!videos.length) return;
+    const v = videos[idx];
+    if (!v.has_video) { notify('No masked_video.mp4', 'error'); return; }
+
+    resetUI();
+    document.getElementById('loadBtn').textContent = 'Loading...';
+    document.getElementById('loadBtn').disabled = true;
+
+    try {
+        // Detections
+        const dr = await fetch(`/api/detections/${v.name}`);
+        detData = await dr.json();
+
+        idStates = {};
+        detData.unique_ids.forEach(id => { idStates[id] = 'keep'; });
+        renderIdCards();
+        renderIdStats();
+
+        // Video
+        await new Promise((res, rej) => {
+            vid.src = `/api/video_file/${v.name}`;
+            vid.onloadedmetadata = () => {
+                totalFrames = Math.floor(vid.duration * fps);
+                slider.max = totalFrames - 1;
+                slider.value = 0; frame = 0;
+                loaded = true;
+                res();
+            };
+            vid.onerror = () => rej(new Error('Video load failed'));
+            setTimeout(() => rej(new Error('Timeout')), 60000);
+        });
+
+        renderTimeline();
+        updateFrame();
+        document.getElementById('playBtn').disabled = false;
+        document.getElementById('saveBtn').disabled = false;
+        document.getElementById('childIdInput').value = v.name;
+        notify('Loaded', 'success', 800);
+    } catch(e) {
+        notify('Error: ' + e.message, 'error');
+    } finally {
+        document.getElementById('loadBtn').textContent = '📂 Load';
+        document.getElementById('loadBtn').disabled = false;
+    }
+}
+
+// ── ID Cards ──
+function renderIdCards() {
+    const c = document.getElementById('id-cards');
+    c.innerHTML = '';
+    if (!detData) return;
+
+    detData.unique_ids.forEach((id, i) => {
+        const st = idStates[id] || 'keep';
+        const color = COLORS[i % COLORS.length];
+        const stats = detData.per_id_stats[id] || {};
+
+        const card = document.createElement('div');
+        card.className = `id-card ${st}`;
+        card.innerHTML = `
+            <div class="dot" style="background:${color}"></div>
+            <span class="id-label">${st === 'keep' ? '✓' : '✗'} ID ${id}</span>
+            <span class="id-info">${stats.frame_count || 0} frames | score ${stats.avg_score || 0}</span>
+        `;
+        card.onclick = () => {
+            idStates[id] = idStates[id] === 'keep' ? 'remove' : 'keep';
+            renderIdCards();
+            renderTimeline();
+            syncInputs();
+        };
+        c.appendChild(card);
+    });
+}
+
+function renderIdStats() {
+    const el = document.getElementById('id-stats');
+    if (!detData) { el.innerHTML = ''; return; }
+    let h = '';
+    for (const [id, s] of Object.entries(detData.per_id_stats)) {
+        h += `<div>ID ${id}: frames ${s.first_frame}–${s.last_frame} (${s.frame_count} det, avg ${s.avg_score})</div>`;
+    }
+    el.innerHTML = h;
+}
+
+function syncInputs() {
+    const keep = [], rem = [];
+    for (const [id, s] of Object.entries(idStates)) {
+        if (s === 'keep') keep.push(id); else rem.push(id);
+    }
+    document.getElementById('keepInput').value = keep.join(',');
+    document.getElementById('removeInput').value = rem.join(',');
+}
+
+function applyKeep() {
+    const v = document.getElementById('keepInput').value.trim();
+    if (!v || !detData) return;
+    const set = new Set(v.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)));
+    detData.unique_ids.forEach(id => { idStates[id] = set.has(id) ? 'keep' : 'remove'; });
+    renderIdCards(); renderTimeline(); syncInputs();
+}
+
+function applyRemove() {
+    const v = document.getElementById('removeInput').value.trim();
+    if (!v || !detData) return;
+    const set = new Set(v.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n)));
+    detData.unique_ids.forEach(id => { idStates[id] = set.has(id) ? 'remove' : 'keep'; });
+    renderIdCards(); renderTimeline(); syncInputs();
+}
+
+// ── Timeline ──
+function renderTimeline() {
+    const tl = document.getElementById('timeline');
+    tl.querySelectorAll('.tl-row').forEach(e => e.remove());
+    const legend = document.getElementById('tl-legend');
+    legend.innerHTML = '';
+    if (!detData || !totalFrames) return;
+
+    const ids = detData.unique_ids;
+    const rowH = Math.max(4, Math.min(10, Math.floor(36 / Math.max(ids.length, 1))));
+
+    ids.forEach((id, i) => {
+        const st = idStates[id] || 'keep';
+        const color = st === 'keep' ? COLORS[i % COLORS.length] : '#4b5563';
+        const op = st === 'keep' ? 1 : 0.25;
+
+        const row = document.createElement('div');
+        row.className = 'tl-row';
+        row.style.top = `${i * rowH + 2}px`;
+        row.style.height = `${rowH - 1}px`;
+
+        // Collect frames for this ID
+        const frames = [];
+        for (const [fStr, dets] of Object.entries(detData.per_frame)) {
+            if (dets.some(d => d.obj_id === id)) frames.push(parseInt(fStr));
+        }
+        frames.sort((a,b) => a-b);
+
+        // Group contiguous
+        if (frames.length > 0) {
+            let bs = frames[0], prev = frames[0];
+            for (let j = 1; j <= frames.length; j++) {
+                if (j === frames.length || frames[j] - prev > 2) {
+                    const left = (bs / totalFrames) * 100;
+                    const width = ((prev - bs + 1) / totalFrames) * 100;
+                    const blk = document.createElement('div');
+                    blk.className = 'tl-block';
+                    blk.style.left = `${left}%`;
+                    blk.style.width = `${Math.max(width, 0.15)}%`;
+                    blk.style.background = color;
+                    blk.style.opacity = op;
+                    row.appendChild(blk);
+                    if (j < frames.length) bs = frames[j];
+                }
+                if (j < frames.length) prev = frames[j];
+            }
+        }
+        tl.appendChild(row);
+
+        // Legend
+        const leg = document.createElement('span');
+        leg.style.opacity = op;
+        leg.innerHTML = `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};"></span> ID ${id}`;
+        legend.appendChild(leg);
+    });
+}
+
+// ── Frame display ──
+function updateFrame() {
+    frameLbl.textContent = `Frame: ${frame} / ${totalFrames - 1}`;
+
+    if (totalFrames > 0) {
+        document.getElementById('playhead').style.left = `${(frame / totalFrames) * 100}%`;
+    }
+
+    const el = document.getElementById('frame-info');
+    if (!detData || !detData.per_frame) { el.textContent = '—'; return; }
+
+    const fd = detData.per_frame[frame];
+    if (!fd || fd.length === 0) {
+        el.textContent = `Frame ${frame}: No detections`;
+        return;
+    }
+
+    el.innerHTML = `Frame ${frame}: ` + fd.map(d => {
+        const st = idStates[d.obj_id] || 'keep';
+        const c = st === 'keep' ? '#10b981' : '#ef4444';
+        const icon = st === 'keep' ? '✓' : '✗';
+        return `<span style="color:${c}">${icon} ID:${d.obj_id}</span> [${d.x1},${d.y1},${d.x2},${d.y2}] s=${d.score}`;
+    }).join(' &nbsp;|&nbsp; ');
+}
+
+// ── Save & Next ──
+async function saveAndNext() {
+    if (!detData || idx < 0) return;
+
+    const keepIds = [], removeIds = [];
+    for (const [id, s] of Object.entries(idStates)) {
+        if (s === 'keep') keepIds.push(parseInt(id)); else removeIds.push(parseInt(id));
+    }
+    if (keepIds.length === 0) { notify('Mark at least one ID to keep!', 'error'); return; }
+
+    const saveBtn = document.getElementById('saveBtn');
+    saveBtn.textContent = 'Saving...'; saveBtn.disabled = true;
+
+    try {
+        const r = await fetch('/api/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                video_name: videos[idx].name,
+                keep_ids: keepIds,
+                remove_ids: removeIds,
+                remap_to: 1,
+                child_id: document.getElementById('childIdInput').value || videos[idx].name,
+                timepoint_label: document.getElementById('timepointInput').value || '',
+            }),
+        });
+        const d = await r.json();
+        if (d.success) {
+            videos[idx].status = 'saved';
+            notify(`Saved! ${d.kept_frames} frames kept, ${d.removed_frames} removed`, 'success', 2000);
+
+            // Auto-advance to next
+            if (idx < videos.length - 1) {
+                idx++;
+                updateHeader();
+                resetUI();
+                // Auto-load next
+                setTimeout(() => loadVideo(), 300);
+            } else {
+                updateHeader();
+                notify('Last video — all done!', 'success', 3000);
+            }
+        } else {
+            notify('Save failed', 'error');
+        }
+    } catch(e) {
+        notify('Error: ' + e.message, 'error');
+    } finally {
+        saveBtn.textContent = '💾 Save & Next';
+        saveBtn.disabled = false;
+    }
+}
+
+// ── Start ──
+init();
+</script>
+</body>
+</html>

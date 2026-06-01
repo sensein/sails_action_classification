@@ -1,0 +1,1251 @@
+H5 RENAME LOG — LIVE
+
+--- RENAMED ---
+RENAMED: A1H3H9Y3T1_02.14.2022__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_03.02.2022__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-02_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_03.19.22__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_03.20.22__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_04.04.2020 1m30s_720p__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_04.04.2020_720p__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_04.09.2022__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_04.12.2022__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_04.18.2022__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-02_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_06.02.2020_720p__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-01_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_06.23.2022_720p__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_06.24.2020_720p__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-01_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_07.23.2020__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_07.29.2020__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-01_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_08.18.2020_720p__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A1H3H9Y3T1_08.19.2020__COI_bboxes.h5
+  -> sub-A1H3H9Y3T1_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2L1R9Y7C8_06.12.2017__COI_bboxes.h5
+  -> sub-A2L1R9Y7C8_ses-02_task-unknown_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2L1R9Y7C8_07.10.2015__COI_bboxes.h5
+  -> sub-A2L1R9Y7C8_ses-01_task-unknown_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2L1R9Y7C8_08.13.2015__COI_bboxes.h5
+  -> sub-A2L1R9Y7C8_ses-01_task-unknown_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A2L1R9Y7C8_08.20.2015__COI_bboxes.h5
+  -> sub-A2L1R9Y7C8_ses-01_task-unknown_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2L1R9Y7C8_08.25.2015__COI_bboxes.h5
+  -> sub-A2L1R9Y7C8_ses-01_task-unknown_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A2L1R9Y7C8_09.27.2017__COI_bboxes.h5
+  -> sub-A2L1R9Y7C8_ses-02_task-unknown_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2L1R9Y7C8_09.30.2017__COI_bboxes.h5
+  -> sub-A2L1R9Y7C8_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_02.28.21_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_03.01.2021_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_06.04.2021_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_1.21.21_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-unknown_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_1.8.2021_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_11.16.19_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_11.16.2019_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-generalsocialcommunicationinteraction_run-08_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_2.27.21_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_4.19.19__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-generalsocialcommunicationinteraction_run-09_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_4.27.19__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-dailyroutine_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_4.27.2021__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-specialoccasion_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_4.7.2021 part 1__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_4.7.2021 part 2__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_5.2.19_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_5.4.19 2nd clip_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_5.4.19_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_6.5.19_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_7.10.19 Logan lightgray onesie white socks_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_7.10.19_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_7.8.19_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_8.21.19_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-dailyroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_8.6.2020_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_9.21.19_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_9.5.19 2nd clip_720p__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-01_task-dailyroutine_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A2M5H0V6E3_Part 2 6.4.2021 1min54secs__COI_bboxes.h5
+  -> sub-A2M5H0V6E3_ses-02_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20191221_171130__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-specialoccasion_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20191221_173602__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20191226_172943__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-specialoccasion_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200105_123324__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-motorplay_run-09_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200109_190006__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200125_200027__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-motorplay_run-06_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200128_133617__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-motorplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200209_192832__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200313_112647__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-motorplay_run-11_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200316_145224__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200319_140312__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-dailyroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200321_160505__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200404_190151__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200408_185744__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-motorplay_run-07_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200429_113737__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-unknown_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200510_181344__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200516_090447__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20200520_174953__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-motorplay_run-10_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20211109_105644 (1)__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-02_task-motorplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20211110_133658 (1)__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-02_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20211110_192259 (1)__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20220214_203120__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20220221_133246__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-02_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20220312_184016__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-02_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20220327_192743__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-02_task-motorplay_run-06_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20220328_132101__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-02_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20220402_203014__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_20220404_124326__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_FB_20200113_211524_720p__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A2P7X9N8L7_FB_20200327_151902_720p__COI_bboxes.h5
+  -> sub-A2P7X9N8L7_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0457__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0458__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0603__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-01_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0642__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-01_task-motorplay_run-06_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0669__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-02_task-motorplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0671__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0677__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-02_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0735__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-01_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0761__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-01_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0824__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-02_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0841__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0842__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_0914_720p__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_1063__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_1161__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-02_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_1163__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_4855__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-01_task-specialoccasion_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A3G3T7I1A5_IMG_5114_720p__COI_bboxes.h5
+  -> sub-A3G3T7I1A5_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_4-21-2023 AM_720p__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_4-26-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-other_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_4-27-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-bookshare_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_5-11-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_5-12-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_5-17-2023_720p__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_5-20-2023 bike__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_5-20-2023 splash__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_5-26-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_6-19-2023_720p__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_6-30-2021 through 7-29-2021__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-01_task-other_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_6-7-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_7-11-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-socialroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_7-19-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_7-22-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_7-30-2021 through 8-29-2021__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_7-31-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_8-1-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_8-11-2023__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-02_task-generalsocialcommunicationinteraction_run-08_desc-processed_COI_bboxes.h5
+RENAMED: A4E8K1L5Y2_8-30-2021 through 10-29-2021__COI_bboxes.h5
+  -> sub-A4E8K1L5Y2_ses-01_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A5S7G5T0S5_60929091230__C423E78F-1D9A-433B-95A7-98EB39BFCA5D__COI_bboxes.h5
+  -> sub-A5S7G5T0S5_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A5S7G5T0S5_IMG_0507__COI_bboxes.h5
+  -> sub-A5S7G5T0S5_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5S7G5T0S5_IMG_0602__COI_bboxes.h5
+  -> sub-A5S7G5T0S5_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A5S7G5T0S5_IMG_0762__COI_bboxes.h5
+  -> sub-A5S7G5T0S5_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A5S7G5T0S5_IMG_2968__COI_bboxes.h5
+  -> sub-A5S7G5T0S5_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A5S7G5T0S5_IMG_3053__COI_bboxes.h5
+  -> sub-A5S7G5T0S5_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5S7G5T0S5_IMG_3056__COI_bboxes.h5
+  -> sub-A5S7G5T0S5_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5S7G5T0S5_IMG_3086__COI_bboxes.h5
+  -> sub-A5S7G5T0S5_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_0192349E-67AF-4615-8748-919C13AD6D772018-08-13_07-39-08_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_078A361D-9F42-4FD2-9A10-8169514646CA2018-07-18_08-45-02_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-02_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_0A26795D-50A4-4A58-A829-0843AFF0F2F22018-08-27_16-03-04_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-02_task-socialroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_0C6B152B-CA01-426E-A1C7-C96A1D7D36E82016-12-08_09-32-09_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_45F913D1-941E-4370-A2CC-408A0DCBDEE72017-02-14_08-40-36_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_47E2E6DF-AA5C-4B3F-82AE-49E45AF676B12017-01-12_09-43-40_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_5CE9D983-C64E-49E6-AC03-803F905058922018-07-25_19-20-20_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_6FBBCFA5-1032-4CA1-BB2F-97140F71FC622016-09-06_09-44-43_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_83CF9703-8FBB-4534-AA34-23A8313AB3D02018-08-02_07-44-22_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-02_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_893B1E1B-4EB1-408E-8C15-1572442E798B2016-12-31_08-16-53_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_B281F679-28C1-4A1D-A167-89E326B05F652016-12-30_14-03-36_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-01_task-specialoccasion_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_BF588189-D4D0-47C5-B1AE-4ADB109CE50D2016-12-30_14-02-52_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_EDFB47E9-17E0-4ABD-BAE1-39BE01FF364B2017-01-12_15-16-03_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_F1CAD1AE-DBF7-46A3-8192-98833C8DFECD2018-09-20_16-57-45_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-02_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A5X1S7S1E7_F41ED9BD-0EBE-4E0F-B426-C5825D9EF6112018-08-12_14-30-52_000__COI_bboxes.h5
+  -> sub-A5X1S7S1E7_ses-02_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_02-26-2017_720p__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_04-14-2017_720p__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-01_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_04-16-2017_720p__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_04-23-2017_720p__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_04-23-2019_720p__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-02_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_04-29-2017__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-01_task-other_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_05-01-2017_720p__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_05-02-2019__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_05-05-2019__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-02_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_07-30-2019__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_08-13-2019__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_08-18-2019__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_08-28-2019__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_09-18-2019__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-02_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_10-29-2017_720p__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-01_task-other_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_10-31-2017_720p__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A6S0V1J3G6_12-09-2019__COI_bboxes.h5
+  -> sub-A6S0V1J3G6_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_02-03-2019__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_02-11-2019__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_02-12-2019__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-dailyroutine_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_02-13-2019__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-other_run-06_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_02-22-2019__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-generalsocialcommunicationinteraction_run-10_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_02-27-2019__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-other_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_08-01-2020__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_08-03-2020 (1)__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_08-03-2020 (2)__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-specialoccasion_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_08-03-2020 (3)__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-specialoccasion_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_08-03-2020 (4)__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-specialoccasion_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_08-09-2020__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_08-2020__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_08-29-2020__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_09-29-2020__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_10-01-2018_720p__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-socialroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_10-05-2018_720p__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-other_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_10-17-2018_720p__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-dailyroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_10-29-2018__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_12-02-2018__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_12-08-2020__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_12-09-2018__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-toyplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_12-11-2018__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_12-22-2018__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_12-25-2020__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-02_task-specialoccasion_run-06_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_12-29-2018__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_12-5-2018__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-toyplay_run-06_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_4750__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-generalsocialcommunicationinteraction_run-08_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_4759__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_4782__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-generalsocialcommunicationinteraction_run-09_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_4791__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-dailyroutine_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5074__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-toyplay_run-07_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5087__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5099__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5126__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5131__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-bookshare_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5149__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-other_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5221__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-other_run-07_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5235__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5254__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5271__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: A6Y4Y7X2G1_IMG_5277__COI_bboxes.h5
+  -> sub-A6Y4Y7X2G1_ses-01_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Z2B3J2A9_VID_20170825_151556984_720p__COI_bboxes.h5
+  -> sub-A6Z2B3J2A9_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Z2B3J2A9_VID_20170907_101325269_720p__COI_bboxes.h5
+  -> sub-A6Z2B3J2A9_ses-01_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Z2B3J2A9_VID_20170928_073106333__COI_bboxes.h5
+  -> sub-A6Z2B3J2A9_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Z2B3J2A9_VID_20171001_165109278_720p__COI_bboxes.h5
+  -> sub-A6Z2B3J2A9_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Z2B3J2A9_VID_20171029_103727298__COI_bboxes.h5
+  -> sub-A6Z2B3J2A9_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Z2B3J2A9_VID_20190421_082755034__COI_bboxes.h5
+  -> sub-A6Z2B3J2A9_ses-02_task-specialoccasion_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Z2B3J2A9_VID_20190531_085610929_720p__COI_bboxes.h5
+  -> sub-A6Z2B3J2A9_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Z2B3J2A9_VID_20190613_185033638__COI_bboxes.h5
+  -> sub-A6Z2B3J2A9_ses-02_task-bookshare_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A6Z2B3J2A9_VID_20190613_185500265_720p__COI_bboxes.h5
+  -> sub-A6Z2B3J2A9_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A6Z2B3J2A9_VID_20190626_112527943_720p__COI_bboxes.h5
+  -> sub-A6Z2B3J2A9_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_02.01.2019__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-01_task-bookshare_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_02.06.2019__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-01_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_04.06.2021__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_04.12.2021__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-02_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_05.17.2019__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_05.20.2019__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_12.08.2020 v2__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_12.17.2020__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-02_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_12.8.2020__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_2.14.2019__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-01_task-specialoccasion_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_3.24.21__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_3.27.2021__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_4.30.21__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_5.1.2021__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-02_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_5.5.2019__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_6.16.2019__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_7.1.2019__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-01_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: A8P5O6Z7X6_7.14.2019__COI_bboxes.h5
+  -> sub-A8P5O6Z7X6_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_August 11 2020_720p__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_August 15 2022__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_August 18 2022__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_December 30 2020_720p__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_December 9 2020_720p__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_January 18 2021_720p__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_January 4 2021_720p__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_January 6 2021__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_July 2 2022_720p__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_July 4 2022__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-generalsocialcommunicationinteraction_run-08_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_June 12 2022__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_June 14 2022__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_June 23 2022__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_November 10 2020_720p__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_November 20 2020_720p__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_November 23 2020_720p__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_October 13 2020__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_October 23 2022 (2)__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_October 23 2022__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_September 10 2022__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_September 15 2020_720p__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1L0B3F6F1_September 29 2022__COI_bboxes.h5
+  -> sub-B1L0B3F6F1_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_03042020(2)__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_03042020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_03052020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-generalsocialcommunicationinteraction_run-13_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_03102020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-dailyroutine_run-07_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_03182020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_03272020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-motorplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_03282020(2)__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_03282020(3)__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-other_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_03282020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-generalsocialcommunicationinteraction_run-14_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_03302020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-generalsocialcommunicationinteraction_run-08_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_04042020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_04122020(2)__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_04122020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_04142020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-other_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_04222020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-motorplay_run-07_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_04302020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-dailyroutine_run-08_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_05042020(2)__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-dailyroutine_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_05042020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-dailyroutine_run-05_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_05082020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_05122020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_05162020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_05202020(2)__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-08_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_05202020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-dailyroutine_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_05212020(2)__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_05212020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-other_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_06022020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-dailyroutine_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_06052020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-12_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_06062020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-generalsocialcommunicationinteraction_run-10_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_06072020(2)__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-11_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_06072020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-07_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_06112020(2)__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_06112020(3)__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_06112020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-09_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_06172020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_06222020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_07122020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-10_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_07152020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-generalsocialcommunicationinteraction_run-09_desc-processed_COI_bboxes.h5
+RENAMED: B1S3L8Q7Y6_07162020__COI_bboxes.h5
+  -> sub-B1S3L8Q7Y6_ses-01_task-toyplay_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20161221_185425__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20161221_185716__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20170102_180545__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20170110_153744__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-01_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20170115_171425__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20170131_203614__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20170203_183623__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20170218_132944__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20170503_183256__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20180928_191656__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20180928_202003__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20181004_182844__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20181010_190152__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20181010_190241__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-02_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20181206_193722__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20181206_194105__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20181223_154658__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20181224_101617__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-02_task-specialoccasion_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B2R3Q8L2Y3_20190115_210722__COI_bboxes.h5
+  -> sub-B2R3Q8L2Y3_ses-02_task-bookshare_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_0480__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_0499__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-02_task-bookshare_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_0557__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-02_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_0671__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-02_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_0761_720p__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-02_task-bookshare_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_0847__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_0938__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_1165__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-02_task-generalsocialcommunicationinteraction_run-08_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_4823_HEVC__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_4861__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_4871__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_4879__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5048__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5086__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5165__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5168__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5225__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-bookshare_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5286__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-09_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5289__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5360__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-14_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5372__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-10_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5399__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5404__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5405__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-15_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5443__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5445__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-13_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5458__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5556__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-11_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5583__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-16_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5628__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-05_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5630__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5636__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5659__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-07_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5694__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-08_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5695__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B4Q3G8H2N3_IMG_5697__COI_bboxes.h5
+  -> sub-B4Q3G8H2N3 2_ses-01_task-unknown_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_0771__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-motorplay_run-10_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_2644__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-generalsocialcommunicationinteraction_run-08_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_2660__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-other_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_2946__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-other_run-09_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_2948__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-other_run-12_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_2949__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-other_run-11_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_3151__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_3279__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_3781__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_4227__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-generalsocialcommunicationinteraction_run-09_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_4228__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_4324__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_5057__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-01_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_5709__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_5917__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_6379__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-dailyroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_6990__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-motorplay_run-08_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_7423__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_8271__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-other_run-10_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_8713__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_9790__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-motorplay_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B8I6G9P2G8_IMG_9791__COI_bboxes.h5
+  -> sub-B8I6G9P2G8_ses-02_task-motorplay_run-09_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_0582__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_0587__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_0617__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-02_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_0709__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-02_task-dailyroutine_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_0712__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-02_task-dailyroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_0714__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-02_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_0742__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_0796__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-02_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_7649__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-dailyroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_7650_720p__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_7701__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_7872__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-toyplay_run-06_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_7877__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-toyplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_7879__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_8022__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_8045__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_8204__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_8205__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_8206__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_8381__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_8433__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: B9P5V1I5O5_IMG_8491__COI_bboxes.h5
+  -> sub-B9P5V1I5O5_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_2454__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_2455__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-generalsocialcommunicationinteraction_run-09_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_2457__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-generalsocialcommunicationinteraction_run-08_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_2459__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_2812__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_2912__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3105__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-13_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3147__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-08_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3210__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3273__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-07_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3309__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-12_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3315__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3324__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-socialroutine_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3326__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-socialroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3327__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-bookshare_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3335__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3347__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-14_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3384__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3387__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3417__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-socialroutine_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3423__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-10_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3441__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-generalsocialcommunicationinteraction_run-11_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3524__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3526__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-12_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3604__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3686__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3687__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-16_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3712__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3730__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3758__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3771__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3775__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3776__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-10_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3794__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-dailyroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3882__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-13_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3922__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-11_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_3955__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-09_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4113__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-generalsocialcommunicationinteraction_run-10_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4121__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4123__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4270__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-06_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4271__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-15_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4280__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4306__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4319__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-toyplay_run-14_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4337__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-02_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4360__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C0O6X3N5Y7_IMG_4396__COI_bboxes.h5
+  -> sub-C0O6X3N5Y7_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_2985__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-01_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_3240__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_3409__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_3428__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-01_task-toyplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_3433__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-01_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_3474__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-01_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_3560__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_7073__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_7178__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-toyplay_run-06_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_7513__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_7531__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_7562__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-specialoccasion_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_7585__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-toyplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_7593__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_7744__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_8116__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_8197__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1G1X2G4C6_IMG_8211__COI_bboxes.h5
+  -> sub-C1G1X2G4C6_ses-02_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_03-01-2017_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_03-12-2017_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-01_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_03-16-2019_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_03.3.17_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_05-13-2019_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-02_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_05-28-2019_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_05.14.19_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-02_task-dailyroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_06-07-2017_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_09-04-2017_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-01_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_09-17-2017_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_10-28-2017_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-01_task-other_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_11-17-2017__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_3.3.17_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_3.6.17_720p__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-01_task-other_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C1I8N8L4Q4_6.6.19__COI_bboxes.h5
+  -> sub-C1I8N8L4Q4_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C4C7T6W2I0_IMG_0506_720p__COI_bboxes.h5
+  -> sub-C4C7T6W2I0_ses-02_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_05-13-2021__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-02_task-other_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_05-17-2021__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_06-01-2021__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-02_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_06-12-2021__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_06-27-2021__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-02_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-11-2019.1_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-07_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-11-2019.2_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-other_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-11-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-06_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-12-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-other_run-05_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-16-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-10_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-24-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-09_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-26-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-28-2019.1_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-28-2019.2_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-28-2019.3_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-28-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_07-29-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_08-11-2019__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-11_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_08-13-2021__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_08-17-2019__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_08-25-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_08-26-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-bookshare_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-01-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-dailyroutine_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-12-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-14-2019.1__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-dailyroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-14-2019.2__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-motorplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-14-2019.3_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-14-2019__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-15-2019.1_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-other_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-15-2019.2_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-other_run-06_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-15-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-18-2021.1__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-18-2021__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-22-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-08_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-27-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-toyplay_run-12_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-28-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-bookshare_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-30-2019.1_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_09-30-2019_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_10-05-2019.1_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-dailyroutine_run-05_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_10-05-2019__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_10-14-2021__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_10-31-2019.1__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_10-31-2019.2_720p__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-generalsocialcommunicationinteraction_run-09_desc-processed_COI_bboxes.h5
+RENAMED: C5U1P3X9F0_10-31-2019__COI_bboxes.h5
+  -> sub-C5U1P3X9F0_ses-01_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: C5Z9H8S3N8_05.18.2017-2__COI_bboxes.h5
+  -> sub-C5Z9H8S3N8_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: C5Z9H8S3N8_05.18.2017__COI_bboxes.h5
+  -> sub-C5Z9H8S3N8_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C5Z9H8S3N8_05.23.2016_720p__COI_bboxes.h5
+  -> sub-C5Z9H8S3N8_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5Z9H8S3N8_07.20.2017__COI_bboxes.h5
+  -> sub-C5Z9H8S3N8_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5Z9H8S3N8_11.14.2017-2__COI_bboxes.h5
+  -> sub-C5Z9H8S3N8_ses-02_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: C5Z9H8S3N8_11.14.2017__COI_bboxes.h5
+  -> sub-C5Z9H8S3N8_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: C5Z9H8S3N8_11.25.2017__COI_bboxes.h5
+  -> sub-C5Z9H8S3N8_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: C5Z9H8S3N8_12.01.2016_720p__COI_bboxes.h5
+  -> sub-C5Z9H8S3N8_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: C5Z9H8S3N8_12.11.2015_720p__COI_bboxes.h5
+  -> sub-C5Z9H8S3N8_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: D7O9E3F9P9_IMG_1173__COI_bboxes.h5
+  -> sub-D7O9E3F9P9_ses-02_task-unknown_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D7O9E3F9P9_IMG_1210__COI_bboxes.h5
+  -> sub-D7O9E3F9P9_ses-02_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D7O9E3F9P9_IMG_1283__COI_bboxes.h5
+  -> sub-D7O9E3F9P9_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D7O9E3F9P9_IMG_1331__COI_bboxes.h5
+  -> sub-D7O9E3F9P9_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D7O9E3F9P9_IMG_1340__COI_bboxes.h5
+  -> sub-D7O9E3F9P9_ses-02_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D7O9E3F9P9_IMG_1369__COI_bboxes.h5
+  -> sub-D7O9E3F9P9_ses-02_task-unknown_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_01-06-23__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_02-07-23__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-02_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_02-16-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_02-20-23__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-02_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_02-21-23__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-02_task-motorplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_02-23-21 2__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_02-23-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_02-26-23__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-02_task-motorplay_run-05_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_03-10-23__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-02_task-motorplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_03-13-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_03-22-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_03-28-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_04-12-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_04-14-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_05-05-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_05-14-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-socialroutine_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_06-02-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_06-15-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_07-06-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_12-28-22__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8G5K7I0D6_2-20-21__COI_bboxes.h5
+  -> sub-D8G5K7I0D6_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_2020_720p__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_2020b_720p__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-01_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_2020c_720p__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-01_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_3 27 2022__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_3 30 22__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_4 14 22__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_4 3 22__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-toyplay_run-04_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_5 17 22__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_6 2 2020__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-01_task-specialoccasion_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_6 25 22__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_6 6 2020_720p__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_7 1 22__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_7 25 22__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_7 8 2020_720p__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_April 15 2022__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_April 5 2020__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_July 2020_720p__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_June 2 2022__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-specialoccasion_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_June 2020_720p__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-01_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_June 28 2020__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_June 5 2022__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_March 12 2022__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-toyplay_run-03_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_March 20 2022__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D8O8B2C4X2_May 14 2022__COI_bboxes.h5
+  -> sub-D8O8B2C4X2_ses-02_task-generalsocialcommunicationinteraction_run-08_desc-processed_COI_bboxes.h5
+RENAMED: D9N0U7M9X3_dax 11.18.15__COI_bboxes.h5
+  -> sub-D9N0U7M9X3_ses-01_task-specialoccasion_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D9N0U7M9X3_dax 12.25.15__COI_bboxes.h5
+  -> sub-D9N0U7M9X3_ses-01_task-specialoccasion_run-03_desc-processed_COI_bboxes.h5
+RENAMED: D9N0U7M9X3_dax 12.5.15__COI_bboxes.h5
+  -> sub-D9N0U7M9X3_ses-01_task-socialroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: D9N0U7M9X3_dax 12.7.17__COI_bboxes.h5
+  -> sub-D9N0U7M9X3_ses-02_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+RENAMED: D9N0U7M9X3_dax 9.2.17__COI_bboxes.h5
+  -> sub-D9N0U7M9X3_ses-02_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_VID_20200315_195028__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-generalsocialcommunicationinteraction_run-06_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_VID_20200315_195115__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-generalsocialcommunicationinteraction_run-07_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_VID_20200315_195140 (1)__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-generalsocialcommunicationinteraction_run-01_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_-129032025_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-other_run-05_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_-1386221613_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-other_run-02_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_-1482631617_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-toyplay_run-02_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_-1507514723_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-toyplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_-159544147 (1)_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-generalsocialcommunicationinteraction_run-05_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_-1630308049_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-generalsocialcommunicationinteraction_run-04_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_-2010302168_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-other_run-01_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_-689085498 (1)__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-generalsocialcommunicationinteraction_run-03_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_-91768338_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-dailyroutine_run-01_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_206978897416954__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-other_run-04_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_250828396008306_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-motorplay_run-01_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_304111835_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-other_run-03_desc-processed_COI_bboxes.h5
+RENAMED: E2P5Q8S5A7_received_601759698 (1)_720p__COI_bboxes.h5
+  -> sub-E2P5Q8S5A7_ses-01_task-generalsocialcommunicationinteraction_run-02_desc-processed_COI_bboxes.h5
+
+--- COLLISIONS ---
+
+--- NO MATCH ---
+NO_MATCH: A2M5H0V6E3_D7A737B6-8C2B-4EB4-A4C7-105E5BE1F34A_720p__COI_bboxes.h5
+  id=A2M5H0V6E3  stem=D7A737B6-8C2B-4EB4-A4C7-105E5BE1F34A
+NO_MATCH: A2M5H0V6E3_E6D852CF-6BB3-4126-ABAB-56636490DCFB_720p__COI_bboxes.h5
+  id=A2M5H0V6E3  stem=E6D852CF-6BB3-4126-ABAB-56636490DCFB
+NO_MATCH: A2P7X9N8L7_IMG_8222_720p__COI_bboxes.h5
+  id=A2P7X9N8L7  stem=IMG_8222
+NO_MATCH: A3G3T7I1A5_09969FD3-2637-4113-9C2B-DBB03A70C386_720p__COI_bboxes.h5
+  id=A3G3T7I1A5  stem=09969FD3-2637-4113-9C2B-DBB03A70C386
+NO_MATCH: A3G3T7I1A5_1579FD11-9E54-4B73-878D-F9174C8B0407_720p__COI_bboxes.h5
+  id=A3G3T7I1A5  stem=1579FD11-9E54-4B73-878D-F9174C8B0407
+NO_MATCH: A3G3T7I1A5_55FA8FC9-192C-4D9C-8243-B0AA02D0A8B8_720p__COI_bboxes.h5
+  id=A3G3T7I1A5  stem=55FA8FC9-192C-4D9C-8243-B0AA02D0A8B8
+NO_MATCH: A3G3T7I1A5_65CCE19E-B91F-4B09-91FF-D71360B3210E_720p__COI_bboxes.h5
+  id=A3G3T7I1A5  stem=65CCE19E-B91F-4B09-91FF-D71360B3210E
+NO_MATCH: A3G3T7I1A5_780AE9D7-6F3C-4F77-95DC-EDF78F51DBC0_720p__COI_bboxes.h5
+  id=A3G3T7I1A5  stem=780AE9D7-6F3C-4F77-95DC-EDF78F51DBC0
+NO_MATCH: A3G3T7I1A5_84EC6882-6FA5-4B02-8C63-432E4A178F8C_720p__COI_bboxes.h5
+  id=A3G3T7I1A5  stem=84EC6882-6FA5-4B02-8C63-432E4A178F8C
+NO_MATCH: A3G3T7I1A5_8C427CD2-0355-4BFA-8998-9F7E8B1E567B_720p__COI_bboxes.h5
+  id=A3G3T7I1A5  stem=8C427CD2-0355-4BFA-8998-9F7E8B1E567B
+NO_MATCH: A3G3T7I1A5_9EE9A7FD-5D82-4A71-BBD4-FFDCEC404446_720p__COI_bboxes.h5
+  id=A3G3T7I1A5  stem=9EE9A7FD-5D82-4A71-BBD4-FFDCEC404446
+NO_MATCH: A3G3T7I1A5_BA81FC0F-DE42-42BE-9F76-1E9CD53988CC_720p__COI_bboxes.h5
+  id=A3G3T7I1A5  stem=BA81FC0F-DE42-42BE-9F76-1E9CD53988CC
+NO_MATCH: A3G3T7I1A5_EASTSIDEAA~D06F204A-2100-4087-972D-32BEAE56AC07_720p__COI_bboxes.h5
+  id=A3G3T7I1A5  stem=EASTSIDEAA~D06F204A-2100-4087-972D-32BEAE56AC07
+NO_MATCH: B9P5V1I5O5_IMG_7766_720p__COI_bboxes.h5
+  id=B9P5V1I5O5  stem=IMG_7766
+NO_MATCH: C0O6X3N5Y7_IMG_0470__COI_bboxes.h5
+  id=C0O6X3N5Y7  stem=IMG_0470
+NO_MATCH: C0O6X3N5Y7_IMG_1969.TRIM+2_mp4_720p__COI_bboxes.h5
+  id=C0O6X3N5Y7  stem=IMG_1969.TRIM+2_mp4
+NO_MATCH: E2P5Q8S5A7_received_229559348171764_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_229559348171764
+NO_MATCH: E2P5Q8S5A7_received_2630364763893814_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_2630364763893814
+NO_MATCH: E2P5Q8S5A7_received_2743252205932275_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_2743252205932275
+NO_MATCH: E2P5Q8S5A7_received_277039857002689_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_277039857002689
+NO_MATCH: E2P5Q8S5A7_received_288823882408703_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_288823882408703
+NO_MATCH: E2P5Q8S5A7_received_298099064803923_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_298099064803923
+NO_MATCH: E2P5Q8S5A7_received_392823228789837_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_392823228789837
+NO_MATCH: E2P5Q8S5A7_received_581621919392390_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_581621919392390
+NO_MATCH: E2P5Q8S5A7_received_636328093625894_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_636328093625894
+NO_MATCH: E2P5Q8S5A7_received_643576446500921_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_643576446500921
+NO_MATCH: E2P5Q8S5A7_received_665434344184315_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_665434344184315
+NO_MATCH: E2P5Q8S5A7_received_680819599136684_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_680819599136684
+NO_MATCH: E2P5Q8S5A7_received_715391875908431_720p__COI_bboxes.h5
+  id=E2P5Q8S5A7  stem=received_715391875908431
+
+--- BAD PARSE ---

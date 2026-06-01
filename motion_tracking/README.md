@@ -1,1 +1,0 @@
-Run python modular_pipeline_gp.py to execute the code. Inside modular_pipeline_gp.py, update the paths for storing videos and specify the group for the input videos.

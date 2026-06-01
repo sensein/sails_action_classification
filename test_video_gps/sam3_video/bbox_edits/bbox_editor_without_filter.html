@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAM3 Bbox Editor</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f3f4f6; color: #1f2937; }
+
+        .notif {
+            position: fixed; top: 16px; right: 16px; padding: 10px 20px;
+            border-radius: 6px; font-weight: 600; z-index: 9999; color: #fff;
+            animation: slideIn 0.3s ease-out;
+        }
+        .notif.success { background: #10b981; }
+        .notif.error { background: #ef4444; }
+        .notif.info { background: #3b82f6; }
+        .notif.warning { background: #f59e0b; color: #111; }
+        @keyframes slideIn { from { transform: translateX(300px); opacity:0; } to { transform: translateX(0); opacity:1; } }
+
+        .container { display: flex; flex-direction: column; height: 100vh; padding: 12px; gap: 8px; }
+
+        #infoBar {
+            font-size: 13px; font-family: monospace; background: #fff;
+            padding: 8px 12px; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        #fpsInfo {
+            font-size: 11px; color: #6b7280; background: #f3f4f6;
+            padding: 2px 8px; border-radius: 4px; margin-left: 8px;
+        }
+
+        video { width: 100%; max-height: 50vh; background: #000; border-radius: 4px; }
+
+        #frameLabel { font-size: 13px; font-family: monospace; font-weight: 700; }
+        #slider {
+            width: 100%; -webkit-appearance: none; height: 6px;
+            background: #d1d5db; border-radius: 3px; outline: none;
+        }
+        #slider::-webkit-slider-thumb {
+            -webkit-appearance: none; width: 14px; height: 14px;
+            background: #3b82f6; border-radius: 50%; cursor: pointer;
+        }
+
+        .btn {
+            padding: 7px 16px; border-radius: 5px; font-size: 13px; font-weight: 600;
+            cursor: pointer; border: none; color: #fff;
+        }
+        .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+        .btn-blue { background: #3b82f6; }
+        .btn-blue:hover:not(:disabled) { background: #2563eb; }
+        .btn-green { background: #10b981; }
+        .btn-green:hover:not(:disabled) { background: #059669; }
+        .btn-purple { background: #8b5cf6; }
+        .btn-purple:hover:not(:disabled) { background: #7c3aed; }
+        .btn-red { background: #ef4444; }
+        .btn-red:hover:not(:disabled) { background: #dc2626; }
+        .btn-orange { background: #f97316; }
+        .btn-orange:hover:not(:disabled) { background: #ea580c; }
+
+        .speed-btn {
+            padding: 4px 8px; font-size: 11px; border-radius: 4px;
+            cursor: pointer; border: 1px solid #d1d5db; background: #fff; color: #374151;
+        }
+        .speed-btn.active { background: #3b82f6; color: #fff; border-color: #3b82f6; }
+
+        .controls { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        .id-section { background: #fff; border-radius: 6px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .id-section h4 { font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+
+        .id-card {
+            display: inline-flex; align-items: center; gap: 6px;
+            padding: 6px 14px; border-radius: 20px; margin: 3px;
+            cursor: pointer; font-size: 13px; font-weight: 600;
+            border: 2px solid transparent; transition: all 0.15s;
+        }
+        .id-card .dot { width: 10px; height: 10px; border-radius: 50%; }
+        .id-card.keep { background: #d1fae5; border-color: #10b981; color: #065f46; }
+        .id-card.remove { background: #fee2e2; border-color: #ef4444; color: #991b1b; text-decoration: line-through; opacity: 0.6; }
+        .id-card.selected { outline: 3px solid #3b82f6; outline-offset: 2px; }
+
+        .tl-section { background: #fff; border-radius: 6px; padding: 8px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .tl-hint { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
+        .tl-row-wrap {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 4px;
+        }
+        .tl-label {
+            width: 60px; text-align: right; font-size: 11px; font-weight: 700; color: #6b7280;
+            cursor: pointer;
+        }
+        .tl-label.selected { color: #3b82f6; text-decoration: underline; }
+        .tl-bar {
+            flex: 1; position: relative; height: 22px;
+            background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 3px; overflow: hidden;
+        }
+        .tl-bar.selectable { cursor: crosshair; }
+        .tl-block {
+            position: absolute; top: 0; bottom: 0; min-width: 1px; border-radius: 2px;
+            transition: opacity 0.15s;
+        }
+        .tl-block.kept-sub { cursor: pointer; }
+        .tl-block.kept-sub:hover { outline: 2px solid #1f2937; }
+        .tl-block.excluded-sub {
+            background: repeating-linear-gradient(
+                45deg, #d1d5db, #d1d5db 4px, #9ca3af 4px, #9ca3af 8px
+            ) !important;
+            opacity: 0.7 !important;
+            cursor: pointer;
+        }
+        .tl-block.excluded-sub:hover { outline: 2px solid #1f2937; }
+        .tl-breakpoint {
+            position: absolute; top: 0; bottom: 0; width: 2px;
+            background: #1f2937; z-index: 8; pointer-events: none;
+        }
+        .tl-playhead {
+            position: absolute; top: 0; bottom: 0; width: 2px;
+            background: red; z-index: 10; pointer-events: none;
+        }
+
+        #frameDets {
+            font-size: 12px; font-family: monospace; color: #6b7280;
+            background: #fff; padding: 6px 12px; border-radius: 6px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+
+    <div id="infoBar">Loading...</div>
+
+    <video id="videoPlayer" preload="auto"></video>
+
+    <div>
+        <div id="frameLabel">Frame: 0 / 0 <span id="fpsInfo"></span></div>
+        <input type="range" id="slider" min="0" max="0" value="0" step="1">
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-blue" id="prevBtn">◀ Prev</button>
+        <button class="btn btn-blue" id="nextBtn">Next ▶</button>
+        <button class="btn btn-purple" id="skipBtn">⏭ Next Multi-ID</button>
+        <button class="btn btn-blue" id="loadBtn">Load Video</button>
+        <button class="btn btn-green" id="playBtn" disabled>▶ Play</button>
+        <div style="display:flex;gap:2px;">
+            <button class="speed-btn" data-speed="0.25">0.25x</button>
+            <button class="speed-btn" data-speed="0.5">0.5x</button>
+            <button class="speed-btn active" data-speed="1">1x</button>
+            <button class="speed-btn" data-speed="1.5">1.5x</button>
+            <button class="speed-btn" data-speed="2">2x</button>
+        </div>
+        <button class="btn btn-orange" id="bpBtn" disabled>+ Breakpoint</button>
+        <button class="btn btn-orange" id="clearBpBtn" disabled>Clear BPs</button>
+        <button class="btn btn-green" id="saveBtn" disabled>💾 Save & Next</button>
+        <button class="btn btn-red" id="autoSaveBtn">⚡ Auto-Save All Single-ID</button>
+    </div>
+
+    <div class="id-section">
+        <h4>Detected IDs — click to toggle keep / remove (entire track)</h4>
+        <div id="idCards"></div>
+    </div>
+
+    <div class="tl-section" id="tlSection">
+        <div class="tl-hint">
+            Click an ID label on the left to <b>select</b> it · then use <b>+ Breakpoint</b> to split at current frame ·
+            then click any green sub-segment to <b>exclude</b> it (gray hatch) · click again to restore.
+            Output is saved at <b>15 fps</b> (downsampled from source video fps).
+        </div>
+        <div id="tlRows"></div>
+    </div>
+
+    <div id="frameDets">—</div>
+
+</div>
+
+<script>
+const COLORS = ['#22c55e','#3b82f6','#eab308','#ec4899','#f97316','#06b6d4','#8b5cf6','#14b8a6'];
+
+let videos = [], idx = 0, loaded = false, totalFrames = 0, frame = 0;
+// fps = source video fps (read from backend per video). Default 30 until detData arrives.
+let fps = 30, outputFps = 15, playing = false, speed = 1;
+let detData = null, idStates = {};
+
+let breakpointsById = {};
+let excludedById = {};
+let selectedIdForBp = null;
+
+let idFrameSets = {};
+
+const vid = document.getElementById('videoPlayer');
+const slider = document.getElementById('slider');
+const frameLbl = document.getElementById('frameLabel');
+const fpsInfoEl = document.getElementById('fpsInfo');
+
+function notify(msg, type='info', dur=2000) {
+    const el = document.createElement('div');
+    el.className = `notif ${type}`;
+    el.textContent = msg;
+    document.body.appendChild(el);
+    setTimeout(() => { el.style.animation='slideIn 0.3s reverse'; setTimeout(()=>el.remove(),300); }, dur);
+}
+
+async function init() {
+    const r = await fetch('/api/videos');
+    const d = await r.json();
+    videos = d.videos;
+
+    const sr = await fetch('/api/stats');
+    const stats = await sr.json();
+    document.getElementById('infoBar').innerHTML =
+        `Total: ${stats.total} | Saved: ${stats.saved} | <span style="color:#8b5cf6;font-weight:700">Need review (multi-ID): ${stats.multi_id_unsaved}</span> | Auto-saveable (single-ID): ${stats.single_id_unsaved}`;
+
+    setupEvents();
+
+    const u = await fetch('/api/first_unprocessed');
+    const ud = await u.json();
+    if (ud.found) { idx = ud.index; updateInfo(); }
+}
+
+function updateInfo() {
+    if (!videos.length) { document.getElementById('infoBar').textContent = 'No videos found'; return; }
+    const v = videos[idx];
+    const st = v.status === 'saved' ? '✓ Saved' : '⚠ Unprocessed';
+    const stColor = v.status === 'saved' ? 'green' : 'red';
+    document.getElementById('infoBar').innerHTML =
+        `${idx+1}/${videos.length} | <span style="color:${stColor};font-weight:700">${st}</span> | ${v.name}`;
+}
+
+function setupEvents() {
+    document.getElementById('prevBtn').onclick = () => { if(idx>0){idx--;updateInfo();resetUI();} };
+    document.getElementById('nextBtn').onclick = nextMultiId;
+    document.getElementById('skipBtn').onclick = skipUnprocessed;
+    document.getElementById('loadBtn').onclick = loadVideo;
+    document.getElementById('playBtn').onclick = togglePlay;
+    document.getElementById('saveBtn').onclick = saveAndNext;
+    document.getElementById('autoSaveBtn').onclick = autoSaveSingleIds;
+    document.getElementById('bpBtn').onclick = addBreakpointAtCurrentFrame;
+    document.getElementById('clearBpBtn').onclick = clearBreakpointsForSelected;
+
+    slider.oninput = () => { if(!loaded)return; frame=parseInt(slider.value); vid.currentTime=frame/fps; updateFrame(); };
+    vid.ontimeupdate = () => { if(!loaded)return; frame=Math.floor(vid.currentTime*fps); slider.value=frame; updateFrame(); if(frame>=totalFrames-1&&playing)stopPlay(); };
+
+    document.querySelectorAll('.speed-btn').forEach(b => {
+        b.onclick = () => { speed=parseFloat(b.dataset.speed); vid.playbackRate=speed; document.querySelectorAll('.speed-btn').forEach(x=>x.classList.toggle('active',x===b)); };
+    });
+
+    document.addEventListener('keydown', e => {
+        if(e.target.tagName==='INPUT') return;
+        if(e.key===' '){e.preventDefault();togglePlay();}
+        if(e.key==='ArrowLeft'){e.preventDefault();seekF(e.shiftKey?-10:-1);}
+        if(e.key==='ArrowRight'){e.preventDefault();seekF(e.shiftKey?10:1);}
+        if(e.key==='b'||e.key==='B'){e.preventDefault();addBreakpointAtCurrentFrame();}
+    });
+}
+
+function nextMultiId() {
+    for(let i=idx+1; i<videos.length; i++){
+        if(videos[i].status!=='saved' && videos[i].unique_ids.length>1){
+            idx=i; updateInfo(); resetUI(); return;
+        }
+    }
+    notify('No more multi-ID videos ahead','info');
+}
+
+async function autoSaveSingleIds() {
+    const btn=document.getElementById('autoSaveBtn');
+    btn.textContent='Working...'; btn.disabled=true;
+    try {
+        const r=await fetch('/api/auto_save_single_id',{method:'POST'});
+        const d=await r.json();
+        notify(`Auto-saved ${d.auto_saved} single-ID videos!`,'success',3000);
+        const vr=await fetch('/api/videos'); const vd=await vr.json(); videos=vd.videos;
+        updateInfo();
+        await skipUnprocessed();
+    } catch(e){ notify('Error: '+e.message,'error'); }
+    finally { btn.textContent='⚡ Auto-Save All Single-ID'; btn.disabled=false; }
+}
+
+function resetUI() {
+    if(playing) stopPlay();
+    loaded=false; detData=null; idStates={};
+    breakpointsById={}; excludedById={}; idFrameSets={}; selectedIdForBp=null;
+    vid.removeAttribute('src'); vid.load();
+    slider.max=0; slider.value=0;
+    frameLbl.innerHTML='Frame: 0 / 0 <span id="fpsInfo"></span>';
+    document.getElementById('idCards').innerHTML='';
+    document.getElementById('tlRows').innerHTML='';
+    document.getElementById('frameDets').textContent='—';
+    document.getElementById('playBtn').disabled=true;
+    document.getElementById('saveBtn').disabled=true;
+    document.getElementById('bpBtn').disabled=true;
+    document.getElementById('clearBpBtn').disabled=true;
+}
+
+function seekF(n) {
+    if(!loaded)return;
+    frame=Math.max(0,Math.min(totalFrames-1,frame+n));
+    slider.value=frame; vid.currentTime=frame/fps; updateFrame();
+}
+
+function togglePlay() {
+    if(!loaded)return;
+    if(playing) stopPlay();
+    else { vid.playbackRate=speed; vid.play(); playing=true; document.getElementById('playBtn').textContent='⏸ Pause'; }
+}
+function stopPlay() { vid.pause(); playing=false; document.getElementById('playBtn').textContent='▶ Play'; }
+
+async function skipUnprocessed() {
+    const r=await fetch('/api/first_unprocessed'); const d=await r.json();
+    if(d.found){idx=d.index;updateInfo();resetUI();notify('Jumped','info',800);}
+    else notify('All done!','success');
+}
+
+async function loadVideo() {
+    if(!videos.length)return;
+    const v=videos[idx];
+    if(!v.has_video){notify('No video file','error');return;}
+
+    resetUI();
+    document.getElementById('loadBtn').textContent='Loading...';
+    document.getElementById('loadBtn').disabled=true;
+
+    try {
+        const dr=await fetch(`/api/detections/${v.name}`);
+        detData=await dr.json();
+
+        // Use real source video fps from backend
+        if(detData.fps && detData.fps > 0) {
+            fps = detData.fps;
+        } else {
+            fps = 30;
+        }
+        if(detData.output_fps && detData.output_fps > 0) {
+            outputFps = detData.output_fps;
+        }
+        console.log(`Source fps=${fps}, output fps=${outputFps}`);
+
+        idStates={};
+        breakpointsById={};
+        excludedById={};
+        idFrameSets={};
+        detData.unique_ids.forEach(id=>{
+            idStates[id]='keep';
+            breakpointsById[id]=[];
+            excludedById[id]=new Set();
+            idFrameSets[id]=new Set();
+        });
+        for(const [fStr,dets] of Object.entries(detData.per_frame)){
+            const f=parseInt(fStr);
+            for(const d of dets){
+                if(idFrameSets[d.obj_id]) idFrameSets[d.obj_id].add(f);
+            }
+        }
+
+        if(detData.unique_ids.length>0) selectedIdForBp=detData.unique_ids[0];
+
+        renderIdCards();
+
+        await new Promise((res,rej) => {
+            vid.src=`/api/video_file/${v.name}`;
+            vid.onloadedmetadata=()=>{
+                totalFrames=Math.floor(vid.duration*fps);
+                slider.max=totalFrames-1;
+                slider.value=0;
+                frame=0;
+                loaded=true;
+                res();
+            };
+            vid.onerror=()=>rej(new Error('Video load failed'));
+            setTimeout(()=>rej(new Error('Timeout')),60000);
+        });
+
+        renderTimeline();
+        updateFrame();
+        document.getElementById('playBtn').disabled=false;
+        document.getElementById('saveBtn').disabled=false;
+        document.getElementById('bpBtn').disabled=false;
+        document.getElementById('clearBpBtn').disabled=false;
+        notify(`Loaded (${fps.toFixed(2)}fps → save ${outputFps}fps)`,'success',1200);
+    } catch(e) {
+        notify('Error: '+e.message,'error');
+    } finally {
+        document.getElementById('loadBtn').textContent='Load Video';
+        document.getElementById('loadBtn').disabled=false;
+    }
+}
+
+// ── ID Cards ──
+function renderIdCards() {
+    const c=document.getElementById('idCards');
+    c.innerHTML='';
+    if(!detData)return;
+
+    detData.unique_ids.forEach((id,i) => {
+        const st=idStates[id]||'keep';
+        const color=COLORS[i%COLORS.length];
+        const stats=detData.per_id_stats[id]||{};
+
+        const card=document.createElement('div');
+        card.className=`id-card ${st}`;
+        if(id===selectedIdForBp) card.classList.add('selected');
+        card.innerHTML=`<div class="dot" style="background:${color}"></div>
+            ${st==='keep'?'✓':'✗'} ID ${id} <span style="font-weight:400;font-size:11px;color:#6b7280;">(${stats.frame_count||0}f, ${stats.first_frame||0}–${stats.last_frame||0}, avg ${stats.avg_score||0})</span>`;
+        card.onclick=()=>{ idStates[id]=idStates[id]==='keep'?'remove':'keep'; renderIdCards(); renderTimeline(); };
+        c.appendChild(card);
+    });
+}
+
+function computeBaseRanges(id) {
+    const frames=[];
+    const fset=idFrameSets[id];
+    if(!fset) return [];
+    for(const f of fset) frames.push(f);
+    frames.sort((a,b)=>a-b);
+    if(frames.length===0) return [];
+    const ranges=[];
+    let bs=frames[0], prev=frames[0];
+    for(let j=1;j<=frames.length;j++){
+        if(j===frames.length||frames[j]-prev>2){
+            ranges.push({start:bs,end:prev});
+            if(j<frames.length) bs=frames[j];
+        }
+        if(j<frames.length) prev=frames[j];
+    }
+    return ranges;
+}
+
+function computeSubSegments(id) {
+    const base=computeBaseRanges(id);
+    const bps=(breakpointsById[id]||[]).slice().sort((a,b)=>a-b);
+    if(bps.length===0) return base;
+    const out=[];
+    for(const r of base){
+        let curStart=r.start;
+        for(const bp of bps){
+            if(bp>curStart && bp<=r.end){
+                out.push({start:curStart, end:bp-1});
+                curStart=bp;
+            }
+        }
+        if(curStart<=r.end) out.push({start:curStart, end:r.end});
+    }
+    return out.filter(s=>s.end>=s.start);
+}
+
+function subKey(s){ return `${s.start}-${s.end}`; }
+
+function renderTimeline() {
+    const container=document.getElementById('tlRows');
+    container.innerHTML='';
+    if(!detData||!totalFrames)return;
+
+    detData.unique_ids.forEach((id,i) => {
+        const st=idStates[id]||'keep';
+        const baseColor=COLORS[i%COLORS.length];
+        const color=st==='keep'?baseColor:'#d1d5db';
+        const op=st==='keep'?1:0.3;
+
+        const wrap=document.createElement('div');
+        wrap.className='tl-row-wrap';
+
+        const label=document.createElement('div');
+        label.className='tl-label';
+        if(id===selectedIdForBp) label.classList.add('selected');
+        label.style.color=color;
+        label.style.opacity=op;
+        label.textContent=`ID ${id}`;
+        label.onclick=()=>{ selectedIdForBp=id; renderIdCards(); renderTimeline(); };
+
+        const bar=document.createElement('div');
+        bar.className='tl-bar';
+        if(st==='keep') bar.classList.add('selectable');
+
+        const ph=document.createElement('div');
+        ph.className='tl-playhead playhead-marker';
+        ph.style.left='0';
+        bar.appendChild(ph);
+
+        const subs=computeSubSegments(id);
+        const exSet=excludedById[id]||new Set();
+
+        for(const sub of subs){
+            const left=(sub.start/totalFrames)*100;
+            const width=((sub.end-sub.start+1)/totalFrames)*100;
+            const blk=document.createElement('div');
+            const isExcluded=exSet.has(subKey(sub));
+
+            blk.className='tl-block';
+            if(st==='keep'){
+                blk.classList.add(isExcluded?'excluded-sub':'kept-sub');
+            }
+            blk.style.left=`${left}%`;
+            blk.style.width=`${Math.max(width,0.2)}%`;
+            blk.style.background=color;
+            blk.style.opacity=op;
+            blk.title=`Frames ${sub.start}–${sub.end}${isExcluded?' (excluded)':''}`;
+
+            if(st==='keep'){
+                blk.onclick=(e)=>{
+                    e.stopPropagation();
+                    const k=subKey(sub);
+                    if(exSet.has(k)) exSet.delete(k); else exSet.add(k);
+                    excludedById[id]=exSet;
+                    renderTimeline();
+                };
+            }
+            bar.appendChild(blk);
+        }
+
+        for(const bp of (breakpointsById[id]||[])){
+            const pct=(bp/totalFrames)*100;
+            const m=document.createElement('div');
+            m.className='tl-breakpoint';
+            m.style.left=`${pct}%`;
+            bar.appendChild(m);
+        }
+
+        wrap.appendChild(label);
+        wrap.appendChild(bar);
+        container.appendChild(wrap);
+    });
+}
+
+function addBreakpointAtCurrentFrame() {
+    if(!loaded||selectedIdForBp===null){ notify('Select an ID first','warning',1200); return; }
+    if(idStates[selectedIdForBp]!=='keep'){ notify('Selected ID is removed — toggle to keep first','warning',1500); return; }
+    const bps=breakpointsById[selectedIdForBp]||[];
+    if(bps.includes(frame)){ notify('Breakpoint already exists here','warning',1000); return; }
+    bps.push(frame);
+    bps.sort((a,b)=>a-b);
+    breakpointsById[selectedIdForBp]=bps;
+
+    remapExclusionsAfterBreakpoint(selectedIdForBp, frame);
+
+    renderTimeline();
+    notify(`Breakpoint added at frame ${frame} for ID ${selectedIdForBp}`,'success',1200);
+}
+
+function remapExclusionsAfterBreakpoint(id, bpFrame) {
+    const exSet=excludedById[id];
+    if(!exSet||exSet.size===0) return;
+
+    const newExSet=new Set();
+    for(const k of exSet){
+        const [s,e]=k.split('-').map(Number);
+        if(bpFrame>s && bpFrame<=e){
+            newExSet.add(`${s}-${bpFrame-1}`);
+            newExSet.add(`${bpFrame}-${e}`);
+        } else {
+            newExSet.add(k);
+        }
+    }
+    excludedById[id]=newExSet;
+}
+
+function clearBreakpointsForSelected() {
+    if(selectedIdForBp===null) return;
+    breakpointsById[selectedIdForBp]=[];
+    excludedById[selectedIdForBp]=new Set();
+    renderTimeline();
+    notify(`Cleared breakpoints & exclusions for ID ${selectedIdForBp}`,'info',1200);
+}
+
+function updateFrame() {
+    const fpsTxt = `<span id="fpsInfo">src ${fps.toFixed(2)}fps → save ${outputFps}fps</span>`;
+    frameLbl.innerHTML=`Frame: ${frame} / ${totalFrames-1} ${fpsTxt}`;
+
+    if(totalFrames>0){
+        const pct=(frame/totalFrames)*100;
+        document.querySelectorAll('.playhead-marker').forEach(ph=>{ph.style.left=`${pct}%`;});
+    }
+
+    const el=document.getElementById('frameDets');
+    if(!detData||!detData.per_frame){el.textContent='—';return;}
+    const fd=detData.per_frame[frame];
+    if(!fd||fd.length===0){el.textContent=`Frame ${frame}: No detections`;return;}
+
+    el.innerHTML=`Frame ${frame}: `+fd.map(d=>{
+        const st=idStates[d.obj_id]||'keep';
+        const c=st==='keep'?'#059669':'#dc2626';
+        const icon=st==='keep'?'✓':'✗';
+        return `<span style="color:${c};font-weight:600">${icon} ID:${d.obj_id}</span> [${d.x1},${d.y1},${d.x2},${d.y2}] s=${d.score}`;
+    }).join(' &nbsp;| ');
+}
+
+function buildExcludedRanges() {
+    const out={};
+    for(const id of Object.keys(excludedById)){
+        const subs=computeSubSegments(parseInt(id));
+        const exSet=excludedById[id];
+        const ranges=[];
+        for(const sub of subs){
+            if(exSet.has(subKey(sub))) ranges.push([sub.start, sub.end]);
+        }
+        if(ranges.length>0) out[id]=ranges;
+    }
+    return out;
+}
+
+async function saveAndNext() {
+    if(!detData||idx<0)return;
+
+    const keepIds=[],removeIds=[];
+    for(const[id,s] of Object.entries(idStates)){
+        if(s==='keep') keepIds.push(parseInt(id)); else removeIds.push(parseInt(id));
+    }
+    if(keepIds.length===0){notify('Mark at least one ID to keep!','error');return;}
+
+    const excludedRanges=buildExcludedRanges();
+
+    const saveBtn=document.getElementById('saveBtn');
+    saveBtn.textContent='Saving...'; saveBtn.disabled=true;
+
+    try {
+        const r=await fetch('/api/save',{
+            method:'POST',
+            headers:{'Content-Type':'application/json'},
+            body:JSON.stringify({
+                video_name: videos[idx].name,
+                keep_ids: keepIds,
+                remove_ids: removeIds,
+                excluded_ranges: excludedRanges,
+                remap_to: 1,
+                child_id: videos[idx].name,
+                timepoint_label: '',
+            }),
+        });
+        const d=await r.json();
+        if(d.success){
+            videos[idx].status='saved';
+            notify(`Saved @ ${d.output_fps}fps! ${d.kept_frames} frames kept`,'success',2200);
+
+            let found=false;
+            for(let i=idx+1;i<videos.length;i++){
+                if(videos[i].status!=='saved' && videos[i].unique_ids.length>1){
+                    idx=i; found=true; break;
+                }
+            }
+            if(found){
+                updateInfo(); resetUI();
+                setTimeout(()=>loadVideo(),300);
+            } else {
+                updateInfo();
+                notify('No more multi-ID videos — all done!','success',3000);
+            }
+        } else notify('Save failed','error');
+    } catch(e){ notify('Error: '+e.message,'error'); }
+    finally { saveBtn.textContent='💾 Save & Next'; saveBtn.disabled=false; }
+}
+
+init();
+</script>
+</body>
+</html>
