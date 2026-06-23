@@ -7,10 +7,11 @@ without needing to know the detection/pose model configurations.
 """
 
 import json
-import yaml
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Dict, Optional
-from dataclasses import dataclass, asdict
+from typing import Any
+
+import yaml
 
 
 @dataclass
@@ -39,12 +40,12 @@ class CacheMetadata:
     detection_cache_relative_path: str
     pose_cache_relative_path: str
 
-    def to_dict(self) -> Dict:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict) -> 'CacheMetadata':
+    def from_dict(cls, data: dict[str, Any]) -> 'CacheMetadata':
         """Create from dictionary"""
         return cls(**data)
 
@@ -85,7 +86,7 @@ class CacheMetadataManager:
             print(f"Error saving cache metadata: {e}")
             raise
 
-    def load_metadata(self, video_basename: str, format: str = "yaml") -> Optional[CacheMetadata]:
+    def load_metadata(self, video_basename: str, format: str = "yaml") -> CacheMetadata | None:
         """
         Load cache metadata from file
 
@@ -103,11 +104,8 @@ class CacheMetadataManager:
             return None
 
         try:
-            with open(metadata_path, 'r') as f:
-                if format == "yaml":
-                    metadata_dict = yaml.safe_load(f)
-                else:  # json
-                    metadata_dict = json.load(f)
+            with open(metadata_path) as f:
+                metadata_dict = yaml.safe_load(f) if format == "yaml" else json.load(f)
 
             return CacheMetadata.from_dict(metadata_dict)
 
@@ -139,7 +137,7 @@ def create_cache_metadata_from_config(
     detection_checkpoint: str,
     pose_config: str,
     pose_checkpoint: str,
-    processing_config: Dict,
+    processing_config: dict[str, Any],
     detection_cache_path: Path,
     pose_cache_path: Path,
     cache_base_path: Path
@@ -210,9 +208,10 @@ if __name__ == "__main__":
 
     # Load it back
     loaded = manager.load_metadata("test_video", format="yaml")
-    print(f"\nLoaded metadata for: {loaded.video_basename}")
-    print(f"Detection cache: {loaded.detection_cache_relative_path}")
-    print(f"Pose cache: {loaded.pose_cache_relative_path}")
+    if loaded is not None:
+        print(f"\nLoaded metadata for: {loaded.video_basename}")
+        print(f"Detection cache: {loaded.detection_cache_relative_path}")
+        print(f"Pose cache: {loaded.pose_cache_relative_path}")
 
     # List all cached videos
     print(f"\nCached videos: {manager.list_cached_videos()}")

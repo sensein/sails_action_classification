@@ -9,21 +9,22 @@ and a lightweight selection routine.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
+from typing import Any, Literal, overload
 
 import h5py
 
 from .single_child_identification import (
     AnnotationInfo,
     ChildIdentificationConfig,
+    Evidence,
     NodeScore,
+    SigLipModel,
     SingleChildIdentifier,
     Track,
     Tracklet,
-    Evidence,
-    SigLipModel
 )
 
 
@@ -44,9 +45,9 @@ class SingleTrackSelection:
     node: NodeScore
 
 
-def _load_frame_group(frame_group: h5py.Group) -> dict:
+def _load_frame_group(frame_group: h5py.Group) -> dict[str, Any]:
     """Extract bbox/keypoint arrays from a single frame group."""
-    frame_data = {}
+    frame_data: dict[str, Any] = {}
 
     if "bbox" in frame_group:
         bbox_arr = frame_group["bbox"][:]
@@ -59,7 +60,7 @@ def _load_frame_group(frame_group: h5py.Group) -> dict:
     return frame_data
 
 
-def load_track_from_h5(h5_path: Path, video_path: Optional[Path] = None) -> LoadedTrack:
+def load_track_from_h5(h5_path: Path, video_path: Path | None = None) -> LoadedTrack:
     """Load a single tracking HDF5 file into a `Track` dataclass."""
     with h5py.File(str(h5_path), "r") as f:
         metadata = f["metadata"]
@@ -80,9 +81,9 @@ def load_track_from_h5(h5_path: Path, video_path: Optional[Path] = None) -> Load
         frames = f["frames"]
         frame_entries = sorted(frames.keys())
 
-        frame_numbers: List[int] = []
-        bboxes: List[Optional[tuple]] = []
-        keypoints: List[Optional[list]] = []
+        frame_numbers: list[int] = []
+        raw_bboxes: list[tuple[float, float, float, float] | None] = []
+        keypoints: list[list[Any] | None] = []
 
         for frame_key in frame_entries:
             try:
@@ -95,8 +96,25 @@ def load_track_from_h5(h5_path: Path, video_path: Optional[Path] = None) -> Load
             frame = frames[frame_key]
             frame_data = _load_frame_group(frame)
 
-            bboxes.append(frame_data.get("bbox"))
+            raw_bbox = frame_data.get("bbox")
+            if raw_bbox is not None:
+                vals = tuple(float(v) for v in raw_bbox)
+                if len(vals) == 4:
+                    raw_bboxes.append((vals[0], vals[1], vals[2], vals[3]))
+                else:
+                    raw_bboxes.append(None)
+            else:
+                raw_bboxes.append(None)
+
             keypoints.append(frame_data.get("keypoints"))
+
+        # Track.bboxes expects `list[tuple[float,float,float,float]] | None`;
+        # pass None for the whole field if any frame is missing a valid bbox.
+        bboxes: list[tuple[float, float, float, float]] | None = (
+            [b for b in raw_bboxes if b is not None]
+            if all(b is not None for b in raw_bboxes)
+            else None
+        )
 
         track = Track(
             id=int(track_id_attr),
@@ -120,10 +138,10 @@ def load_track_from_h5(h5_path: Path, video_path: Optional[Path] = None) -> Load
 
 
 def load_tracks_from_directory(
-    tracking_dir: Path, video_path: Optional[Path] = None
-) -> List[LoadedTrack]:
+    tracking_dir: Path, video_path: Path | None = None
+) -> list[LoadedTrack]:
     """Load all `track_*.h5` files from a tracking directory."""
-    loaded_tracks: List[LoadedTrack] = []
+    loaded_tracks: list[LoadedTrack] = []
 
     for h5_path in sorted(tracking_dir.glob("track_*.h5")):
         try:
@@ -135,16 +153,34 @@ def load_tracks_from_directory(
     return loaded_tracks
 
 
+@overload
 def select_single_track(
     tracks: Sequence[Track],
-    annotations: Optional[AnnotationInfo] = None,
-    cfg: Optional[ChildIdentificationConfig] = None,
-    siglip_model: Optional[SigLipModel] = None,
+    annotations: AnnotationInfo | None = ...,
+    cfg: ChildIdentificationConfig | None = ...,
+    siglip_model: SigLipModel | None = ...,
+    *,
+    include_diagnostics: Literal[True],
+) -> tuple[SingleTrackSelection | None, list[dict[str, Any]]]: ...
+
+
+@overload
+def select_single_track(
+    tracks: Sequence[Track],
+    annotations: AnnotationInfo | None = ...,
+    cfg: ChildIdentificationConfig | None = ...,
+    siglip_model: SigLipModel | None = ...,
+    include_diagnostics: Literal[False] = ...,
+) -> SingleTrackSelection | None: ...
+
+
+def select_single_track(
+    tracks: Sequence[Track],
+    annotations: AnnotationInfo | None = None,
+    cfg: ChildIdentificationConfig | None = None,
+    siglip_model: SigLipModel | None = None,
     include_diagnostics: bool = False,
-) -> Union[
-    Optional[SingleTrackSelection],
-    Tuple[Optional[SingleTrackSelection], List[Dict[str, Any]]]
-]:
+) -> SingleTrackSelection | None | tuple[SingleTrackSelection | None, list[dict[str, Any]]]:
     """
     Rank tracks using the single-child identification scoring and return the best one.
 
@@ -163,12 +199,12 @@ def select_single_track(
     if not tracklets:
         return None
 
-    nodes: List[NodeScore] = [identifier._score_node(tl) for tl in tracklets]
+    nodes: list[NodeScore] = [identifier._score_node(tl) for tl in tracklets]
     if not nodes:
         return (None, []) if include_diagnostics else None
 
-    diagnostics: List[Dict[str, Any]] = []
-    for tracklet, node in zip(tracklets, nodes):
+    diagnostics: list[dict[str, Any]] = []
+    for tracklet, node in zip(tracklets, nodes, strict=True):
         evidence = node.evidence or Evidence()
         parent_track = track_by_id.get(tracklet.parent_id)
         track_meta = parent_track.meta if parent_track and parent_track.meta else {}
@@ -216,39 +252,67 @@ def select_single_track(
     return selection
 
 
+@overload
 def select_from_directory(
     tracking_dir: Path,
-    video_path: Optional[Path] = None,
-    annotations: Optional[AnnotationInfo] = None,
-    cfg: Optional[ChildIdentificationConfig] = None,
-    siglip_model: Optional[SigLipModel] = None,
+    video_path: Path | None = ...,
+    annotations: AnnotationInfo | None = ...,
+    cfg: ChildIdentificationConfig | None = ...,
+    siglip_model: SigLipModel | None = ...,
+    *,
+    include_diagnostics: Literal[True],
+) -> tuple[SingleTrackSelection | None, list[dict[str, Any]]]: ...
+
+
+@overload
+def select_from_directory(
+    tracking_dir: Path,
+    video_path: Path | None = ...,
+    annotations: AnnotationInfo | None = ...,
+    cfg: ChildIdentificationConfig | None = ...,
+    siglip_model: SigLipModel | None = ...,
+    include_diagnostics: Literal[False] = ...,
+) -> SingleTrackSelection | None: ...
+
+
+def select_from_directory(
+    tracking_dir: Path,
+    video_path: Path | None = None,
+    annotations: AnnotationInfo | None = None,
+    cfg: ChildIdentificationConfig | None = None,
+    siglip_model: SigLipModel | None = None,
     include_diagnostics: bool = False,
-) -> Optional[SingleTrackSelection]:
+) -> SingleTrackSelection | None | tuple[SingleTrackSelection | None, list[dict[str, Any]]]:
     """
     Convenience wrapper: load tracks from a directory and return the best candidate.
     """
     loaded_tracks = load_tracks_from_directory(tracking_dir, video_path=video_path)
     if not loaded_tracks:
-        return None
+        return (None, []) if include_diagnostics else None
 
-    selection_result = select_single_track(
-        [loaded.track for loaded in loaded_tracks],
-        annotations=annotations,
-        cfg=cfg,
-        include_diagnostics=include_diagnostics,
-        siglip_model=siglip_model,
-    )
-
-    diagnostics: Optional[List[Dict[str, Any]]] = None
+    diagnostics: list[dict[str, Any]] = []
     if include_diagnostics:
-        if selection_result is None:
+        selection_with_diag = select_single_track(
+            [loaded.track for loaded in loaded_tracks],
+            annotations=annotations,
+            cfg=cfg,
+            siglip_model=siglip_model,
+            include_diagnostics=True,
+        )
+        if selection_with_diag is None:
             return None, []
-        selection, diagnostics = selection_result
+        selection, diagnostics = selection_with_diag
     else:
-        selection = selection_result
+        selection = select_single_track(
+            [loaded.track for loaded in loaded_tracks],
+            annotations=annotations,
+            cfg=cfg,
+            siglip_model=siglip_model,
+            include_diagnostics=False,
+        )
 
     if selection is None:
-        return (None, diagnostics or []) if include_diagnostics else None
+        return (None, diagnostics) if include_diagnostics else None
 
     # Replace track instance with the one carrying metadata/path information
     for loaded in loaded_tracks:
@@ -259,7 +323,7 @@ def select_from_directory(
                 node=selection.node,
             )
             if include_diagnostics:
-                return final_selection, diagnostics or []
+                return final_selection, diagnostics
             return final_selection
 
-    return (None, diagnostics or []) if include_diagnostics else None
+    return (None, diagnostics) if include_diagnostics else None

@@ -5,12 +5,14 @@ Provides bulk loading/saving of detection and pose inference results using HDF5
 for efficient reuse across multiple tracking runs with different parameters.
 """
 
+from pathlib import Path
+from typing import Optional
+
 import h5py
 import numpy as np
-from pathlib import Path
-from typing import Dict, List, Optional
 
 from sailsprep.id_tracking_model.utils.cache_metadata import CacheMetadataManager
+
 
 class CacheManager:
     """Manages caching of detection and pose estimation results"""
@@ -79,7 +81,7 @@ class CacheManager:
         """Check if pose cache exists"""
         return self.pose_cache_path.exists()
 
-    def load_all_detections(self) -> Optional[Dict[int, Dict[str, np.ndarray]]]:
+    def load_all_detections(self) -> dict[int, dict[str, np.ndarray]] | None:
         """
         Load all detection results from cache
 
@@ -91,12 +93,12 @@ class CacheManager:
         if not self.check_detection_cache():
             return None
 
-        detections = {}
+        detections: dict[int, dict[str, np.ndarray]] = {}
 
         try:
             with h5py.File(self.detection_cache_path, 'r') as f:
                 # Iterate through all frame groups
-                for frame_key in f.keys():
+                for frame_key in f:
                     frame_idx = int(frame_key.split('_')[1])
                     frame_group = f[frame_key]
 
@@ -110,7 +112,7 @@ class CacheManager:
             print(f"Error loading detection cache: {e}")
             return None
 
-    def load_all_poses(self) -> Optional[Dict[int, List[Dict[str, np.ndarray]]]]:
+    def load_all_poses(self) -> dict[int, list[dict[str, np.ndarray]]] | None:
         """
         Load all pose results from cache
 
@@ -123,16 +125,16 @@ class CacheManager:
         if not self.check_pose_cache():
             return None
 
-        poses = {}
+        poses: dict[int, list[dict[str, np.ndarray]]] = {}
 
         try:
             with h5py.File(self.pose_cache_path, 'r') as f:
                 # Iterate through all frame groups
-                for frame_key in f.keys():
+                for frame_key in f:
                     frame_idx = int(frame_key.split('_')[1])
                     frame_group = f[frame_key]
 
-                    frame_poses = []
+                    frame_poses: list[dict[str, np.ndarray]] = []
                     # Iterate through all poses in this frame
                     for pose_key in sorted(frame_group.keys()):
                         pose_group = frame_group[pose_key]
@@ -150,7 +152,7 @@ class CacheManager:
             print(f"Error loading pose cache: {e}")
             return None
 
-    def save_all_detections(self, detections: Dict[int, Dict]):
+    def save_all_detections(self, detections: dict[int, dict[str, np.ndarray]]) -> None:
         """
         Save all detection results to cache
 
@@ -177,7 +179,7 @@ class CacheManager:
             print(f"Error saving detection cache: {e}")
             raise
 
-    def save_all_poses(self, poses: Dict[int, List[Dict]]):
+    def save_all_poses(self, poses: dict[int, list[dict[str, np.ndarray]]]) -> None:
         """
         Save all pose results to cache
 
@@ -211,7 +213,7 @@ class CacheManager:
             print(f"Error saving pose cache: {e}")
             raise
 
-    def get_cache_params(self) -> Dict:
+    def get_cache_params(self) -> dict[str, object]:
         """
         Get cache parameters for metadata saving
 

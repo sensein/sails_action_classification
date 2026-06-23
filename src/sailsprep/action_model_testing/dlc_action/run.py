@@ -5,206 +5,110 @@ behaviors (Walking, Running, Crawling, etc.) from pose estimation data using
 the DLC2Action framework with an MS-TCN model.
 
 Example:
-    Run the full pipeline on the ORCD cluster::
+    Run the full pipeline using:
 
         $ poetry run python src/sailsprep/action_model_testing/dlc_action/run.py
 
-    Or call individual steps programmatically::
-
-        from sailsprep.action_model_testing.dlc_action.run import match_files
-        matched = match_files("/path/to/mapping.csv")
 """
-
-import os
-import json
 import csv
+import json
+import os
 import shutil
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import torch
-from pathlib import Path
-from tqdm import tqdm
-from sklearn.model_selection import train_test_split
 from dlc2action.project import Project
+from tqdm import tqdm
 
-
-# ---------------------------------------------------------------------------
+# ==============================================================================
 # CONFIGURATION
-# ---------------------------------------------------------------------------
-
-LABEL_MAPPING_CSV = "/home/aparnabg/orcd/scratch/Automatic_Labeling/bids_to_json_mapping.csv"
+# ==============================================================================
+LABEL_MAPPING_CSV = "/orcd/data/satra/002/projects/SAILS/action_outputs_features/labels_and_clips/latest_split_csv_new.csv"
 PROCESSED_DIR     = "/home/aparnabg/orcd/scratch/dlc2action_run/processed_data_full"
 PROJECT_DIR       = "/home/aparnabg/orcd/scratch/dlc2action_run/dlc2action_projec_full"
 
 TARGET_COLUMN = "Locomotion"
-TRAIN_RATIO   = 0.7
 RANDOM_SEED   = 42
 
 MODEL_NAME    = "ms_tcn3"
 
-NUM_EPOCHS    = 100
+NUM_EPOCHS    = 1
 BATCH_SIZE    = 8
 LEARNING_RATE = 0.0001
 
 NUM_KEYPOINTS  = 133
 COORDS_PER_KPT = 3
-FEATURE_DIM    = NUM_KEYPOINTS * COORDS_PER_KPT  # 399
+FEATURE_DIM    = NUM_KEYPOINTS * COORDS_PER_KPT
 
 
-# ---------------------------------------------------------------------------
+# ==============================================================================
 # STEP 1: MATCH FILES FROM CSV
-# ---------------------------------------------------------------------------
-
-def match_files(csv_path: str) -> list[dict]:
-    """Match video, pose, and label files from a mapping CSV.
-
-    Reads a CSV that maps each processed video to its corresponding pose JSON
-    and label CSV, and returns a list of matched file dictionaries.
-
-    Args:
-        csv_path: Path to the mapping CSV file. Must contain columns
-            ``BidsProcessed``, ``JsonPath``, and ``LabelPath``.
-
-    Returns:
-        A list of dicts, each with keys:
-            - ``name`` (str): Stem of the video filename.
-            - ``video`` (str): Full path to the processed video.
-            - ``label`` (str): Full path to the label CSV.
-            - ``pose`` (str): Full path to the pose JSON.
-
-    Raises:
-        ValueError: If required columns are missing from the CSV.
-
-    Example:
-        >>> matched = match_files("/data/mapping.csv")
-        >>> matched[0].keys()
-        dict_keys(['name', 'video', 'label', 'pose'])
-    """
-    matched = []
+# ==============================================================================
+def match_files(csv_path: str) -> list[dict[str, str]]:
+    matched: list[dict[str, str]] = []
     with open(csv_path, newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
-        required = {"BidsProcessed", "JsonPath", "LabelPath"}
-        if not required.issubset(set(reader.fieldnames)):
+        required = {"video_path", "hrnet_full_path", "label_path"}
+        fieldnames: list[str] = list(reader.fieldnames or [])
+        if not required.issubset(set(fieldnames)):
             raise ValueError(f"CSV must contain columns: {required}")
         for row in reader:
-            name = Path(row["BidsProcessed"]).stem
+            name = Path(row["video_path"]).stem
             matched.append({
                 "name":  name,
-                "video": row["BidsProcessed"],
-                "label": row["LabelPath"],
-                "pose":  row["JsonPath"],
+                "video": row["video_path"],
+                "label": row["label_path"],
+                "pose":  row["hrnet_full_path"],
             })
     print(f"[match_files] Matched {len(matched)} files")
     return matched
 
 
-# ---------------------------------------------------------------------------
+# ==============================================================================
 # STEP 2: ANALYZE LABELS
-# ---------------------------------------------------------------------------
-
-def analyze_labels(matched_files: list[dict], target_column: str) -> list[str]:
-    """Collect all unique behavior class names across label files.
-
-    Args:
-        matched_files: List of file dicts as returned by :func:`match_files`.
-            Each dict must have a ``label`` key pointing to a CSV file.
-        target_column: Name of the column in each label CSV that contains
-            behavior annotations (e.g. ``"Locomotion"``).
-
-    Returns:
-        Sorted list of unique, non-null behavior class name strings found
-        across all label files. Files missing the target column are skipped.
-
-    Example:
-        >>> classes = analyze_labels(matched, "Locomotion")
-        >>> classes
-        ['Crawling', 'Running', 'Walking']
-    """
+# ==============================================================================
+def analyze_labels(matched_files: list[dict[str, str]], target_column: str) -> list[str]:
     all_actions: set[str] = set()
     for item in matched_files:
         df = pd.read_csv(item["label"])
         if target_column in df.columns:
             all_actions.update(df[target_column].dropna().unique())
-    action_classes = sorted(list(all_actions))
+    action_classes = sorted(all_actions)
     print(f"[analyze_labels] Classes found: {action_classes}")
     return action_classes
 
 
-# ---------------------------------------------------------------------------
-# STEP 3: LOAD POSE
-# ---------------------------------------------------------------------------
-
+# ==============================================================================
+# STEP 3: LOAD POSE (F, 133, 3) array
+# ==============================================================================
 def load_pose_from_json(json_path: str) -> np.ndarray:
-    """Load per-frame pose keypoints from a JSON file into a NumPy array.
-
-    Reads a pose JSON file where each frame contains a list of detected people
-    with keypoints in ``[x, y, confidence]`` format. Person with ``person_id``
-    0 is preferred; if absent, the first available person is used. Frames with
-    no detected person are filled with zeros.
-
-    Args:
-        json_path: Path to the pose JSON file. Expected structure::
-
-            {
-                "frames": [
-                    {
-                        "people": [
-                            {
-                                "person_id": 0,
-                                "keypoints": [[x, y, conf], ...]
-                            }
-                        ]
-                    },
-                    ...
-                ]
-            }
-
-    Returns:
-        Float32 NumPy array of shape ``(F, NUM_KEYPOINTS, COORDS_PER_KPT)``
-        where ``F`` is the number of frames.
-
-    Raises:
-        AssertionError: If the resulting array has unexpected spatial dimensions.
-
-    Example:
-        >>> pose = load_pose_from_json("/data/sub-01_pose.json")
-        >>> pose.shape
-        (300, 133, 3)
-    """
-    with open(json_path, "r") as f:
+    with open(json_path) as f:
         data = json.load(f)
 
-    frames = data["frames"]
+    frames_dict = data["frames"]
+
+    # Sort frame keys numerically: "1", "2", "10" -> 1, 2, 10
+    sorted_keys = sorted(frames_dict.keys(), key=lambda k: int(k))
+
     pose_data = []
+    for key in sorted_keys:
+        frame_kps = frames_dict[key]  # dict: {"kp_001": {"x":..,"y":..,"confidence":..}, ...}
 
-    for frame in frames:
-        people = frame.get("people", [])
-        person = next((p for p in people if p.get("person_id") == 0), None)
-        if person is None and people:
-            person = people[0]
+        arr = np.zeros((NUM_KEYPOINTS, COORDS_PER_KPT), dtype=np.float32)
 
-        if person is None or "keypoints" not in person:
-            pose_data.append(np.zeros((NUM_KEYPOINTS, COORDS_PER_KPT), dtype=np.float32))
-            continue
+        for kp_name, kp_val in frame_kps.items():
+            # kp_name is like "kp_001", "kp_023", etc.
+            try:
+                idx = int(kp_name.split("_")[1])  # "kp_001" -> 1
+            except (IndexError, ValueError):
+                continue
 
-        kpts = person["keypoints"]
-        arr = []
-        for kpt in kpts:
-            if isinstance(kpt, (list, tuple)) and len(kpt) >= 2:
-                x = float(kpt[0])
-                y = float(kpt[1])
-                c = float(kpt[2]) if len(kpt) > 2 else 1.0
-            else:
-                x, y, c = 0.0, 0.0, 0.0
-            arr.append([x, y, c])
-
-        arr = np.array(arr, dtype=np.float32)
-
-        if len(arr) < NUM_KEYPOINTS:
-            pad = np.zeros((NUM_KEYPOINTS - len(arr), COORDS_PER_KPT), dtype=np.float32)
-            arr = np.vstack([arr, pad])
-        elif len(arr) > NUM_KEYPOINTS:
-            arr = arr[:NUM_KEYPOINTS]
+            if 0 <= idx < NUM_KEYPOINTS:
+                arr[idx, 0] = float(kp_val.get("x", 0.0))
+                arr[idx, 1] = float(kp_val.get("y", 0.0))
+                arr[idx, 2] = float(kp_val.get("confidence", 0.0))
 
         pose_data.append(arr)
 
@@ -214,43 +118,14 @@ def load_pose_from_json(json_path: str) -> np.ndarray:
     return result
 
 
-# ---------------------------------------------------------------------------
+# ==============================================================================
 # STEP 4: CONVERT FRAME-LEVEL LABELS TO SEGMENT CSV
-# ---------------------------------------------------------------------------
-
+# ==============================================================================
 def convert_labels_to_segments(
     label_path: str,
     target_column: str,
     max_frames: int | None = None,
 ) -> pd.DataFrame:
-    """Convert a frame-level label CSV into a run-length encoded segment table.
-
-    Reads frame-level behavior annotations and collapses consecutive identical
-    labels into contiguous segments with start/end frame indices. Missing or
-    empty values are mapped to ``"unlabeled"``.
-
-    Args:
-        label_path: Path to the frame-level label CSV.
-        target_column: Column name containing behavior labels.
-        max_frames: If provided, only the first ``max_frames`` rows are used.
-            Defaults to ``None`` (use all rows).
-
-    Returns:
-        DataFrame with columns:
-            - ``start`` (int64): First frame index of the segment (inclusive).
-            - ``end`` (int64): Last frame index of the segment (inclusive).
-            - ``behavior`` (str): Behavior label for the segment.
-
-        Returns an empty DataFrame with these columns if ``target_column`` is
-        not present in the label file.
-
-    Example:
-        >>> seg = convert_labels_to_segments("/data/labels.csv", "Locomotion")
-        >>> seg.head()
-           start  end behavior
-        0      0    5  Walking
-        1      6   12  Running
-    """
     df = pd.read_csv(label_path)
     if target_column not in df.columns:
         return pd.DataFrame(columns=["start", "end", "behavior"])
@@ -279,42 +154,20 @@ def convert_labels_to_segments(
     return seg_df
 
 
-# ---------------------------------------------------------------------------
+# ==============================================================================
 # STEP 5: PREPARE DATA
-# ---------------------------------------------------------------------------
-
+# ==============================================================================
 def prepare_data(
-    matched_files: list[dict],
+    matched_files: list[dict[str, str]],
     target_column: str,
     output_dir: str,
 ) -> list[str]:
-    """Process matched files into flattened pose tensors and segment CSVs.
-
-    For each matched file, loads pose data, truncates to the shorter of pose
-    frames or label rows, flattens keypoints to ``(F, FEATURE_DIM)``, saves as
-    a ``.pt`` file, and writes the corresponding segment CSV. Failed files are
-    skipped with a printed warning.
-
-    Args:
-        matched_files: List of file dicts as returned by :func:`match_files`.
-        target_column: Behavior column name to extract from label CSVs.
-        output_dir: Root directory for output. Creates subdirectories
-            ``pose_data/`` and ``labels/`` inside it.
-
-    Returns:
-        List of subject name strings for files that were processed successfully.
-
-    Example:
-        >>> prepared = prepare_data(matched, "Locomotion", "/scratch/output")
-        >>> len(prepared)
-        42
-    """
     pose_dir  = os.path.join(output_dir, "pose_data")
     label_dir = os.path.join(output_dir, "labels")
     os.makedirs(pose_dir,  exist_ok=True)
     os.makedirs(label_dir, exist_ok=True)
 
-    successful = []
+    successful: list[str] = []
     for item in tqdm(matched_files, desc="Processing"):
         name = item["name"]
         try:
@@ -335,44 +188,27 @@ def prepare_data(
             successful.append(name)
 
         except Exception as e:
-            print(f"  ❌ {name}: {e}")
+            print(f" not working{name}: {e}")
 
-    print(f"[prepare_data] ✓ {len(successful)}/{len(matched_files)} files prepared")
+    print(f"[prepare_data] working {len(successful)}/{len(matched_files)} files prepared")
     return successful
 
 
-# ---------------------------------------------------------------------------
+# ==============================================================================
 # DEBUG: verify saved feature files
-# ---------------------------------------------------------------------------
-
+# ==============================================================================
 def debug_feature_shapes(pose_dir: str) -> None:
-    """Validate that all saved feature ``.pt`` files have the expected shape.
-
-    Iterates over all ``*_features.pt`` files in ``pose_dir`` and checks that
-    each tensor has shape ``(F, FEATURE_DIM)``. Raises if any file is
-    malformed.
-
-    Args:
-        pose_dir: Directory containing ``*_features.pt`` files.
-
-    Raises:
-        RuntimeError: If any feature file has an incorrect number of feature
-            dimensions. The error message lists all bad filenames.
-
-    Example:
-        >>> debug_feature_shapes("/scratch/output/pose_data")
-        [DEBUG] All feature shapes OK — (F, 399)
-    """
     print("\n[DEBUG] Checking saved feature .pt files:")
-    bad = []
+    bad: list[str] = []
     for pt_file in sorted(Path(pose_dir).glob("*_features.pt")):
         data = torch.load(pt_file, weights_only=True)
         for clip_id, arr in data.items():
             if hasattr(arr, "shape"):
                 shape = arr.shape
                 ok = len(shape) == 2 and shape[1] == FEATURE_DIM
+                tag = "working" if ok else "not working"
                 if not ok:
-                    print(f"  ❌ {pt_file.name} [{clip_id}]: {shape}")
+                    print(f"  {tag} {pt_file.name} [{clip_id}]: {shape}")
                     bad.append(pt_file.name)
     if bad:
         raise RuntimeError(
@@ -382,78 +218,52 @@ def debug_feature_shapes(pose_dir: str) -> None:
     print(f"[DEBUG] All feature shapes OK — (F, {FEATURE_DIM})\n")
 
 
-# ---------------------------------------------------------------------------
+# ==============================================================================
 # STEP 6: SPLIT
-# ---------------------------------------------------------------------------
-
-def split_train_test(
-    names: list[str],
-    train_ratio: float = 0.7,
-    seed: int = 42,
+# ==============================================================================
+def split_from_csv(
+    csv_path: str,
+    matched_files: list[str],
 ) -> dict[str, list[str]]:
-    """Split subject names into train and test sets.
+    split_map: dict[str, str] = {}
+    with open(csv_path, newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        fieldnames: list[str] = list(reader.fieldnames or [])
+        if "split" not in fieldnames:
+            raise ValueError("CSV does not have a 'split' column")
+        for row in reader:
+            name = Path(row["video_path"]).stem
+            split_map[name] = row["split"].strip().lower()  # "train", "val", "test"
 
-    Args:
-        names: List of subject/file name strings to split.
-        train_ratio: Fraction of names to allocate to the training set.
-            Must be between 0 and 1. Defaults to ``0.7``.
-        seed: Random seed for reproducibility. Defaults to ``42``.
+    train: list[str] = []
+    val:   list[str] = []
+    test:  list[str] = []
+    for name in matched_files:
+        s = split_map.get(name, "train")
+        if s == "train":
+            train.append(name)
+        elif s == "val":
+            val.append(name)
+        elif s == "test":
+            test.append(name)
+        else:
+            print(f"  ⚠ Unknown split value '{s}' for {name}, defaulting to train")
+            train.append(name)
 
-    Returns:
-        Dict with keys ``"train"`` and ``"test"``, each mapping to a sorted
-        list of subject name strings.
-
-    Example:
-        >>> split = split_train_test(names, train_ratio=0.8, seed=0)
-        >>> len(split["train"]), len(split["test"])
-        (8, 2)
-    """
-    train, test = train_test_split(
-        names, train_size=train_ratio, random_state=seed, shuffle=True,
-    )
-    print(f"[split] Train: {len(train)}  |  Test: {len(test)}")
-    return {"train": sorted(train), "test": sorted(test)}
+    print(f"[split] Train: {len(train)}  |  Val: {len(val)}  |  Test: {len(test)}")
+    return {"train": sorted(train), "val": sorted(val), "test": sorted(test)}
 
 
-# ---------------------------------------------------------------------------
+# ==============================================================================
 # STEP 7: CREATE PROJECT
-# ---------------------------------------------------------------------------
-
+# ==============================================================================
 def create_project(
     project_dir: str,
     pose_dir: str,
     label_dir: str,
     action_classes: list[str],
     split_info: dict[str, list[str]],
-) -> "Project":
-    """Initialise and configure a DLC2Action project for training.
-
-    Removes any existing project directory, creates a fresh
-    :class:`dlc2action.project.Project`, and applies all training, data, model,
-    and metric parameters.
-
-    Args:
-        project_dir: Path where the DLC2Action project will be created.
-            Deleted and recreated if it already exists.
-        pose_dir: Absolute path to the directory containing
-            ``*_features.pt`` files.
-        label_dir: Absolute path to the directory containing
-            ``*.csv`` segment annotation files.
-        action_classes: List of behavior class name strings (including
-            ``"unlabeled"``).
-        split_info: Dict with ``"train"`` and ``"test"`` keys as returned by
-            :func:`split_train_test`. Currently logged only; partitioning is
-            handled internally by DLC2Action.
-
-    Returns:
-        Configured :class:`dlc2action.project.Project` instance ready for
-        :meth:`run_episode`.
-
-    Example:
-        >>> project = create_project(PROJECT_DIR, pose_dir, label_dir,
-        ...                          action_classes, split_info)
-        [create_project] ✓ Project created at: /scratch/dlc2action_project
-    """
+) -> Project:
     if os.path.exists(project_dir):
         shutil.rmtree(project_dir)
 
@@ -471,7 +281,7 @@ def create_project(
             "annotation_path":   os.path.abspath(label_dir),
             "feature_suffix":    "_features.pt",
             "annotation_suffix": ".csv",
-            "fps":               1,
+            "fps":               1,  # segments are already in frame indices
             "behaviors":         ["Crawling", "Cruising", "Running", "Vehicle", "Walking"],
         },
         "general": {
@@ -514,19 +324,19 @@ def create_project(
         },
     })
 
-    print(f"[create_project] ✓ Project created at: {project_dir}")
-    print(f"  Data type:    features (pre-computed, flattened)")
+    print(f"[create_project] working Project created at: {project_dir}")
+    print("  Data type:    features (pre-computed, flattened)")
     print(f"  Classes:      {action_classes}")
     print(f"  FEATURE_DIM:  {FEATURE_DIM}  ({NUM_KEYPOINTS} kpts × {COORDS_PER_KPT})")
     print(f"  Model:        {MODEL_NAME}")
     return project
 
 
-# ---------------------------------------------------------------------------
+# ==============================================================================
 # MAIN PIPELINE
-# ---------------------------------------------------------------------------
-
+# ==============================================================================
 if __name__ == "__main__":
+
     # Cleanup old runs
     for d in [PROCESSED_DIR, PROJECT_DIR]:
         if os.path.exists(d):
@@ -549,7 +359,8 @@ if __name__ == "__main__":
     label_dir = os.path.join(PROCESSED_DIR, "labels")
 
     # 3b. Filter: keep only files with actual locomotion labels
-    filtered = []
+    #     Remove unlabeled-only files from disk so dlc2action won't load them
+    filtered: list[str] = []
     removed = 0
     for name in prepared:
         seg = pd.read_csv(os.path.join(label_dir, f"{name}.csv"))
@@ -569,7 +380,7 @@ if __name__ == "__main__":
     debug_feature_shapes(pose_dir)
 
     # 5. Split
-    split_info = split_train_test(prepared, TRAIN_RATIO, RANDOM_SEED)
+    split_info = split_from_csv(LABEL_MAPPING_CSV, prepared)
 
     # 6. Create project
     project = create_project(PROJECT_DIR, pose_dir, label_dir, action_classes, split_info)
@@ -578,8 +389,9 @@ if __name__ == "__main__":
     episode = f"trained_{MODEL_NAME}"
     print(f"\n[train] Starting episode: {episode}")
     project.run_episode(episode_name=episode, suppress_name_check=True, force=True)
-    print(f"Training done: {episode}")
+    print(f"working Training done: {episode}")
 
     # 8. Evaluate
     print(f"\n[evaluate] Evaluating: {episode}")
     results = project.evaluate([episode])
+    print("Results:", results)

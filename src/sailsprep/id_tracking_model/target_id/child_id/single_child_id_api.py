@@ -6,21 +6,26 @@ High-level API wrapper for child identification in single-child videos.
 Provides a simple interface that takes tracking JSON and configuration parameters.
 """
 
+import contextlib
 import json
-from pathlib import Path
-from typing import List, Dict, Any, Optional, Union
-from datetime import datetime
-import cv2
-import subprocess
 import os
+import subprocess
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import cv2
 
 from .single_child_identification import (
-    Track, AnnotationInfo, ChildIdentificationConfig,
-    identify_single_child, ChildResult
+    AnnotationInfo,
+    ChildIdentificationConfig,
+    ChildResult,
+    Track,
+    identify_single_child,
 )
 
 
-def convert_tracking_json_to_tracks(tracking_data: Dict[str, Any]) -> List[Track]:
+def convert_tracking_json_to_tracks(tracking_data: dict[str, Any]) -> list[Track]:
     """
     Convert tracking JSON results to Track objects.
 
@@ -51,7 +56,7 @@ def convert_tracking_json_to_tracks(tracking_data: Dict[str, Any]) -> List[Track
         frame_numbers = []
 
         # Get all frame numbers and sort them
-        sorted_frame_nums = sorted([int(f) for f in frames_data.keys()])
+        sorted_frame_nums = sorted([int(f) for f in frames_data])  # SIM118: removed .keys()
 
         for frame_num in sorted_frame_nums:
             frame_str = str(frame_num)
@@ -82,8 +87,8 @@ def convert_tracking_json_to_tracks(tracking_data: Dict[str, Any]) -> List[Track
             frame_numbers=frame_numbers,
             meta={
                 'total_detections': len(frame_numbers),
-                'frame_numbers': frame_numbers
-            }
+                'frame_numbers': frame_numbers,
+            },
         )
 
         tracks.append(track)
@@ -93,11 +98,11 @@ def convert_tracking_json_to_tracks(tracking_data: Dict[str, Any]) -> List[Track
 
 def child_result_to_dict(
     result: ChildResult,
-    tracking_data: Dict[str, Any],
+    tracking_data: dict[str, Any],
     config: ChildIdentificationConfig,
     video_name: str,
-    processing_time: float
-) -> Dict[str, Any]:
+    processing_time: float,
+) -> dict[str, Any]:
     """
     Convert ChildResult object to JSON-serializable dictionary.
 
@@ -129,9 +134,8 @@ def child_result_to_dict(
             "total_frames": tracking_data['video_metadata']['total_frames'],
             "width": tracking_data['video_metadata'].get('width', 'unknown'),
             "height": tracking_data['video_metadata'].get('height', 'unknown'),
-            "processing_time_seconds": round(processing_time, 2)
+            "processing_time_seconds": round(processing_time, 2),
         },
-
         "child_identification": {
             "selected_track_ids": result.child_track_id_sequence,
             "confidence": round(result.confidence, 4),
@@ -144,17 +148,15 @@ def child_result_to_dict(
                     "start_frame": seg.start_frame,
                     "end_frame": seg.end_frame,
                     "duration_seconds": round(seg.duration_seconds(), 2),
-                    "duration_frames": seg.duration_frames()
+                    "duration_frames": seg.duration_frames(),
                 }
                 for seg in result.segments
-            ]
+            ],
         },
-
         "detailed_analysis": {
             "total_nodes": len(diagnostics['nodes']),
             "total_edges": len(diagnostics['edges']),
             "selected_path_length": len(diagnostics['path_indices']),
-
             "nodes": [
                 {
                     "index": i,
@@ -166,22 +168,20 @@ def child_result_to_dict(
                     "evidence_flags": node.evidence.flags,
                     "age_prob": round(node.evidence.p_age, 4) if node.evidence.p_age is not None else None,
                     "skeleton_prob": round(node.evidence.p_skeleton, 4) if node.evidence.p_skeleton is not None else None,
-                    "rigidity_prob": round(node.evidence.p_rigidity, 4) if node.evidence.p_rigidity is not None else None
+                    "rigidity_prob": round(node.evidence.p_rigidity, 4) if node.evidence.p_rigidity is not None else None,
                 }
                 for i, node in enumerate(diagnostics['nodes'])
             ],
-
             "edges": [
                 {
                     "from_track": diagnostics['nodes'][edge.src_index].tracklet.id,
                     "to_track": diagnostics['nodes'][edge.dst_index].tracklet.id,
                     "score": round(edge.score, 4),
-                    "reasons": {k: round(v, 4) for k, v in edge.reasons.items()}
+                    "reasons": {k: round(v, 4) for k, v in edge.reasons.items()},
                 }
                 for edge in diagnostics['edges']
-            ]
+            ],
         },
-
         "configuration": {
             "age_estimation_method": config.age_estimation_method,
             "enable_body_visibility_filter": config.enable_body_visibility_filter,
@@ -193,7 +193,7 @@ def child_result_to_dict(
             "enable_skeleton_ratios": config.enable_skeleton_ratios,
             "skeleton_min_confidence": config.skeleton_min_confidence,
             "min_rigidity_score": config.min_rigidity_score,
-        }
+        },
     }
 
     return result_dict
@@ -202,9 +202,9 @@ def child_result_to_dict(
 def create_child_video(
     video_path: str,
     child_result: ChildResult,
-    tracking_data: Dict[str, Any],
+    tracking_data: dict[str, Any],
     output_path: Path,
-    max_frames: Optional[int] = None
+    max_frames: int | None = None,
 ) -> bool:
     """Create video with bounding boxes around identified child"""
     try:
@@ -223,27 +223,31 @@ def create_child_video(
 
         # Try to use ffmpeg for h264 encoding, fall back to cv2 if not available
         use_ffmpeg = True
-        proc = None
+        proc: subprocess.Popen[bytes] | None = None
+        out: cv2.VideoWriter | None = None
 
         try:
             ffmpeg_cmd = [
                 "ffmpeg", "-y",
-                "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{width}x{height}", "-r", f"{fps}", "-i", "-",
+                "-f", "rawvideo", "-pix_fmt", "bgr24",
+                "-s", f"{width}x{height}", "-r", f"{fps}", "-i", "-",
                 "-an",
                 "-c:v", "libx264", "-pix_fmt", "yuv420p",
-                str(output_path)
+                str(output_path),
             ]
             proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
             print("Using ffmpeg h264 encoding")
         except FileNotFoundError:
             # Fallback to cv2 video writer
             use_ffmpeg = False
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            # cv2.VideoWriter_fourcc is absent from some cv2 stub versions; the
+            # narrow ignore below suppresses only that missing-attribute error.
+            fourcc: int = cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
             out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
             print("ffmpeg not found, using cv2 video writer")
 
         # Create frame-to-bbox mapping for child segments
-        child_frame_bboxes = {}
+        child_frame_bboxes: dict[int, Any] = {}
 
         # Find the original tracks that correspond to child segments
         for segment in child_result.segments:
@@ -262,6 +266,9 @@ def create_child_video(
         processed_frames = 0
 
         print(f"Processing video: {total_frames} frames at {fps:.1f} fps")
+
+        # B012 fix: track success outside finally so we can return after the block
+        ffmpeg_ok = True
 
         try:
             while True:
@@ -286,8 +293,13 @@ def create_child_video(
                     # Add child label
                     label = f"CHILD (conf: {child_result.confidence:.2f})"
                     label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
-                    cv2.rectangle(frame, (x1, y1 - label_size[1] - 10),
-                                (x1 + label_size[0], y1), (0, 255, 0), -1)
+                    cv2.rectangle(
+                        frame,
+                        (x1, y1 - label_size[1] - 10),
+                        (x1 + label_size[0], y1),
+                        (0, 255, 0),
+                        -1,
+                    )
                     cv2.putText(frame, label, (x1, y1 - 5),
                                 cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 2)
 
@@ -299,14 +311,17 @@ def create_child_video(
 
                     # Write frame to ffmpeg stdin
                     try:
+                        assert proc is not None and proc.stdin is not None  # narrowing for mypy
                         proc.stdin.write(frame.tobytes())
                     except BrokenPipeError:
                         # ffmpeg died early
+                        assert proc is not None and proc.stderr is not None
                         err = proc.stderr.read().decode(errors="ignore")
                         print(f"ffmpeg exited early: {err}")
                         break
                 else:
                     # Use cv2 video writer
+                    assert out is not None
                     out.write(frame)
 
                 processed_frames += 1
@@ -317,22 +332,26 @@ def create_child_video(
         finally:
             cap.release()
 
-            if use_ffmpeg and proc:
-                if proc.stdin:
-                    try:
+            if use_ffmpeg and proc is not None:
+                if proc.stdin is not None:
+                    # SIM105: use contextlib.suppress instead of try/except/pass
+                    with contextlib.suppress(BrokenPipeError):
                         proc.stdin.close()
-                    except BrokenPipeError:
-                        pass
 
                 # Wait for ffmpeg to finish
                 rc = proc.wait()
                 if rc != 0:
+                    # B012 fix: set flag instead of returning from finally
+                    assert proc.stderr is not None
                     err = proc.stderr.read().decode(errors="ignore")
                     print(f"ffmpeg failed (code {rc}): {err}")
-                    return False
+                    ffmpeg_ok = False
             else:
-                # Release cv2 video writer
-                out.release()
+                if out is not None:
+                    out.release()
+
+        if not ffmpeg_ok:
+            return False
 
         print(f"Video created: {output_path} ({processed_frames} frames)")
         return True
@@ -340,11 +359,12 @@ def create_child_video(
     except Exception as e:
         print(f"Error creating video: {e}")
         return False
-        
+
+
 def identify_child_in_video(
     tracking_json_path: str,
     video_path: str,
-    video_output_path: Union[Path, str],
+    video_output_path: Path | str,
     age_estimation_method: str = 'siglip',
     enable_body_visibility_filter: bool = True,
     min_visible_keypoints: int = 4,
@@ -354,10 +374,10 @@ def identify_child_in_video(
     age_child_years_threshold: float = 10.0,
     enable_skeleton_ratios: bool = False,
     skeleton_min_confidence: float = 0.3,
-    estimated_age_months: Optional[float] = None,
+    estimated_age_months: float | None = None,
     verbose: bool = True,
-    **kwargs
-) -> Dict[str, Any]:
+    **kwargs: Any,
+) -> dict[str, Any]:
     """
     Identify child in a single-child video from tracking results.
 
@@ -392,7 +412,9 @@ def identify_child_in_video(
         Minimum keypoint confidence for skeleton ratio computation
     estimated_age_months : float, optional
         Estimated child age in months (if known)
-    **kwargs : dict
+    verbose : bool, default=True
+        Whether to print progress information
+    **kwargs : Any
         Additional configuration parameters to pass to ChildIdentificationConfig
 
     Returns
@@ -416,7 +438,7 @@ def identify_child_in_video(
     >>> print(f"Confidence: {result['child_identification']['confidence']}")
     """
     # Load tracking data
-    with open(tracking_json_path, 'r') as f:
+    with open(tracking_json_path) as f:
         tracking_data = json.load(f)
 
     # Convert tracking data to Track objects
@@ -429,7 +451,7 @@ def identify_child_in_video(
 
     annotations = AnnotationInfo(
         age_in_months=estimated_age_months,
-        quality_flags={}
+        quality_flags={},
     )
 
     # Create configuration
@@ -443,7 +465,7 @@ def identify_child_in_video(
         age_child_years_threshold=age_child_years_threshold,
         enable_skeleton_ratios=enable_skeleton_ratios,
         skeleton_min_confidence=skeleton_min_confidence,
-        **kwargs
+        **kwargs,
     )
 
     # Run child identification
@@ -464,7 +486,7 @@ def identify_child_in_video(
     create_child_video(
         video_path, result, tracking_data,
         output_path=Path(video_output_path),
-        max_frames=10000  # Limit to first 10,000 frames for performance
+        max_frames=10000,  # Limit to first 10,000 frames for performance
     )
 
     return result_dict

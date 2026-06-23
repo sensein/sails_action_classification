@@ -9,18 +9,18 @@ Usage:
 """
 
 import json
-import pandas as pd
+from collections import Counter
 from pathlib import Path
+from typing import Any
+
 import matplotlib.pyplot as plt
 import numpy as np
-from typing import List, Dict, Any
-from collections import Counter, defaultdict
-import seaborn as sns
+import pandas as pd
 
 # Configuration
 LOG_DIR = Path("/orcd/data/satra/002/projects/SAILS/feature_processing/pipeline_outputs/face_body_poor_one_child_1or2_adult/child_classifications/logs")
 
-def analyze_batch_results():
+def analyze_batch_results() -> None:
     """Analyze all batch processing results"""
 
     # Find all analysis JSON files
@@ -37,7 +37,7 @@ def analyze_batch_results():
 
     for file_path in analysis_files:
         try:
-            with open(file_path, 'r') as f:
+            with open(file_path) as f:
                 data = json.load(f)
 
             # Extract key metrics
@@ -87,42 +87,42 @@ def analyze_batch_results():
     print(f"Average child duration: {df['total_duration'].mean():.1f}s")
 
     # Confidence distribution
-    print(f"\nConfidence distribution:")
+    print("\nConfidence distribution:")
     print(f"  > 0.9: {sum(df['confidence'] > 0.9)} videos ({sum(df['confidence'] > 0.9)/len(df)*100:.1f}%)")
     print(f"  > 0.8: {sum(df['confidence'] > 0.8)} videos ({sum(df['confidence'] > 0.8)/len(df)*100:.1f}%)")
     print(f"  > 0.7: {sum(df['confidence'] > 0.7)} videos ({sum(df['confidence'] > 0.7)/len(df)*100:.1f}%)")
 
     # Segment analysis
-    print(f"\nSegment analysis:")
+    print("\nSegment analysis:")
     print(f"  Single segment: {sum(df['num_segments'] == 1)} videos")
     print(f"  Multiple segments: {sum(df['num_segments'] > 1)} videos")
     print(f"  Average segments per video: {df['num_segments'].mean():.2f}")
 
     # Track analysis
-    print(f"\nTrack analysis:")
+    print("\nTrack analysis:")
     print(f"  Average tracks per video: {df['total_nodes'].mean():.1f}")
     print(f"  Videos with 1 track: {sum(df['total_nodes'] == 1)} ({sum(df['total_nodes'] == 1)/len(df)*100:.1f}%)")
     print(f"  Videos with >1 track: {sum(df['total_nodes'] > 1)} ({sum(df['total_nodes'] > 1)/len(df)*100:.1f}%)")
 
     # Age estimation analysis
-    all_age_probs = []
+    all_age_probs: list[float] = []
     for age_probs in df['age_probs']:
         all_age_probs.extend(age_probs)
 
     if all_age_probs:
-        print(f"\nAge estimation analysis:")
+        print("\nAge estimation analysis:")
         print(f"  Total age estimates: {len(all_age_probs)}")
         print(f"  Average child probability: {np.mean(all_age_probs):.4f}")
         print(f"  Child probability range: {min(all_age_probs):.4f} - {max(all_age_probs):.4f}")
 
     # Flag analysis
-    all_flags = []
+    all_flags: list[str] = []
     for flags in df['evidence_flags']:
         all_flags.extend(flags)
 
     if all_flags:
         flag_counts = Counter(all_flags)
-        print(f"\nEvidence flags frequency:")
+        print("\nEvidence flags frequency:")
         for flag, count in flag_counts.most_common():
             print(f"  {flag}: {count} occurrences")
 
@@ -140,7 +140,10 @@ def analyze_batch_results():
     # Create tracking quality visualizations
     create_tracking_visualizations(df, tracking_analysis, LOG_DIR)
 
-def calculate_bbox_similarity(bbox1, bbox2):
+def calculate_bbox_similarity(
+    bbox1: tuple[float, float, float, float],
+    bbox2: tuple[float, float, float, float],
+) -> dict[str, float]:
     """Calculate IoU and other similarity metrics between two bounding boxes"""
     x1_1, y1_1, x2_1, y2_1 = bbox1
     x1_2, y1_2, x2_2, y2_2 = bbox2
@@ -152,7 +155,7 @@ def calculate_bbox_similarity(bbox1, bbox2):
     y2_int = min(y2_1, y2_2)
 
     if x2_int <= x1_int or y2_int <= y1_int:
-        intersection = 0
+        intersection = 0.0
     else:
         intersection = (x2_int - x1_int) * (y2_int - y1_int)
 
@@ -180,11 +183,11 @@ def calculate_bbox_similarity(bbox1, bbox2):
         'size_ratio': size_ratio
     }
 
-def analyze_tracking_quality(df: pd.DataFrame) -> Dict[str, Any]:
+def analyze_tracking_quality(df: pd.DataFrame) -> dict[str, Any]:
     """Analyze tracking quality including potential merges and splits"""
     print("\n=== TRACKING QUALITY ANALYSIS ===")
 
-    tracking_metrics = {
+    tracking_metrics: dict[str, Any] = {
         'total_videos': len(df),
         'potential_merges': [],
         'potential_splits': [],
@@ -193,15 +196,14 @@ def analyze_tracking_quality(df: pd.DataFrame) -> Dict[str, Any]:
         'quality_scores': []
     }
 
-    for idx, row in df.iterrows():
+    for _idx, row in df.iterrows():
         filename = row['filename']
         nodes = row['detailed_nodes']
-        edges = row['detailed_edges']
 
         # Analyze potential merges (high similarity between different track IDs)
         merge_candidates = []
         for i, node1 in enumerate(nodes):
-            for j, node2 in enumerate(nodes[i+1:], i+1):
+            for _j, node2 in enumerate(nodes[i+1:], i+1):
                 if node1['track_id'] != node2['track_id']:
                     # Calculate similarity metrics
                     age_diff = abs((node1.get('age_prob', 0.5) or 0.5) - (node2.get('age_prob', 0.5) or 0.5))
@@ -225,8 +227,7 @@ def analyze_tracking_quality(df: pd.DataFrame) -> Dict[str, Any]:
                         })
 
         # Analyze track fragmentation
-        track_durations = {}
-        track_frame_gaps = defaultdict(list)
+        track_durations: dict[Any, list[dict[str, Any]]] = {}
 
         for node in nodes:
             track_id = node['track_id']
@@ -264,7 +265,7 @@ def analyze_tracking_quality(df: pd.DataFrame) -> Dict[str, Any]:
                     })
 
         # Calculate overall tracking quality score
-        num_tracks = len(set(node['track_id'] for node in nodes))
+        num_tracks = len({node['track_id'] for node in nodes})
         avg_confidence = row['confidence']
         merge_penalty = len(merge_candidates) * 0.1
         fragmentation_penalty = fragmentation_score * 0.05
@@ -300,17 +301,17 @@ def analyze_tracking_quality(df: pd.DataFrame) -> Dict[str, Any]:
 
     return tracking_metrics
 
-def create_tracking_visualizations(df: pd.DataFrame, tracking_analysis: Dict[str, Any], output_dir: Path):
+def create_tracking_visualizations(df: pd.DataFrame, tracking_analysis: dict[str, Any], output_dir: Path) -> None:
     """Create detailed tracking quality visualizations"""
 
     # Set up the plotting style
     plt.style.use('default')
 
     # Create a comprehensive tracking analysis figure
-    fig = plt.figure(figsize=(20, 16))
+    plt.figure(figsize=(20, 16))
 
     # 1. Tracking quality distribution
-    ax1 = plt.subplot(3, 3, 1)
+    plt.subplot(3, 3, 1)
     quality_scores = tracking_analysis['quality_scores']
     if quality_scores:
         plt.hist(quality_scores, bins=20, alpha=0.7, color='skyblue', edgecolor='black')
@@ -336,11 +337,11 @@ def create_tracking_visualizations(df: pd.DataFrame, tracking_analysis: Dict[str
         plt.title('Merge Probability Distribution')
 
     # 3. Track fragmentation analysis
-    ax3 = plt.subplot(3, 3, 3)
+    plt.subplot(3, 3, 3)
     frag_scores = [f['fragmentation_score'] for f in tracking_analysis['track_fragmentations']]
     if frag_scores:
         frag_counts = Counter(frag_scores)
-        plt.bar(frag_counts.keys(), frag_counts.values(), alpha=0.7, color='lightcoral')
+        plt.bar(list(frag_counts.keys()), list(frag_counts.values()), alpha=0.7, color='lightcoral')
         plt.xlabel('Fragmentation Score')
         plt.ylabel('Number of Videos')
         plt.title('Track Fragmentation Distribution')
@@ -463,7 +464,7 @@ Fragmentation:
 
     # Create detailed DataFrame for export
     detailed_data = []
-    for video_idx, row in df.iterrows():
+    for _video_idx, row in df.iterrows():
         filename = row['filename']
 
         # Add merge data
@@ -505,7 +506,7 @@ Fragmentation:
         detailed_df.to_csv(tracking_csv, index=False)
         print(f"Detailed tracking analysis saved to: {tracking_csv}")
 
-def create_visualizations(df: pd.DataFrame, output_dir: Path):
+def create_visualizations(df: pd.DataFrame, output_dir: Path) -> None:
     """Create visualization plots"""
 
     fig, axes = plt.subplots(2, 2, figsize=(15, 12))

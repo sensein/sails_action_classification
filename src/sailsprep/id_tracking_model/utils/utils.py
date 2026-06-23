@@ -1,6 +1,15 @@
 import numpy as np
+from numpy.typing import NDArray
 
-def soft_nms(dets, iou_thr=0.55, score_thr=0.05, method='linear', sigma=0.5, top_k=None):
+
+def soft_nms(
+    dets: NDArray[np.float64],
+    iou_thr: float = 0.55,
+    score_thr: float = 0.05,
+    method: str = 'linear',
+    sigma: float = 0.5,
+    top_k: int | None = None,
+) -> list[int]:
     """
     Soft-NMS (class-agnostic), vectorized-ish.
     dets: np.ndarray [N,5] -> [x1,y1,x2,y2,score] (xyxy, half-open coords)
@@ -14,7 +23,7 @@ def soft_nms(dets, iou_thr=0.55, score_thr=0.05, method='linear', sigma=0.5, top
         dets_out:  dets with updated (decayed) scores, in **kept order**
     """
     if len(dets) == 0:
-        return [], dets
+        return []
 
     dets = dets.copy()
     x1, y1, x2, y2, scores = [dets[:, i] for i in range(5)]
@@ -23,7 +32,7 @@ def soft_nms(dets, iou_thr=0.55, score_thr=0.05, method='linear', sigma=0.5, top
     areas = np.clip(x2 - x1, 0, None) * np.clip(y2 - y1, 0, None)
     order = scores.argsort()[::-1]
 
-    keep = []
+    keep: list[int] = []
     while order.size > 0:
         i = order[0]
         keep.append(i)
@@ -65,13 +74,20 @@ def soft_nms(dets, iou_thr=0.55, score_thr=0.05, method='linear', sigma=0.5, top
 
     # final prune & optional top-k
     kept_scores = dets[keep, 4]
-    keep = [k for k, s in zip(keep, kept_scores) if s >= score_thr]
+    keep = [k for k, s in zip(keep, kept_scores, strict=True) if s >= score_thr]
     if top_k is not None and len(keep) > top_k:
         keep = list(np.array(keep)[np.argsort(dets[keep, 4])[::-1][:top_k]])
 
     return keep
 
-def oks_iou(g, d, a_g, a_d, sigmas=None, vis_thr=None):
+def oks_iou(
+    g: NDArray[np.float32],
+    d: NDArray[np.float32],
+    a_g: float,
+    a_d: NDArray[np.float32],
+    sigmas: NDArray[np.float64] | None = None,
+    vis_thr: float | None = None,
+) -> NDArray[np.float32]:
     """Calculate oks ious.
 
     Args:
@@ -110,7 +126,13 @@ def oks_iou(g, d, a_g, a_d, sigmas=None, vis_thr=None):
 
 
 
-def oks_nms(kpts_db, thr, sigmas=None, vis_thr=None, score_per_joint=False):
+def oks_nms(
+    kpts_db: list[dict],  # type: ignore[type-arg]
+    thr: float,
+    sigmas: NDArray[np.float64] | None = None,
+    vis_thr: float | None = None,
+    score_per_joint: bool = False,
+) -> NDArray[np.intp]:
     """OKS NMS implementations.
 
     Args:
@@ -124,7 +146,7 @@ def oks_nms(kpts_db, thr, sigmas=None, vis_thr=None, score_per_joint=False):
         np.ndarray: indexes to keep.
     """
     if len(kpts_db) == 0:
-        return []
+        return np.array([], dtype=np.intp)
 
     if score_per_joint:
         scores = np.array([k['score'].mean() for k in kpts_db])
@@ -136,7 +158,7 @@ def oks_nms(kpts_db, thr, sigmas=None, vis_thr=None, score_per_joint=False):
 
     order = scores.argsort()[::-1]
 
-    keep = []
+    keep: list[int] = []
     while len(order) > 0:
         i = order[0]
         keep.append(i)
@@ -147,6 +169,6 @@ def oks_nms(kpts_db, thr, sigmas=None, vis_thr=None, score_per_joint=False):
         inds = np.where(oks_ovr <= thr)[0]
         order = order[inds + 1]
 
-    keep = np.array(keep)
+    keep_arr: NDArray[np.intp] = np.array(keep)
 
-    return keep
+    return keep_arr

@@ -15,24 +15,34 @@ Usage:
         --output-dir /path/to/output
 """
 
-import sys
-import os
-import csv
 import argparse
-import h5py
-import numpy as np
+import contextlib
 import json
-import subprocess
 import logging
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
-from collections import defaultdict, Counter
-from dataclasses import dataclass
+import os
 import re
+import subprocess
+import sys
+from collections import Counter, defaultdict
+from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 import cv2
+import h5py
+import numpy as np
 import pandas as pd
 from pandas.api.types import is_integer_dtype
+
+from sailsprep.id_tracking_model.target_id.child_id.single_child_identification import (
+    AnnotationInfo,
+    ChildIdentificationConfig,
+    SigLipModel,
+)
+from sailsprep.id_tracking_model.target_id.child_id.single_child_track_selector import (
+    load_track_from_h5,
+    select_from_directory,
+)
 
 # Configure logging for SLURM output
 logging.basicConfig(
@@ -45,19 +55,8 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-from sailsprep.feature_processing.target_id.child_id.single_child_identification import (
-    AnnotationInfo,
-    ChildIdentificationConfig,
-    SigLipModel,
-)
-from sailsprep.feature_processing.target_id.child_id.single_child_track_selector import (
-    SingleTrackSelection,
-    load_track_from_h5,
-    select_from_directory,
-)
 
-
-def _json_default(obj):
+def _json_default(obj: Any) -> Any:
     """Fallback serializer for NumPy types."""
     if isinstance(obj, np.generic):
         return obj.item()
@@ -66,7 +65,7 @@ def _json_default(obj):
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
-def _sanitize_for_path(value: Optional[str]) -> str:
+def _sanitize_for_path(value: str | None) -> str:
     if value is None:
         return "unknown"
     safe = re.sub(r"[^\w\-]+", "_", str(value).strip())
@@ -76,15 +75,11 @@ def _sanitize_for_path(value: Optional[str]) -> str:
 @dataclass
 class EmbeddingProfile:
     """Container for averaged embeddings"""
-    face_feature: Optional[np.ndarray] = None
-    upper_feature: Optional[np.ndarray] = None
-    lower_feature: Optional[np.ndarray] = None
+    face_feature: np.ndarray | None = None
+    upper_feature: np.ndarray | None = None
+    lower_feature: np.ndarray | None = None
     num_observations: int = 0
-    source_videos: List[str] = None
-
-    def __post_init__(self):
-        if self.source_videos is None:
-            self.source_videos = []
+    source_videos: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -100,7 +95,7 @@ class TrackMatch:
     start_frame: int
     end_frame: int
     confidence: str  # 'high', 'medium', 'low'
-    timepoint: Optional[str] = None
+    timepoint: str | None = None
     is_reference: bool = False
 
 COCO_SKELETON = [
@@ -116,12 +111,12 @@ class TargetIdentifier:
     """Identifies target child across multiple videos"""
 
     def __init__(self, csv_path: str, embeddings_base_dir: str, output_dir: str,
-                 filter_ids: Optional[List[str]] = None,
+                 filter_ids: list[str] | None = None,
                  render: bool = False,
-                 video_base_dir: Optional[str] = None,
+                 video_base_dir: str | None = None,
                  rmm: bool = False,
                  face_only: bool = False,
-                 min_score: float = 0.5):
+                 min_score: float = 0.5) -> None:
         """
         Initialize target identifier
 
@@ -149,17 +144,17 @@ class TargetIdentifier:
         self.child_timepoint_months, self.global_timepoint_months = self._build_timepoint_index()
 
         # Storage for results
-        self.reference_videos = {}  # {child_id: {video_path: track_id}}
-        self.reference_profiles = {}  # {child_id: {timepoint: EmbeddingProfile}}
-        self.match_results = defaultdict(list)  # {child_id: [TrackMatch]}
-        self.reference_track_diagnostics = defaultdict(dict)  # {child_id: {source_file: diagnostics}}
-        self.child_metrics = defaultdict(lambda: {
+        self.reference_videos: dict[str, dict[str, int]] = {}
+        self.reference_profiles: dict[str, dict[str, EmbeddingProfile]] = {}
+        self.match_results: dict[str, list[TrackMatch]] = defaultdict(list)
+        self.reference_track_diagnostics: dict[str, dict[str, Any]] = defaultdict(dict)
+        self.child_metrics: dict[str, dict[str, Any]] = defaultdict(lambda: {
             'total_videos': 0,
             'successes': 0,
             'failures': 0,
             'failure_reasons': Counter(),
         })
-        self.global_metrics = {
+        self.global_metrics: dict[str, Any] = {
             'total_videos': 0,
             'successes': 0,
             'failures': 0,
@@ -179,11 +174,11 @@ class TargetIdentifier:
         self.face_only = face_only
         self.min_score = float(min_score)
         if face_only:
-            self.similarity_weights = {'face': 1.0, 'upper': 0.0, 'lower': 0.0}
+            self.similarity_weights: dict[str, float] = {'face': 1.0, 'upper': 0.0, 'lower': 0.0}
         else:
             self.similarity_weights = {'face': 0.5, 'upper': 0.3, 'lower': 0.2}
 
-    def _video_basename(self, video_info: Dict) -> str:
+    def _video_basename(self, video_info: dict[str, Any]) -> str:
         filename = video_info['SourceFile']
         video_id = video_info['ID']
         coder = video_info['Coder']
@@ -191,7 +186,7 @@ class TargetIdentifier:
         base_name = Path(filename).stem
         return f"{video_id}_{coder}_{base_name}"
 
-    def _get_embedding_path(self, video_info: Dict) -> Path:
+    def _get_embedding_path(self, video_info: dict[str, Any]) -> Path:
         """
         Get path to HDF5 embeddings directory for a video
 
@@ -216,7 +211,7 @@ class TargetIdentifier:
         # Fall back to the last candidate even if it does not exist so caller can warn.
         return candidates[-1]
  
-    def _normalize_numeric_columns(self):
+    def _normalize_numeric_columns(self) -> None:
         """Convert int-like columns to nullable integers for robust comparisons."""
         if self.df.empty:
             return
@@ -245,10 +240,10 @@ class TargetIdentifier:
         if 'Age' in self.df.columns:
             self.df['Age'] = pd.to_numeric(self.df['Age'], errors='coerce')
 
-    def _build_timepoint_index(self) -> Tuple[Dict[str, List[Tuple[str, float]]], List[Tuple[str, float]]]:
+    def _build_timepoint_index(self) -> tuple[dict[str, list[tuple[str, float]]], list[tuple[str, float]]]:
         """Collect available timepoints (child-specific and global) with numeric month values."""
-        child_map: Dict[str, Dict[str, float]] = defaultdict(dict)
-        global_map: Dict[str, float] = {}
+        child_map: dict[str, dict[str, float]] = defaultdict(dict)
+        global_map: dict[str, float] = {}
 
         if 'timepoint' not in self.df.columns:
             return {}, []
@@ -274,7 +269,7 @@ class TargetIdentifier:
         return child_timepoint_months, global_timepoint_months
 
     @staticmethod
-    def _parse_timepoint_to_months(timepoint: str) -> Optional[float]:
+    def _parse_timepoint_to_months(timepoint: str) -> float | None:
         match = re.search(r'(\d+(?:\.\d+)?)', timepoint)
         if not match:
             return None
@@ -283,7 +278,7 @@ class TargetIdentifier:
         except ValueError:
             return None
 
-    def _infer_timepoint_from_age(self, child_id: str, age_value) -> Tuple[Optional[str], Optional[float]]:
+    def _infer_timepoint_from_age(self, child_id: str, age_value: Any) -> tuple[str | None, float | None]:
         """Infer the timepoint label from age (in years) by snapping to nearest known timepoint."""
         try:
             age_float = float(age_value)
@@ -305,7 +300,7 @@ class TargetIdentifier:
         best_timepoint, _ = min(candidates, key=lambda item: abs(item[1] - age_months))
         return best_timepoint, age_months
 
-    def _get_output_subdir(self, base_dir: Path, child_id: str, timepoint: Optional[str], video_name: Optional[str] = None) -> Path:
+    def _get_output_subdir(self, base_dir: Path, child_id: str, timepoint: str | None, video_name: str | None = None) -> Path:
         """Get output subdirectory, optionally creating a video-specific folder."""
         child_dir = base_dir / _sanitize_for_path(child_id)
         tp_dir = child_dir / _sanitize_for_path(timepoint)
@@ -321,10 +316,10 @@ class TargetIdentifier:
 
     def _store_video_result(self,
                             child_id: str,
-                            timepoint: Optional[str],
-                            video_info: Dict,
-                            match: Optional[TrackMatch],
-                            miss_reason: Optional[str]) -> None:
+                            timepoint: str | None,
+                            video_info: dict[str, Any],
+                            match: TrackMatch | None,
+                            miss_reason: str | None) -> None:
         raw_source = video_info.get('SourceFile', '')
         source_file = str(raw_source) if raw_source is not None else ''
         video_stem = Path(source_file).stem if source_file else match.video_id if match else "video"
@@ -334,13 +329,13 @@ class TargetIdentifier:
         file_name = "result.json"
         video_id = match.video_id if match else f"{video_info.get('ID', 'unknown')}_{video_info.get('Coder', 'unknown')}_{video_stem}"
 
-        result_data: Dict[str, Any] = {
+        result_data: dict[str, Any] = {
             'child_id': child_id,
             'timepoint': timepoint,
             'video_id': video_id,
             'source_file': source_file,
             'coder': video_info.get('Coder'),
-            'age_years': float(video_info.get('Age')) if pd.notna(video_info.get('Age')) else None,
+            'age_years': float(video_info['Age']) if pd.notna(video_info.get('Age')) else None,
             'match_found': match is not None,
         }
 
@@ -367,7 +362,7 @@ class TargetIdentifier:
         with open(video_dir / file_name, 'w') as f:
             json.dump(result_data, f, indent=2, default=_json_default)
 
-    def _categorize_failure(self, reason: Optional[str]) -> str:
+    def _categorize_failure(self, reason: str | None) -> str:
         if not reason:
             return 'unknown'
         text = reason.lower()
@@ -387,7 +382,7 @@ class TargetIdentifier:
             return 'no_reference_videos'
         return 'other'
 
-    def _record_match_outcome(self, child_id: str, match_found: bool, miss_reason: Optional[str]) -> None:
+    def _record_match_outcome(self, child_id: str, match_found: bool, miss_reason: str | None) -> None:
         metrics = self.child_metrics[child_id]
         metrics['total_videos'] += 1
         self.global_metrics['total_videos'] += 1
@@ -403,8 +398,8 @@ class TargetIdentifier:
         metrics['failure_reasons'][category] += 1
         self.global_metrics['failure_reasons'][category] += 1
 
-    def _format_failure_breakdown(self, counter: Counter, total: int) -> Dict[str, Dict[str, float]]:
-        breakdown: Dict[str, Dict[str, float]] = {}
+    def _format_failure_breakdown(self, counter: Counter[str], total: int) -> dict[str, dict[str, float]]:
+        breakdown: dict[str, dict[str, float]] = {}
         if total <= 0:
             return breakdown
 
@@ -415,7 +410,7 @@ class TargetIdentifier:
             }
         return breakdown
 
-    def _convert_source_path(self, source_path: str) -> Optional[Path]:
+    def _convert_source_path(self, source_path: str) -> Path | None:
         """Convert a SourceFile entry into an actual filesystem path."""
         if not source_path:
             return None
@@ -433,17 +428,17 @@ class TargetIdentifier:
                 return rel_candidate
             prefix = '/Volumes/T7 Shield/AMES_Phase_III/Phase_III_videos/'
             if source_path.startswith(prefix):
-                relative_path = source_path.replace(prefix, '', 1)
-                return self.video_base_dir / relative_path
+                relative_path_str = source_path.replace(prefix, '', 1)
+                return self.video_base_dir / relative_path_str
 
             parts = source_path.split('/')
             if len(parts) >= 2:
-                relative_path = Path(*parts[-2:])
-                return self.video_base_dir / relative_path
+                relative_path_parts: Path = Path(*parts[-2:])
+                return self.video_base_dir / relative_path_parts
 
         return source_candidate
 
-    def _infer_video_path(self, video_info: Dict) -> Optional[Path]:
+    def _infer_video_path(self, video_info: dict[str, Any]) -> Path | None:
         """
         Infer the source video path associated with a tracking directory.
         """
@@ -475,32 +470,40 @@ class TargetIdentifier:
 
         return None
 
-    def _select_reference_track(self,
-                                tracking_dir: Path,
-                                video_info: Dict,
-                                include_details: bool = False):
+    def _select_reference_track(
+        self,
+        tracking_dir: Path,
+        video_info: dict[str, Any],
+        include_details: bool = False,
+    ) -> Any:
         """Run single-child scoring to pick the best track from a solo video."""
         annotations = AnnotationInfo()
         age_months = video_info.get('Age_in_months') or video_info.get('age_in_months')
 
         if age_months is not None and not pd.isna(age_months):
-            try:
+            with contextlib.suppress(Exception):
                 annotations.age_in_months = float(age_months)
-            except Exception:
-                pass
 
         video_path = self._infer_video_path(video_info)
 
+        if include_details:
+            return select_from_directory(
+                tracking_dir,
+                video_path=video_path,
+                annotations=annotations,
+                cfg=self.selector_config,
+                siglip_model=self.siglip_model,
+                include_diagnostics=True,
+            )
         return select_from_directory(
             tracking_dir,
             video_path=video_path,
             annotations=annotations,
             cfg=self.selector_config,
             siglip_model=self.siglip_model,
-            include_diagnostics=include_details,
         )
 
-    def _resolve_track_path(self, tracking_dir: Path, track_id: int) -> Optional[Path]:
+    def _resolve_track_path(self, tracking_dir: Path, track_id: int) -> Path | None:
         """Find the HDF5 file for a given track ID inside a tracking directory."""
         candidates = [
             tracking_dir / f"track_{track_id:04d}.h5",
@@ -522,7 +525,7 @@ class TargetIdentifier:
 
         return None
 
-    def _render_target_track(self, video_info: Dict, match: TrackMatch):
+    def _render_target_track(self, video_info: dict[str, Any], match: TrackMatch) -> None:
         """Render visualization for the target track (bbox + pose) if enabled."""
         if not self.render:
             return
@@ -534,7 +537,7 @@ class TargetIdentifier:
             import traceback
             traceback.print_exc()
 
-    def _render_target_track_impl(self, video_info: Dict, match: TrackMatch):
+    def _render_target_track_impl(self, video_info: dict[str, Any], match: TrackMatch) -> None:
         """Internal implementation of track rendering with full error handling."""
         tracking_dir = self._get_embedding_path(video_info)
         if not tracking_dir.exists():
@@ -564,13 +567,13 @@ class TargetIdentifier:
             logger.warning(f"  Track {match.track_id} has no frame data, skipping render")
             return
 
-        frame_data: Dict[int, Dict[str, np.ndarray]] = {}
+        frame_data: dict[int, dict[str, np.ndarray]] = {}
         total_frames = len(track.frame_numbers)
         for idx in range(total_frames):
             frame_num = track.frame_numbers[idx]
             if frame_num is None:
                 continue
-            data: Dict[str, np.ndarray] = {}
+            data: dict[str, np.ndarray] = {}
             if track.bboxes and idx < len(track.bboxes):
                 bbox = track.bboxes[idx]
                 if bbox is not None:
@@ -656,7 +659,7 @@ class TargetIdentifier:
             proc = subprocess.Popen(ffmpeg_cmd, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         except FileNotFoundError:
             use_ffmpeg = False
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')  # type: ignore[attr-defined]
             writer = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
             if not writer.isOpened():
                 logger.warning(f"  Failed to open video writer for {output_path}")
@@ -688,22 +691,22 @@ class TargetIdentifier:
                 except Exception as e:
                     logger.warning(f"  Error adding reference label to frame {current_frame}: {e}")
 
-                data = frame_data.get(current_frame)
-                if data:
+                frame_arr = frame_data.get(current_frame)
+                if frame_arr is not None:
                     try:
-                        bbox = data.get('bbox')
-                        if bbox is not None and bbox.size >= 4:
-                            x1, y1, x2, y2 = bbox.astype(int)
+                        bbox_arr = frame_arr.get('bbox')
+                        if bbox_arr is not None and bbox_arr.size >= 4:
+                            x1, y1, x2, y2 = bbox_arr.astype(int)
                             cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
                             label_y = max(y1 - 10, 20)
                             cv2.putText(frame, f"TARGET (Track {match.track_id})", (x1, label_y), font, 0.7, color, 2, cv2.LINE_AA)
 
-                        keypoints = data.get('keypoints')
+                        keypoints = frame_arr.get('keypoints')
                         if keypoints is not None and keypoints.size >= 3:
                             num_points = keypoints.shape[0]
 
-                            for idx in range(min(num_points, 17)):
-                                x, y, conf = keypoints[idx]
+                            for kp_idx in range(min(num_points, 17)):
+                                x, y, conf = keypoints[kp_idx]
                                 if conf >= POSE_CONF_THRESHOLD:
                                     cv2.circle(frame, (int(x), int(y)), 3, color, -1)
 
@@ -744,10 +747,8 @@ class TargetIdentifier:
                     proc.wait(timeout=5)
                 except Exception as e:
                     logger.warning(f"  Error closing ffmpeg: {e}")
-                    try:
+                    with contextlib.suppress(BaseException):
                         proc.kill()
-                    except:
-                        pass
             elif writer:
                 try:
                     writer.release()
@@ -756,7 +757,7 @@ class TargetIdentifier:
 
         logger.info(f"  Rendered target track video: {output_path}")
 
-    def load_track_embeddings(self, h5_file: Path) -> Optional[EmbeddingProfile]:
+    def load_track_embeddings(self, h5_file: Path) -> EmbeddingProfile | None:
         """
         Load embeddings from a single track HDF5 file
 
@@ -785,7 +786,7 @@ class TargetIdentifier:
                 # Get metadata
                 if 'metadata' in f:
                     meta = f['metadata']
-                    profile.num_observations = meta.attrs.get('num_frames', 0)
+                    profile.num_observations = int(meta.attrs.get('num_frames', 0))
 
                 return profile
 
@@ -793,7 +794,7 @@ class TargetIdentifier:
             logger.error(f"Error loading {h5_file}: {e}")
             return None
 
-    def build_reference_profiles(self, child_id: str):
+    def build_reference_profiles(self, child_id: str) -> None:
         """
         Build reference embedding profiles from solo videos
 
@@ -842,7 +843,7 @@ class TargetIdentifier:
                       f"upper={'✓' if profile.upper_feature is not None else '✗'} "
                       f"lower={'✓' if profile.lower_feature is not None else '✗'}")
 
-    def _build_profile_from_videos(self, videos_df, timepoint: str) -> Optional[EmbeddingProfile]:
+    def _build_profile_from_videos(self, videos_df: Any, timepoint: str) -> EmbeddingProfile | None:
         """
         Build averaged embedding profile from multiple videos
 
@@ -942,7 +943,7 @@ class TargetIdentifier:
 
         return profile
 
-    def cosine_similarity(self, a: np.ndarray, b: np.ndarray) -> float:
+    def cosine_similarity(self, a: np.ndarray | None, b: np.ndarray | None) -> float:
         """Compute cosine similarity between two vectors"""
         if a is None or b is None:
             return 0.0
@@ -954,11 +955,11 @@ class TargetIdentifier:
         if norm_a == 0 or norm_b == 0:
             return 0.0
 
-        return dot_product / (norm_a * norm_b)
+        return float(dot_product / (norm_a * norm_b))
 
     def compute_track_similarity(self, track_profile: EmbeddingProfile,
                                  ref_profile: EmbeddingProfile,
-                                 weights: Dict[str, float] = None) -> Tuple[float, Dict[str, float]]:
+                                 weights: dict[str, float] | None = None) -> tuple[float, dict[str, float]]:
         """
         Compute weighted similarity between track and reference profile
 
@@ -973,7 +974,7 @@ class TargetIdentifier:
         if weights is None:
             weights = {'face': 0.5, 'upper': 0.3, 'lower': 0.2}
 
-        scores = {}
+        scores: dict[str, float] = {}
         scores['face'] = self.cosine_similarity(track_profile.face_feature, ref_profile.face_feature)
         scores['upper'] = self.cosine_similarity(track_profile.upper_feature, ref_profile.upper_feature)
         scores['lower'] = self.cosine_similarity(track_profile.lower_feature, ref_profile.lower_feature)
@@ -987,7 +988,7 @@ class TargetIdentifier:
 
         return total_score, scores
 
-    def _create_match_from_track_id(self, child_id: str, video_info: Dict, track_id: int) -> Optional[TrackMatch]:
+    def _create_match_from_track_id(self, child_id: str, video_info: dict[str, Any], track_id: int) -> TrackMatch | None:
         """
         Create a TrackMatch object from a known track ID (for reference videos)
 
@@ -1013,9 +1014,9 @@ class TargetIdentifier:
                 with h5py.File(track_path, 'r') as f:
                     if 'metadata' in f:
                         meta = f['metadata']
-                        num_frames = meta.attrs.get('num_frames', 0)
-                        start_frame = meta.attrs.get('start_frame', 0)
-                        end_frame = meta.attrs.get('end_frame', 0)
+                        num_frames = int(meta.attrs.get('num_frames', 0))
+                        start_frame = int(meta.attrs.get('start_frame', 0))
+                        end_frame = int(meta.attrs.get('end_frame', 0))
             except Exception as e:
                 logger.warning(f"  Could not load metadata for track {track_id}: {e}")
 
@@ -1040,7 +1041,7 @@ class TargetIdentifier:
 
         return match
 
-    def identify_target_in_video(self, child_id: str, video_info: Dict) -> Tuple[Optional[TrackMatch], Optional[str]]:
+    def identify_target_in_video(self, child_id: str, video_info: dict[str, Any]) -> tuple[TrackMatch | None, str | None]:
         """
         Identify target child in a single video
 
@@ -1060,7 +1061,7 @@ class TargetIdentifier:
             return match, None
 
         # Get reference profile for this timepoint
-        timepoint = video_info.get('timepoint')
+        timepoint: str | None = video_info.get('timepoint')
         age_value = video_info.get('Age')
         if age_value is None and 'age' in video_info:
             age_value = video_info.get('age')
@@ -1077,7 +1078,7 @@ class TargetIdentifier:
                     logger.info(f"No timepoint specified for video; inferred '{timepoint}' from available age")
             else:
                 reason = "timepoint missing in CSV and unable to infer from age"
-                logger.warning(f"No timepoint specified for video and unable to infer from age")
+                logger.warning("No timepoint specified for video and unable to infer from age")
                 return None, reason
 
         if child_id not in self.reference_profiles:
@@ -1109,9 +1110,9 @@ class TargetIdentifier:
             return None, reason
 
         # Score all tracks
-        best_match = None
-        best_score = -1
-        best_reason = "tracks evaluated but none scored above current best threshold"
+        best_match: TrackMatch | None = None
+        best_score = -1.0
+        best_reason: str | None = "tracks evaluated but none scored above current best threshold"
 
         for h5_file in h5_files:
             track_id = int(h5_file.stem.split('_')[1])
@@ -1136,13 +1137,16 @@ class TargetIdentifier:
 
             # Boost if track has many frames (likely main subject)
             # We'll need to load metadata for this
+            num_frames = 0
+            start_frame = 0
+            end_frame = 0
             try:
                 with h5py.File(h5_file, 'r') as f:
                     if 'metadata' in f:
-                        num_frames = f['metadata'].attrs.get('num_frames', 0)
-                        start_frame = f['metadata'].attrs.get('start_frame', 0)
-                        end_frame = f['metadata'].attrs.get('end_frame', 0)
-            except:
+                        num_frames = int(f['metadata'].attrs.get('num_frames', 0))
+                        start_frame = int(f['metadata'].attrs.get('start_frame', 0))
+                        end_frame = int(f['metadata'].attrs.get('end_frame', 0))
+            except Exception:
                 num_frames = track_profile.num_observations
                 start_frame = 0
                 end_frame = 0
@@ -1191,7 +1195,7 @@ class TargetIdentifier:
 
         return best_match, None
 
-    def process_child(self, child_id: str):
+    def process_child(self, child_id: str) -> None:
         """
         Process all videos for a single child
 
@@ -1210,8 +1214,7 @@ class TargetIdentifier:
         logger.info(f"Processing {len(child_videos)} videos for child {child_id}...")
 
         matches = []
-        count = 0
-        for idx, video_info in child_videos.iterrows():
+        for count, (_idx, video_info) in enumerate(child_videos.iterrows()):
             video_dict = video_info.to_dict()
             video_name = video_dict['SourceFile']
             logger.info(f"\n[{count+1}/{len(child_videos)}] {video_name}")
@@ -1229,18 +1232,17 @@ class TargetIdentifier:
                 if miss_reason:
                     logger.warning(f"  ✗ No match found: {miss_reason}")
                 else:
-                    logger.warning(f"  ✗ No match found")
+                    logger.warning("  ✗ No match found")
 
             self._store_video_result(child_id, timepoint_label, video_dict, match, miss_reason)
             self._record_match_outcome(child_id, match is not None, miss_reason)
-            count += 1
         self.match_results[child_id] = matches
         self.global_metrics['children_processed'] += 1
 
         # Save results
         self.save_results(child_id)
 
-    def save_results(self, child_id: str):
+    def save_results(self, child_id: str) -> None:
         """Save matching results to JSON"""
         child_dir = self.output_dir / _sanitize_for_path(child_id)
         child_dir.mkdir(parents=True, exist_ok=True)
@@ -1284,9 +1286,9 @@ class TargetIdentifier:
         ]
 
         metrics = self.child_metrics[child_id]
-        total_videos = metrics['total_videos']
-        successes = metrics['successes']
-        failures = metrics['failures']
+        total_videos: int = int(metrics['total_videos'])
+        successes: int = int(metrics['successes'])
+        failures: int = int(metrics['failures'])
         failure_breakdown = self._format_failure_breakdown(metrics['failure_reasons'], total_videos)
         summary = {
             'total_videos': total_videos,
@@ -1314,9 +1316,9 @@ class TargetIdentifier:
         with open(summary_path, 'w') as f:
             json.dump(results, f, indent=2, default=_json_default)
 
-        summary_by_timepoint: Dict[str, List[Dict[str, any]]] = defaultdict(list)
+        summary_by_timepoint: dict[str, list[dict[str, Any]]] = defaultdict(list)
         for entry in matches_serialized:
-            tp_key = entry.get('timepoint') or 'unknown'
+            tp_key: str = str(entry.get('timepoint') or 'unknown')
             summary_by_timepoint[tp_key].append(entry)
 
         for tp_key, entries in summary_by_timepoint.items():
@@ -1329,17 +1331,17 @@ class TargetIdentifier:
               f"{summary['medium_confidence']} medium, "
               f"{summary['low_confidence']} low confidence matches")
 
-    def save_global_summary(self):
+    def save_global_summary(self) -> None:
         """Write a run-level summary of successes/failures across all children."""
-        total_videos = self.global_metrics['total_videos']
-        successes = self.global_metrics['successes']
-        failures = self.global_metrics['failures']
+        total_videos: int = int(self.global_metrics['total_videos'])
+        successes: int = int(self.global_metrics['successes'])
+        failures: int = int(self.global_metrics['failures'])
 
-        per_child = {}
+        per_child: dict[str, Any] = {}
         for child_id, metrics in self.child_metrics.items():
-            child_total = metrics['total_videos']
-            child_successes = metrics['successes']
-            child_failures = metrics['failures']
+            child_total: int = int(metrics['total_videos'])
+            child_successes: int = int(metrics['successes'])
+            child_failures: int = int(metrics['failures'])
             per_child[child_id] = {
                 'total_videos': child_total,
                 'matches_found': child_successes,
@@ -1364,7 +1366,7 @@ class TargetIdentifier:
         with open(summary_path, 'w') as f:
             json.dump(run_summary, f, indent=2, default=_json_default)
 
-    def process_all(self):
+    def process_all(self) -> None:
         """Process all children"""
         # Get unique child IDs
         child_ids = self.df['ID'].unique()
@@ -1388,7 +1390,7 @@ class TargetIdentifier:
 
         self.save_global_summary()
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description='Identify target child across multiple videos using embeddings',
         formatter_class=argparse.RawDescriptionHelpFormatter,

@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """
 Visualize Tracking Results from Child ID Output
 
@@ -11,18 +10,19 @@ Usage:
     python visualize_tracking_from_child_id.py <child_id_video_or_log_path> --max-frames 3000
 """
 
-import sys
-import os
-import json
-import cv2
 import argparse
+import contextlib
+import json
+import os
 import subprocess
+import sys
 from pathlib import Path
-from typing import Dict, Any, Optional
-import numpy as np
+from typing import Any
+
+import cv2
 
 
-def find_tracking_json_from_child_id_path(child_id_path: Path) -> Optional[Path]:
+def find_tracking_json_from_child_id_path(child_id_path: Path) -> Path | None:
     """
     Given a child_id video or log path, find the corresponding tracking JSON file.
 
@@ -77,10 +77,10 @@ def find_tracking_json_from_child_id_path(child_id_path: Path) -> Optional[Path]
     return None
 
 
-def find_original_video_path(tracking_data: Dict[str, Any]) -> Optional[str]:
+def find_original_video_path(tracking_data: dict[str, Any]) -> str | None:
     """Extract the original video path from tracking JSON metadata"""
     try:
-        video_path = tracking_data['video_metadata']['input_path']
+        video_path: str = tracking_data['video_metadata']['input_path']
         if os.path.exists(video_path):
             return video_path
         else:
@@ -93,9 +93,9 @@ def find_original_video_path(tracking_data: Dict[str, Any]) -> Optional[str]:
 
 def create_tracking_visualization(
     video_path: str,
-    tracking_data: Dict[str, Any],
+    tracking_data: dict[str, Any],
     output_path: Path,
-    max_frames: Optional[int] = None
+    max_frames: int | None = None
 ) -> bool:
     """
     Create a visualization video showing all tracking results.
@@ -106,6 +106,8 @@ def create_tracking_visualization(
         output_path: Where to save the visualization video
         max_frames: Optional limit on number of frames to process
     """
+    ffmpeg_failed = False
+
     try:
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
@@ -123,7 +125,7 @@ def create_tracking_visualization(
         print(f"Video: {width}x{height} @ {fps:.1f} fps, {total_frames} frames")
 
         # Create frame-to-detections mapping
-        frame_detections = {}  # frame_num -> [(track_id, bbox), ...]
+        frame_detections: dict[int, list[tuple[int, Any]]] = {}
 
         for track_id_str, track_data in tracking_data['tracking_results'].items():
             track_id = int(track_id_str)
@@ -138,7 +140,8 @@ def create_tracking_visualization(
 
         # Setup ffmpeg for h264 encoding
         use_ffmpeg = True
-        proc = None
+        proc: subprocess.Popen[bytes] | None = None
+        out: cv2.VideoWriter | None = None
 
         try:
             ffmpeg_cmd = [
@@ -154,7 +157,7 @@ def create_tracking_visualization(
         except FileNotFoundError:
             # Fallback to cv2 video writer
             use_ffmpeg = False
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            fourcc = cv2.VideoWriter.fourcc(*'mp4v')
             out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
             print("ffmpeg not found, using cv2 video writer")
 
@@ -172,7 +175,7 @@ def create_tracking_visualization(
             (128, 255, 0),  # Lime
         ]
 
-        def get_color_for_track(track_id: int):
+        def get_color_for_track(track_id: int) -> tuple[int, int, int]:
             return color_palette[track_id % len(color_palette)]
 
         frame_count = 0
@@ -217,17 +220,17 @@ def create_tracking_visualization(
                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
 
                 # Write frame
-                if use_ffmpeg:
+                if use_ffmpeg and proc is not None and proc.stdin is not None:
                     if frame.shape[0] != height or frame.shape[1] != width:
                         frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
 
                     try:
                         proc.stdin.write(frame.tobytes())
                     except BrokenPipeError:
-                        err = proc.stderr.read().decode(errors="ignore")
+                        err = proc.stderr.read().decode(errors="ignore") if proc.stderr is not None else ""
                         print(f"ffmpeg exited early: {err}")
                         break
-                else:
+                elif out is not None:
                     out.write(frame)
 
                 processed_frames += 1
@@ -238,20 +241,21 @@ def create_tracking_visualization(
         finally:
             cap.release()
 
-            if use_ffmpeg and proc:
-                if proc.stdin:
-                    try:
+            if use_ffmpeg and proc is not None:
+                if proc.stdin is not None:
+                    with contextlib.suppress(BrokenPipeError):
                         proc.stdin.close()
-                    except BrokenPipeError:
-                        pass
 
                 rc = proc.wait()
                 if rc != 0:
-                    err = proc.stderr.read().decode(errors="ignore")
+                    err = proc.stderr.read().decode(errors="ignore") if proc.stderr is not None else ""
                     print(f"ffmpeg failed (code {rc}): {err}")
-                    return False
-            else:
+                    ffmpeg_failed = True
+            elif out is not None:
                 out.release()
+
+        if ffmpeg_failed:
+            return False
 
         print(f"✓ Visualization created: {output_path} ({processed_frames} frames)")
         return True
@@ -263,7 +267,7 @@ def create_tracking_visualization(
         return False
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description='Create tracking visualization from child_id output',
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -303,7 +307,7 @@ Examples:
 
     # Load tracking data
     try:
-        with open(tracking_json_path, 'r') as f:
+        with open(tracking_json_path) as f:
             tracking_data = json.load(f)
     except Exception as e:
         print(f"Error loading tracking JSON: {e}")

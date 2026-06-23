@@ -19,13 +19,13 @@ Example
 from __future__ import annotations
 
 from collections import deque
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Optional, Tuple
+from typing import Any
 
-import numpy as np
 import cv2
-
+import numpy as np
 
 # ----------------------------- Configuration ---------------------------------
 
@@ -56,82 +56,83 @@ class CameraMotionCompensator:
     """
 
     def __init__(self) -> None:
-        self.prev_frame_gray: Optional[np.ndarray] = None
-        self.prev_points: Optional[np.ndarray] = None
-        self.motion_history: deque[Tuple[float, float]] = deque(maxlen=5)
-        self.frame_shape: Optional[Tuple[int, int]] = None  # Track frame dimensions
-    
+        self.prev_frame_gray: np.ndarray | None = None
+        self.prev_points: np.ndarray | None = None
+        self.motion_history: deque[tuple[float, float]] = deque(maxlen=5)
+        self.frame_shape: tuple[int, int] | None = None  # Track frame dimensions
+        self.orb: Any = None
+
     def estimate_camera_motion(self, frame: np.ndarray) -> tuple[float, float]:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    
+
         # --- Initialize ORB and first frame ---
         if self.prev_frame_gray is None:
             self.prev_frame_gray = gray
-            self.orb = cv2.ORB_create(nfeatures=1000)
-    
+            self.orb = cv2.ORB_create(nfeatures=1000)  # type: ignore[attr-defined]
+
             if not hasattr(self, "motion_history"):
-                from collections import deque
                 self.motion_history = deque(maxlen=5)
             return 0.0, 0.0
-    
+
         h, w = gray.shape
         mask = np.zeros_like(gray)
         border_width = 0.2  # Use 20% frame edges only
         mask[int(h * border_width):int(h * (1 - border_width)),
              int(w * border_width):int(w * (1 - border_width))] = 255
-    
-        kp1, desc1 = self.orb.detectAndCompute(self.prev_frame_gray, mask)
-        kp2, desc2 = self.orb.detectAndCompute(gray, mask)
-    
+
+        orb: Any = self.orb
+        kp1, desc1 = orb.detectAndCompute(self.prev_frame_gray, mask)
+        kp2, desc2 = orb.detectAndCompute(gray, mask)
+
         if desc1 is None or desc2 is None or len(kp1) < 20 or len(kp2) < 20:
             self.prev_frame_gray = gray
             self.motion_history.append((0.0, 0.0))
             return 0.0, 0.0
-    
+
         matcher = cv2.BFMatcher(cv2.NORM_HAMMING, crossCheck=True)
         matches = matcher.match(desc1, desc2)
-    
+
         if len(matches) < 10:
             self.prev_frame_gray = gray
             self.motion_history.append((0.0, 0.0))
             return 0.0, 0.0
-    
-        src_pts = np.float32([kp1[m.queryIdx].pt for m in matches]).reshape(-1, 1, 2)
-        dst_pts = np.float32([kp2[m.trainIdx].pt for m in matches]).reshape(-1, 1, 2)
-    
+
+        src_pts = np.array([kp1[m.queryIdx].pt for m in matches], dtype=np.float32).reshape(-1, 1, 2)
+        dst_pts = np.array([kp2[m.trainIdx].pt for m in matches], dtype=np.float32).reshape(-1, 1, 2)
+
         motions = np.linalg.norm(dst_pts - src_pts, axis=2).flatten()
         motion_threshold = np.percentile(motions, 75)  # Keep slowest 75%
         slow_moving = motions < motion_threshold
         src_pts_filtered = src_pts[slow_moving]
         dst_pts_filtered = dst_pts[slow_moving]
-    
+
         if len(src_pts_filtered) < 8:
             self.prev_frame_gray = gray
             self.motion_history.append((0.0, 0.0))
             return 0.0, 0.0
-    
+
         M, _ = cv2.findHomography(src_pts_filtered, dst_pts_filtered, cv2.RANSAC, 3.0)
-    
+
         if M is None:
             self.prev_frame_gray = gray
             self.motion_history.append((0.0, 0.0))
             return 0.0, 0.0
-    
+
         dx, dy = float(M[0, 2]), float(M[1, 2])
-    
+
         max_expected_motion = 50.0
         if abs(dx) > max_expected_motion or abs(dy) > max_expected_motion:
             dx, dy = 0.0, 0.0
-    
+
         if self.motion_history:
             alpha = 0.3
             last_dx, last_dy = self.motion_history[-1]
             dx = alpha * dx + (1 - alpha) * last_dx
             dy = alpha * dy + (1 - alpha) * last_dy
-    
+
         self.motion_history.append((dx, dy))
         self.prev_frame_gray = gray
-    
+
         return dx, dy
 
     def old_estimate_camera_motion(self, frame: np.ndarray) -> tuple[float, float]:
@@ -143,14 +144,14 @@ class CameraMotionCompensator:
             (dx, dy): Estimated camera translation in pixels.
         """
         try:
-            import cv2  # Lazy import
+            import cv2 as _cv2  # Lazy import
         except Exception as exc:  # pragma: no cover - dependency gate
             raise ImportError(
                 "OpenCV (cv2) is required for camera motion compensation.\n"
                 "Install with: pip install opencv-python"
             ) from exc
 
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        gray = _cv2.cvtColor(frame, _cv2.COLOR_BGR2GRAY)
 
         if self.prev_frame_gray is None:
             self.prev_frame_gray = gray
@@ -160,7 +161,7 @@ class CameraMotionCompensator:
             h, w = gray.shape
             mask = np.ones_like(gray, dtype=np.uint8) * 255
             mask[int(h * 0.25) : int(h * 0.75), int(w * 0.25) : int(w * 0.75)] = 0
-            self.prev_points = cv2.goodFeaturesToTrack(
+            self.prev_points = _cv2.goodFeaturesToTrack(
                 self.prev_frame_gray,
                 maxCorners=200,
                 qualityLevel=0.01,
@@ -173,8 +174,13 @@ class CameraMotionCompensator:
             self.motion_history.append((0.0, 0.0))
             return 0.0, 0.0
 
-        curr_points, status, _ = cv2.calcOpticalFlowPyrLK(
-            self.prev_frame_gray, gray, self.prev_points, None, winSize=(21, 21), maxLevel=3
+        curr_points, status, _ = _cv2.calcOpticalFlowPyrLK(  # type: ignore[call-overload]
+            self.prev_frame_gray,
+            gray,
+            self.prev_points,
+            None,
+            winSize=(21, 21),
+            maxLevel=3,
         )
 
         if curr_points is None or status is None:
@@ -311,7 +317,7 @@ def is_spatially_plausible(
 # ----------------------------- Kalman Utilities ------------------------------
 
 
-def create_kalman_filter(initial_bbox: Iterable[float]):
+def create_kalman_filter(initial_bbox: Iterable[float]) -> Any:
     """Create a Kalman filter for bbox tracking.
 
     State: [cx, cy, w, h, vx, vy, vw, vh]
@@ -319,7 +325,7 @@ def create_kalman_filter(initial_bbox: Iterable[float]):
     Depth-aware noise: higher for size terms to accommodate approach/retreat.
     """
     try:
-        from filterpy.kalman import KalmanFilter  # type: ignore
+        from filterpy.kalman import KalmanFilter
     except Exception as exc:  # pragma: no cover - dependency gate
         raise ImportError("Install filterpy for Kalman filtering: pip install filterpy") from exc
 
@@ -410,11 +416,11 @@ class PersonTracker:
 
     def __init__(
         self,
-        device: Optional[str] = None,
-        det_config: Optional[str] = None,
-        det_checkpoint: Optional[str] = None,
-        pose_config: Optional[str] = None,
-        pose_checkpoint: Optional[str] = None,
+        device: str | None = None,
+        det_config: str | None = None,
+        det_checkpoint: str | None = None,
+        pose_config: str | None = None,
+        pose_checkpoint: str | None = None,
         tracker_config: TrackerConfig | None = None,
     ) -> None:
         self.device = device or "cuda:0"
@@ -424,8 +430,8 @@ class PersonTracker:
         self.pose_checkpoint = pose_checkpoint
         self.cfg = tracker_config or TrackerConfig()
 
-        self._detector = None
-        self._pose = None
+        self._detector: Any = None
+        self._pose: Any = None
         self._camera = CameraMotionCompensator()
 
         # Tracking state (light scaffold; full implementation left to user code)
@@ -440,9 +446,9 @@ class PersonTracker:
         if self._detector is not None and self._pose is not None:
             return
         try:  # Heavy deps
-            from mmdet.apis import init_detector as _init_det  # type: ignore
-            from mmpose.apis import init_model as _init_pose  # type: ignore
-            from mmengine.registry import init_default_scope  # type: ignore
+            from mmdet.apis import init_detector as _init_det
+            from mmengine.registry import init_default_scope
+            from mmpose.apis import init_model as _init_pose
             init_default_scope("mmdet")
         except Exception as exc:  # pragma: no cover - dependency gate
             raise ImportError(
@@ -465,8 +471,8 @@ class PersonTracker:
         This is a scaffold; plug in detection, Kalman update, and rendering.
         """
         try:
-            import cv2  # Lazy import
-            from tqdm import tqdm  # type: ignore
+            import cv2 as _cv2  # Lazy import
+            from tqdm import tqdm
         except Exception as exc:  # pragma: no cover - dependency gate
             raise ImportError(
                 "Processing requires opencv-python and tqdm.\n"
@@ -475,15 +481,15 @@ class PersonTracker:
 
         in_path = str(in_path)
         out_path = str(out_path)
-        cap = cv2.VideoCapture(in_path)
+        cap = _cv2.VideoCapture(in_path)
         if not cap.isOpened():
             raise FileNotFoundError(f"Could not open video: {in_path}")
 
-        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-        fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-        h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        out = cv2.VideoWriter(out_path, fourcc, fps, (w, h))
+        fourcc = _cv2.VideoWriter_fourcc(*"mp4v")  # type: ignore[attr-defined]
+        fps = cap.get(_cv2.CAP_PROP_FPS) or 30.0
+        w = int(cap.get(_cv2.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(_cv2.CAP_PROP_FRAME_HEIGHT))
+        out = _cv2.VideoWriter(out_path, fourcc, fps, (w, h))
 
         # Optional: initialize models only when needed
         # self._ensure_models()
@@ -492,7 +498,7 @@ class PersonTracker:
         self.active_tracks.clear()
 
         try:
-            pbar = tqdm(total=int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or None, desc="Tracking")
+            pbar = tqdm(total=int(cap.get(_cv2.CAP_PROP_FRAME_COUNT)) or None, desc="Tracking")
             while True:
                 ok, frame = cap.read()
                 if not ok:
@@ -528,11 +534,11 @@ def process_video(
     in_path: str | Path,
     out_path: str | Path,
     *,
-    device: Optional[str] = None,
-    det_config: Optional[str] = None,
-    det_checkpoint: Optional[str] = None,
-    pose_config: Optional[str] = None,
-    pose_checkpoint: Optional[str] = None,
+    device: str | None = None,
+    det_config: str | None = None,
+    det_checkpoint: str | None = None,
+    pose_config: str | None = None,
+    pose_checkpoint: str | None = None,
 ) -> None:
     """Convenience wrapper to process a single video.
 
@@ -555,11 +561,11 @@ def process_folder(
     out_dir: str | Path,
     *,
     pattern: str = "*.mp4",
-    device: Optional[str] = None,
-    det_config: Optional[str] = None,
-    det_checkpoint: Optional[str] = None,
-    pose_config: Optional[str] = None,
-    pose_checkpoint: Optional[str] = None,
+    device: str | None = None,
+    det_config: str | None = None,
+    det_checkpoint: str | None = None,
+    pose_config: str | None = None,
+    pose_checkpoint: str | None = None,
 ) -> None:
     """Convenience wrapper to process a folder of videos."""
     tracker = PersonTracker(

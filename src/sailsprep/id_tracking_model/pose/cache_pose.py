@@ -1,28 +1,31 @@
-import sys
-import os
-
-import mmengine
-from mmengine.registry import init_default_scope
-import numpy as np
-import cv2
-from tqdm import tqdm
-import torch
-import time
-import subprocess
+import contextlib
 import gc
+import os
 import signal
+import subprocess
+import sys
+import time
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Dict, List, Tuple, Union
+from typing import Any
 
-from sailsprep.id_tracking_model.utils.cache_manager import CacheManager
-from sailsprep.id_tracking_model.utils.cache_metadata import CacheMetadataManager, create_cache_metadata_from_config
+import cv2
+import numpy as np
+import pandas as pd
+import torch
+from mmdet.apis import inference_detector, init_detector
+from mmengine.registry import init_default_scope
 from mmpose.apis import inference_topdown
 from mmpose.apis import init_model as init_pose_estimator
 from mmpose.evaluation.functional import nms, oks_nms
 from mmpose.registry import VISUALIZERS
-from mmdet.apis import inference_detector, init_detector
+from tqdm import tqdm
 
+from sailsprep.id_tracking_model.utils.cache_manager import CacheManager
+from sailsprep.id_tracking_model.utils.cache_metadata import (
+    CacheMetadataManager,
+    create_cache_metadata_from_config,
+)
 from sailsprep.id_tracking_model.utils.utils import soft_nms
 
 # ================== COCO KEYPOINTS ==================
@@ -60,12 +63,6 @@ kpts_sets = [head_kpts, upper_body_kpts, lower_body_kpts, left_kpts, right_kpts,
 @dataclass
 class ModelConfig:
     """Configuration for detection and pose models"""
-    # Detection model
-    # detection_config: str = "projects/rtmpose/rtmdet/person/rtmdet_m_640-8xb32_coco-person.py"
-    # detection_checkpoint: str = 'https://download.openmmlab.com/mmpose/v1/projects/rtmpose/rtmdet_m_8xb32-100e_coco-obj365-person-235e8209.pth'
-
-    # detection_config: str = "/orcd/data/satra/001/users/brukew/sailsprep/motion_tracking/clip/rtmdet_m_8xb32-300e_coco.py"
-    # detection_checkpoint: str = '/orcd/data/satra/001/users/brukew/sailsprep/motion_tracking/clip/rtmdet_m_8xb32-300e_coco_20220719_112220-229f527c.pth'
 
     detection_config: str = "/orcd/data/satra/002/models/mmdet/dino-5scale_swin-l_8xb2-36e_coco.py"
     detection_checkpoint: str = '/orcd/data/satra/002/models/mmdet/dino-5scale_swin-l_8xb2-36e_coco-5486e051.pth'
@@ -124,24 +121,24 @@ class PipelineConfig:
 # ================== DETECTION MODULE ==================
 class DetResult:
     """Wrapper for detection results"""
-    def __init__(self, bboxes: np.ndarray, scores: np.ndarray):
+    def __init__(self, bboxes: np.ndarray, scores: np.ndarray) -> None:
         # bboxes: (N, 4), scores: (N,)
         self.bboxes = np.concatenate([bboxes, scores[:, None]], axis=1)  # (N, 5): [x1, y1, x2, y2, score]
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, np.ndarray]:
         return {"bboxes": self.bboxes}
 
 
 class DetectionModule:
     """Handles person detection"""
 
-    def __init__(self, config: ModelConfig, processing_config: ProcessingConfig):
+    def __init__(self, config: ModelConfig, processing_config: ProcessingConfig) -> None:
         self.config = config
         self.processing_config = processing_config
-        self.detector = None
+        self.detector: Any = None
         self._init_detector()
 
-    def _init_detector(self):
+    def _init_detector(self) -> None:
         """Initialize detection model"""
         det_config = os.path.join(self.config.mmpose_path, self.config.detection_config)
         self.detector = init_detector(
@@ -150,7 +147,9 @@ class DetectionModule:
             device=self.config.device
         )
 
-    def detect_single(self, frame: np.ndarray, return_raw: bool = False) -> Union[Tuple[DetResult, DetResult], DetResult]:
+    def detect_single(
+        self, frame: np.ndarray, return_raw: bool = False
+    ) -> "tuple[DetResult, DetResult] | DetResult":
         """
         Detect persons in single frame
 
@@ -179,7 +178,7 @@ class DetectionModule:
             return filtered_det_result, raw_det_result
         return filtered_det_result
 
-    def process_cached_detection(self, cached_det: Dict[str, np.ndarray]) -> DetResult:
+    def process_cached_detection(self, cached_det: dict[str, np.ndarray]) -> DetResult:
         """Process cached detection data"""
         det_result = DetResult(cached_det['bboxes'][:, :4], cached_det['bboxes'][:, 4])
         return self._process_detection_result(det_result)
@@ -205,7 +204,7 @@ class DetectionModule:
         if len(bboxes) > 0:
             keep_indices = (nms(bboxes, self.processing_config.nms_threshold)
                             if self.processing_config.nms_type == "strict"
-                            else soft_nms(bboxes, self.processing_config.nms_threshold, method="gaussian"))
+                            else soft_nms(bboxes, self.processing_config.nms_threshold, method="gaussian"))  # type: ignore[no-untyped-call]
             bboxes = bboxes[keep_indices]
             return DetResult(bboxes[:, :4], bboxes[:, 4])
         else:
@@ -215,14 +214,14 @@ class DetectionModule:
 # ================== POSE ESTIMATION MODULE ==================
 class PoseResult:
     """Wrapper for pose results"""
-    def __init__(self, keypoints: np.ndarray, bbox: np.ndarray):
+    def __init__(self, keypoints: np.ndarray, bbox: np.ndarray) -> None:
         # keypoints: (N_kpts, 3) [x, y, score]
         # bbox: (4,) [x1, y1, x2, y2]
         self.keypoints = keypoints
         self.bbox = bbox
-        self.metadata = {}
+        self.metadata: dict[str, Any] = {}
 
-    def to_dict(self):
+    def to_dict(self) -> dict[str, Any]:
         return {
             "keypoints": self.keypoints,
             "bbox": self.bbox,
@@ -234,15 +233,15 @@ class PoseEstimationModule:
     """Handles pose estimation"""
 
     def __init__(self, config: ModelConfig, visualization_config: VisualizationConfig,
-                 processing_config: ProcessingConfig):
+                 processing_config: ProcessingConfig) -> None:
         self.config = config
         self.vis_config = visualization_config
         self.processing_config = processing_config
-        self.pose_estimator = None
-        self.visualizer = None
+        self.pose_estimator: Any = None
+        self.visualizer: Any = None
         self._init_pose_estimator()
 
-    def _init_pose_estimator(self):
+    def _init_pose_estimator(self) -> None:
         """Initialize pose estimation model"""
         pose_config = os.path.join(self.config.mmpose_path, self.config.pose_config)
         self.pose_estimator = init_pose_estimator(
@@ -263,7 +262,7 @@ class PoseEstimationModule:
             self.visualizer = VISUALIZERS.build(self.pose_estimator.cfg.visualizer)
             self.visualizer.set_dataset_meta(self.pose_estimator.dataset_meta)
 
-    def _create_pose_result(self, pose_results: List) -> List[PoseResult]:
+    def _create_pose_result(self, pose_results: list[Any]) -> list[PoseResult]:
         """Convert MMPose results to PoseResult objects"""
         unified_pose_results = []
         for pose in pose_results:
@@ -288,7 +287,7 @@ class PoseEstimationModule:
             unified_pose_results.append(PoseResult(keypoints, bbox))
         return unified_pose_results
 
-    def estimate_single(self, frame: np.ndarray, det_result: DetResult) -> List[PoseResult]:
+    def estimate_single(self, frame: np.ndarray, det_result: DetResult) -> list[PoseResult]:
         """Estimate poses for single frame"""
         if len(det_result.bboxes) == 0:
             return []
@@ -297,7 +296,7 @@ class PoseEstimationModule:
         return self._create_pose_result(pose_results)
 
     @staticmethod
-    def create_pose_results_from_cache(cached_poses: List[Dict[str, np.ndarray]]) -> List[PoseResult]:
+    def create_pose_results_from_cache(cached_poses: list[dict[str, np.ndarray]]) -> list[PoseResult]:
         """Convert cached pose data to PoseResult objects"""
         return [
             PoseResult(
@@ -307,7 +306,7 @@ class PoseEstimationModule:
             for p in cached_poses
         ]
 
-    def apply_oks_nms(self, pose_results: List[PoseResult]) -> List[PoseResult]:
+    def apply_oks_nms(self, pose_results: list[PoseResult]) -> list[PoseResult]:
         """Apply OKS NMS to remove duplicate poses"""
         if len(pose_results) == 0:
             return []
@@ -334,7 +333,7 @@ class PoseEstimationModule:
 
         return [pose_results[i] for i in keep_idx]
 
-    def filter_poses_by_keypoints(self, pose_results: List[PoseResult]) -> List[PoseResult]:
+    def filter_poses_by_keypoints(self, pose_results: list[PoseResult]) -> list[PoseResult]:
         """Filter poses based on keypoint visibility"""
         for pose in pose_results:
             keypoint_scores = pose.keypoints[:17, 2]  # Get scores from first 17 keypoints
@@ -355,11 +354,11 @@ class PoseEstimationModule:
 class VisualizationModule:
     """Handles visualization of detection and pose results"""
 
-    def __init__(self, config: VisualizationConfig):
+    def __init__(self, config: VisualizationConfig) -> None:
         self.config = config
 
-    def draw_results(self, frame: np.ndarray, pose_results: List[PoseResult],
-                    det_result: DetResult = None) -> np.ndarray:
+    def draw_results(self, frame: np.ndarray, pose_results: list[PoseResult],
+                    det_result: DetResult | None = None) -> np.ndarray:
         """Draw detection boxes and poses on frame"""
         vis_frame = frame.copy()
 
@@ -376,7 +375,7 @@ class VisualizationModule:
         if self.config.enable_pose_drawing:
             for pose in pose_results:
                 # Draw keypoints
-                for i, (x, y, score) in enumerate(pose.keypoints[:17]):
+                for _i, (x, y, score) in enumerate(pose.keypoints[:17]):
                     if score > 0.3:
                         cv2.circle(vis_frame, (int(x), int(y)),
                                  self.config.radius, (0, 255, 255), -1)
@@ -399,42 +398,38 @@ class VisualizationModule:
 class DetectionPosePipeline:
     """Main pipeline for detection and pose estimation only"""
 
-    def __init__(self, config: PipelineConfig, batch_signal_handler=None):
+    def __init__(self, config: PipelineConfig, batch_signal_handler: Any = None) -> None:
         self.config = config
         self.batch_signal_handler = batch_signal_handler
 
         # Initialize modules
         self.detection_module = DetectionModule(config.models, config.processing)
         self.pose_module = PoseEstimationModule(config.models, config.visualization, config.processing)
-        self.visualization_module = (VisualizationModule(
+        self.visualization_module: VisualizationModule | None = (VisualizationModule(
             config.visualization,
         ) if config.visualization.enable_visualization else None)
 
         # Performance tracking
-        self.timing_stats = defaultdict(list)
-        self.global_start_time = None
+        self.timing_stats: dict[str, list[float]] = defaultdict(list)
+        self.global_start_time: float | None = None
 
         # Interruption handling
         self._interrupted = False
-        self._proc = None
-        self._cap = None
+        self._proc: subprocess.Popen[bytes] | None = None
+        self._cap: cv2.VideoCapture | None = None
 
-    def _signal_handler(self, signum, frame):
+    def _signal_handler(self, signum: int, frame: Any) -> None:
         """Handle graceful shutdown on Ctrl+C"""
         print("\n\nInterrupted! Finalizing video...")
         self._interrupted = True
 
         if self._proc and self._proc.stdin:
-            try:
+            with contextlib.suppress(Exception):
                 self._proc.stdin.close()
-            except Exception as e:
-                print(f"Error closing ffmpeg stdin: {e}")
 
         if self._cap:
-            try:
+            with contextlib.suppress(Exception):
                 self._cap.release()
-            except Exception as e:
-                print(f"Error releasing video capture: {e}")
 
         if self._proc:
             try:
@@ -456,11 +451,11 @@ class DetectionPosePipeline:
     def process_frame(
         self,
         frame: np.ndarray,
-        frame_idx: int = None,
-        cached_detection: Dict[str, np.ndarray] = None,
-        cached_poses: List[Dict[str, np.ndarray]] = None,
-        saved_detections: Dict = None,
-        saved_poses: Dict = None
+        frame_idx: int | None = None,
+        cached_detection: dict[str, np.ndarray] | None = None,
+        cached_poses: list[dict[str, np.ndarray]] | None = None,
+        saved_detections: dict[int, Any] | None = None,
+        saved_poses: dict[int, Any] | None = None
     ) -> np.ndarray:
         """Process single frame"""
         # Detection
@@ -470,12 +465,12 @@ class DetectionPosePipeline:
             det_result: DetResult = self.detection_module.process_cached_detection(cached_detection)
         else:
             # Compute detection and optionally save for caching
-            to_cache = saved_detections is not None and frame_idx is not None
-            if to_cache:
-                det_result, raw_det_result = self.detection_module.detect_single(frame, return_raw=True)
+            if saved_detections is not None and frame_idx is not None:
+                result = self.detection_module.detect_single(frame, return_raw=True)
+                det_result, raw_det_result = result  # type: ignore[misc]
                 saved_detections[frame_idx] = raw_det_result.to_dict()
             else:
-                det_result = self.detection_module.detect_single(frame)
+                det_result = self.detection_module.detect_single(frame)  # type: ignore[assignment]
         self.timing_stats['detection'].append(time.time() - det_start)
 
         # Detection-only mode: draw bboxes and return
@@ -490,14 +485,14 @@ class DetectionPosePipeline:
 
         # Pose estimation
         pose_start = time.time()
+        pose_results: list[PoseResult]
         if cached_poses is not None:
             # Use cached poses
-            pose_results: List[PoseResult] = self.pose_module.create_pose_results_from_cache(cached_poses)
+            pose_results = self.pose_module.create_pose_results_from_cache(cached_poses)
         else:
             # Compute poses and optionally save for caching
-            pose_results: List[PoseResult] = self.pose_module.estimate_single(frame, det_result)
-            to_cache = saved_poses is not None and frame_idx is not None
-            if to_cache:
+            pose_results = self.pose_module.estimate_single(frame, det_result)
+            if saved_poses is not None and frame_idx is not None:
                 saved_poses[frame_idx] = [p.to_dict() for p in pose_results]
         self.timing_stats['pose'].append(time.time() - pose_start)
 
@@ -516,7 +511,7 @@ class DetectionPosePipeline:
 
         return vis_frame
 
-    def process_video(self, input_path: str, output_path: str):
+    def process_video(self, input_path: str, output_path: str) -> None:
         """Process entire video"""
         self.global_start_time = time.time()
 
@@ -542,11 +537,11 @@ class DetectionPosePipeline:
             total_frames = self.config.frame_limit
 
         # Initialize cache manager if enabled
-        cache_manager = None
-        detection_cache = None
-        pose_cache = None
-        detections_to_save = {}
-        poses_to_save = {}
+        cache_manager: CacheManager | None = None
+        detection_cache: dict[int, Any] | None = None
+        pose_cache: dict[int, Any] | None = None
+        detections_to_save: dict[int, Any] = {}
+        poses_to_save: dict[int, Any] = {}
 
         if self.config.cache.enable_cache:
             cache_manager = CacheManager(
@@ -575,7 +570,7 @@ class DetectionPosePipeline:
                     if pose_cache:
                         print(f"  Loaded {len(pose_cache)} cached poses")
 
-        self._proc = None
+        proc: subprocess.Popen[bytes] | None = None
         if self.config.visualization.enable_visualization:
             # Create output directory
             os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -612,16 +607,17 @@ class DetectionPosePipeline:
                             saved_detections=detections_to_save if self.config.cache.enable_cache else None,
                             saved_poses=poses_to_save if self.config.cache.enable_cache else None
                         )
-                        if self.config.visualization.enable_visualization:
+                        if self.config.visualization.enable_visualization and proc is not None:
                             # Ensure frame size matches
                             if vis_frame.shape[0] != height or vis_frame.shape[1] != width:
                                 vis_frame = cv2.resize(vis_frame, (width, height), interpolation=cv2.INTER_LINEAR)
 
                             # Write frame to ffmpeg
                             try:
+                                assert proc.stdin is not None
                                 proc.stdin.write(vis_frame.tobytes())
-                            except BrokenPipeError:
-                                raise RuntimeError("ffmpeg exited early")
+                            except BrokenPipeError as err:
+                                raise RuntimeError("ffmpeg exited early") from err
 
                         self.timing_stats['total_frame'].append(time.time() - frame_start)
 
@@ -635,10 +631,11 @@ class DetectionPosePipeline:
                         print(f"Error processing frame {frame_idx}: {e}")
                         traceback.print_exc()
                         # Write original frame on error
-                        if self.config.visualization.enable_visualization:
+                        if self.config.visualization.enable_visualization and proc is not None:
                             try:
                                 if frame.shape[0] != height or frame.shape[1] != width:
                                     frame = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
+                                assert proc.stdin is not None
                                 proc.stdin.write(frame.tobytes())
                             except BrokenPipeError:
                                 break
@@ -647,7 +644,7 @@ class DetectionPosePipeline:
                     pbar.update(1)
 
             # Save caches if enabled
-            if self.config.cache.enable_cache:
+            if self.config.cache.enable_cache and cache_manager is not None:
                 if detections_to_save:
                     print("Saving detection cache...")
                     cache_manager.save_all_detections(detections_to_save)
@@ -686,12 +683,10 @@ class DetectionPosePipeline:
 
         finally:
             cap.release()
-            if self.config.visualization.enable_visualization and proc:
+            if self.config.visualization.enable_visualization and proc is not None:
                 if proc.stdin:
-                    try:
+                    with contextlib.suppress(BrokenPipeError):
                         proc.stdin.close()
-                    except BrokenPipeError:
-                        pass
                 rc = proc.wait()
                 if rc != 0:
                     raise RuntimeError(f"ffmpeg failed with code {rc}")
@@ -702,7 +697,7 @@ class DetectionPosePipeline:
         print(f"\nProcessing complete. Output saved: {output_path}")
         self.print_performance_stats()
 
-    def print_performance_stats(self):
+    def print_performance_stats(self) -> None:
         """Print performance statistics"""
         print("\n" + "="*60)
         print("PERFORMANCE METRICS")
@@ -726,7 +721,7 @@ class DetectionPosePipeline:
             total_runtime = time.time() - self.global_start_time
             frames_processed = len(self.timing_stats.get('detection', []))
             fps = frames_processed / total_runtime if total_runtime > 0 else 0
-            print(f"Overall Stats:")
+            print("Overall Stats:")
             print(f"  Total runtime: {total_runtime:.2f}s")
             print(f"  Frames processed: {frames_processed}")
             print(f"  Processing FPS: {fps:.2f}")
@@ -764,76 +759,28 @@ def create_default_config() -> PipelineConfig:
     return config
 
 
-def main():
-    """Main function demonstrating usage"""
+def main() -> None:
     config = create_default_config()
 
-    # # Example video paths
-    # input_video = "/path/to/input/video.mp4"
-    # output_video = "/path/to/output/video.mp4"
+    CSV_PATH = "/home/aparnabg/orcd/scratch/videos.csv"
+    TEST_NAME = "dino-5scale-swin-l"
 
-    # # Create pipeline and process video
-    # pipeline = DetectionPosePipeline(config)
-    # pipeline.process_video(input_video, output_video)
+    df = pd.read_csv(CSV_PATH)
 
-    # Create configuration
-    DATA_DIR = "/orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external_standardized"
+    pipeline = DetectionPosePipeline(config)
 
-    passing = [
-        # "/M.J._Home_Videos_AMES_S9B3J7I4R1/12-16 month videos/20170802_084834.mp4", # (very easy case) single child alone walking
-        "/T.M._Home_Videos_AMES_M0P5V8K9N0/34-38 month videos/IMG_9006.mp4", # (easy case) child and mom interacting but stays in some place with some bbox intersections
-        "/S.V._Home_Videos_AMES_B1L0B3F6F1/34-38 month videos/September 10 2022.mp4", # (medium hard case) girl running into fathers arms and getting lifted
-        "/H.T._Home_Videos_AMES_A5X1S7S1E7/34-38 month videos/078A361D-9F42-4FD2-9A10-8169514646CA2018-07-18_08-45-02_000.mp4", # (hard case) child behind adult for whole video
-    ]
-    passing_with_caveats = [
-        "/S.V._Home_Videos_AMES_B1L0B3F6F1/34-38 month videos/August 15 2022.mp4", # issue non-human detection (medium case) child in box with limbs poking out - pops out at end - picture in back gets confused as person
-        "/M.J._Home_Videos_AMES_S9B3J7I4R1/12-16 month videos/20170729_091714.mp4", # issue inflated bbox + weird pose for white child (medium case) 2 small children walking around living room with adults leg poking out
-        "/N.S._Home_Videos_AMES_D4Y7P4G2V4/VID_20200412_173309.mp4", # issue appearance fails for one frame (medium hard case) 2 children and adult gathered around - camera panning around them
-    ]
-    appearance_tests = [
-        "/M.J._Home_Videos_AMES_S9B3J7I4R1/12-16 month videos/20170729_091714.mp4", # (medium case) 2 small children walking around living room with adults leg poking out
-        "/A.SR._Home_Videos_AMES_Y4W4H9A8X5/34-38 month videos/07-12-2021.mp4", # (hard case) adult and 2 children walking, adult and children occlude one another frequently
-        "/S.V._Home_Videos_AMES_B1L0B3F6F1/34-38 month videos/September 10 2022.mp4", # (medium hard case) girl running into fathers arms and getting lifted
-        "/A.M._Home_Videos_AMES_B4Q3G8H2N3/34-38 month videos/IMG_1845.mp4" # (medium case) reid test with child in chair and camera panning
-        "/A.B._Home_Videos_AMES_S2C4T1Y7V7/34-38 month videos/IMG_4610.MOV" # (medium easy case) 2 children not in the same frame jumping around in similar clothing (appearance test)
-        "/D.B._Home_Videos_AMES_V7D7K3H8B4/IMG_5398.mov" # (medium hard case) 2 children moving around occlusing one another frequently (appearance test)
-    ]
-    motion_tests = [
-        "/N.S._Home_Videos_AMES_D4Y7P4G2V4/20211202_214033.mp4", # (medium easy case) child moving in front of adult (appearance / motion)
-        "/B.C._Home_Videos_AMES_L0B0Q5O3Q3/07-10-2021.mp4",
-        "/D.B._Home_Videos_AMES_V7D7K3H8B4/IMG_5398.mp4", # (medium hard case) 2 children moving around occluding one another frequently (appearance test)
+    for source_video_path in df["video_path"].dropna():
 
-    ]
-    insanely_hard = [
-        "/I.F._Home_Videos_AMES_V7G3E2O2E6/12-16 Month Home Videos/Screen_Recording_20230511_163000_Facebook.mp4", # (medium case) bad quality vid - 2 very similar looking children interacting
-    ]
-    active_tests = [
-        "/A.SR._Home_Videos_AMES_Y4W4H9A8X5/34-38 month videos/07-12-2021.mp4", # (hard case) adult and 2 children walking, adult and children occlude one another frequently
-        "/A.M._Home_Videos_AMES_B4Q3G8H2N3/34-38 month videos/IMG_1845.mp4" # (medium case) reid test with child in chair and camera panning
-    ]
-    new_tests = [
-        # "/A.B._Home_Videos_AMES_S2C4T1Y7V7/34-38 month videos/IMG_4610.mp4", # (medium easy case) 2 children not in the same frame jumping around in similar clothing (appearance test)
-        "/D.B._Home_Videos_AMES_V7D7K3H8B4/IMG_5398.mp4", # (medium hard case) 2 children moving around occluding one another frequently (appearance test)
-        "/N.S._Home_Videos_AMES_D4Y7P4G2V4/20211202_214033.mp4", # (medium easy case) child moving in front of adult (appearance / motion)
-        "/D.B-A._Home_Videos_AMES_G3A6S5R9F7/34-38 month videos/June 4 2018.mp4", # (medium case) parent and child in train with many in background and camera panning (appearance / motion)
-        "/B.C._Home_Videos_AMES_L0B0Q5O3Q3/07-10-2021.mp4", # (easy medium case) parent holding child on swings (appearance / motion)
-    ]
+        video_name = os.path.splitext(
+            os.path.basename(source_video_path)
+        )[0]
 
-    tests = new_tests + passing + passing_with_caveats
-    # Process video
-    # VID_LOCAL_PATH = "/B.C._Home_Videos_AMES_L0B0Q5O3Q3/07-10-2021.mp4"
-    # TARGET_VIDEO_PATH = "/orcd/data/satra/001/users/brukew/motion_tracking_output/cache_test/caching_test.mp4"
-    # SOURCE_VIDEO_PATH = DATA_DIR + VID_LOCAL_PATH
-    # SOURCE_VIDEO_PATH = '/orcd/data/satra/002/datasets/SAILS/Phase_III_Videos/Videos_from_external/D.B-A._Home_Videos_AMES_G3A6S5R9F7/34-38 month videos/June 4 2018.mp4'
-    # pipeline = MultiPersonTrackingPipeline(config)
-    # pipeline.process_video(SOURCE_VIDEO_PATH, TARGET_VIDEO_PATH)
+        target_video_path = (
+            f"/home/aparnabg/orcd/scratch/motion_tracking_output/det/{TEST_NAME}/"
+            f"{video_name}.mp4"
+        )
 
-    test_name = "dino-5scale-swin-l"
-    for VID_LOCAL_PATH in tests:
-        SOURCE_VIDEO_PATH = DATA_DIR + VID_LOCAL_PATH
-        TARGET_VIDEO_PATH = f"/orcd/data/satra/001/users/brukew/motion_tracking_output/det/{test_name}/" + VID_LOCAL_PATH[:-4].replace("/", "_") + ".mp4"
-        pipeline = DetectionPosePipeline(config)
-        pipeline.process_video(SOURCE_VIDEO_PATH, TARGET_VIDEO_PATH)
+        pipeline.process_video(source_video_path, target_video_path)
 
 
 if __name__ == "__main__":

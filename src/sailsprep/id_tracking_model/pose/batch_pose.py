@@ -3,28 +3,28 @@
 Batch processing script for running cache_pose.py (DetectionPosePipeline) on multiple videos from CSV files.
 Supports graceful shutdown and resuming from where it left off.
 """
-
-
-
-import sys
-import os
-import csv
-import signal
-import time
 import argparse
-from pathlib import Path
-from typing import List, Dict, Optional
-import subprocess
+import csv
 import json
+import os
+import signal
+import sys
+import time
 from datetime import datetime
-
-from sailsprep.feature_processing.pose.cache_pose import DetectionPosePipeline, PipelineConfig, create_default_config
+from pathlib import Path
+from typing import Any
+    
+from sailsprep.id_tracking_model.pose.cache_pose import (
+    DetectionPosePipeline,
+    PipelineConfig,
+    create_default_config,
+)
 
 
 class BatchProcessor:
     """Batch processor for running detection/pose pipeline on multiple videos"""
 
-    def __init__(self, csv_path: str, output_base_dir: str, base_video_dir: str, exp_id: Optional[str] = None, reuse_pipeline: bool = True, rmm: bool = False, start_row: int = 0, end_row: Optional[int] = None):
+    def __init__(self, csv_path: str, output_base_dir: str, base_video_dir: str, exp_id: str | None = None, reuse_pipeline: bool = True, rmm: bool = False, start_row: int = 0, end_row: int | None = None):
         self.csv_path = csv_path
         self.output_base_dir = output_base_dir
         self.base_video_dir = base_video_dir
@@ -42,9 +42,9 @@ class BatchProcessor:
         self.config.detection_only = False
         
         self.interrupted = False
-        self.current_video = None
-        self.progress_file = None
-        self.completed_videos = set()
+        self.current_video: str | None = None
+        self.progress_file: str = os.path.join(output_base_dir, "processing_progress.json") 
+        self.completed_videos: set[str] = set()
 
         # Create subset name from CSV filename
         csv_name = Path(csv_path).stem
@@ -74,9 +74,9 @@ class BatchProcessor:
             print("Initializing shared pipeline (models will be loaded once)...")
             self.pipeline = DetectionPosePipeline(self.config, batch_signal_handler=self._signal_handler)
 
-    def _signal_handler(self, signum, frame):
+    def _signal_handler(self, signum: int, frame: object) -> None:
         """Handle graceful shutdown on Ctrl+C"""
-        print(f"\n\nBatch processing interrupted! Cleaning up and saving progress...")
+        print("\n\nBatch processing interrupted! Cleaning up and saving progress...")
         self.interrupted = True
 
         # Clean up partial files from current video
@@ -91,11 +91,10 @@ class BatchProcessor:
                     current_video_info = v
                     break
 
-            if current_video_info:
-                # Note: Cache cleanup would be handled by CacheManager
-                # For now, just mark as not completed
-                if self.current_video in self.completed_videos:
-                    self.completed_videos.remove(self.current_video)
+            # Note: Cache cleanup would be handled by CacheManager
+            # For now, just mark as not completed
+            if current_video_info and self.current_video in self.completed_videos:
+                self.completed_videos.remove(self.current_video)
 
         # Save current progress
         self._save_progress()
@@ -108,11 +107,11 @@ class BatchProcessor:
 
         sys.exit(0)
 
-    def _load_progress(self):
+    def _load_progress(self) -> None:
         """Load processing progress from file"""
         if os.path.exists(self.progress_file):
             try:
-                with open(self.progress_file, 'r') as f:
+                with open(self.progress_file) as f:
                     progress_data = json.load(f)
                     self.completed_videos = set(progress_data.get('completed_videos', []))
                 print(f"Resumed from previous session. {len(self.completed_videos)} videos already completed.")
@@ -122,7 +121,7 @@ class BatchProcessor:
         else:
             self.completed_videos = set()
 
-    def _save_progress(self):
+    def _save_progress(self) -> None:
         """Save processing progress to file"""
         progress_data = {
             'completed_videos': list(self.completed_videos),
@@ -137,12 +136,13 @@ class BatchProcessor:
         except Exception as e:
             print(f"Warning: Could not save progress: {e}")
 
-    def _read_video_list(self) -> List[Dict]:
+
+    def _read_video_list(self) -> list[dict[str, Any]]:
         """Read video list from CSV file"""
         videos = []
 
         try:
-            with open(self.csv_path, 'r', encoding='utf-8') as f:
+            with open(self.csv_path, encoding='utf-8') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
                     # Extract video path info
@@ -189,7 +189,7 @@ class BatchProcessor:
 
         return source_path
 
-    def _create_output_path(self, video_info: Dict) -> str:
+    def _create_output_path(self, video_info: dict[str, Any]) -> str:
         """Create output path for cache (dummy path, actual cache managed by CacheManager)"""
         filename = video_info['filename']
         video_id = video_info['video_id']
@@ -207,7 +207,7 @@ class BatchProcessor:
 
     def _check_cache_exists(self, source_path: str) -> bool:
         """Check if cache already exists for this video"""
-        from sailsprep.feature_processing.utils.cache_manager import CacheManager
+        from sailsprep.id_tracking_model.utils.cache_manager import CacheManager
 
         # Create a temporary cache manager to check if cache exists
         dummy_output = os.path.join(self.output_dir, "cache", "temp.mp4")
@@ -226,7 +226,7 @@ class BatchProcessor:
         # Check if both detection and pose caches exist
         return cache_mgr.check_detection_cache() and cache_mgr.check_pose_cache()
 
-    def _process_single_video(self, video_info: Dict) -> bool:
+    def _process_single_video(self, video_info: dict[str, str]) -> bool:
         """Process a single video"""
         source_path = self._convert_path(video_info['source_file'])
         output_path = self._create_output_path(video_info)
@@ -255,6 +255,7 @@ class BatchProcessor:
                 self.pipeline = DetectionPosePipeline(self.config, batch_signal_handler=self._signal_handler)
 
             # Process the video (this will create cache files)
+            assert self.pipeline is not None
             self.pipeline.process_video(source_path, output_path)
 
             print(f"✅ Successfully processed: {video_info['filename']}")
@@ -276,12 +277,13 @@ class BatchProcessor:
 
                 # Force garbage collection
                 import gc
+
                 import torch
                 if torch.cuda.is_available():
                     torch.cuda.empty_cache()
                 gc.collect()
 
-    def process_all(self):
+    def process_all(self) -> None:
         """Process all videos in the CSV file"""
         # Setup signal handler
         signal.signal(signal.SIGINT, self._signal_handler)
@@ -358,7 +360,7 @@ class BatchProcessor:
         print(f"Progress file: {self.progress_file}")
 
 
-def main():
+def main() -> None:
     """Main function"""
     parser = argparse.ArgumentParser(description='Batch process videos to create detection/pose caches')
     parser.add_argument('csv_file', help='CSV file containing video list')

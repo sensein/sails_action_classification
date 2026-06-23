@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 import random
-from typing import Optional
 
 import numpy as np
 import torch
@@ -13,21 +12,19 @@ import torch
 from ..builder import PIPELINES
 
 
+def _int(val: object) -> int:
+    """Cast an opaque pipeline value to int for mypy."""
+    if isinstance(val, (int, float, np.integer)):
+        return int(val)
+    return int(str(val))  
+
 @PIPELINES.register_module()
 class PrepareVideoInfoAbsPath:
     """Use a pre-built JSON path map instead of constructing paths from data_path.
 
-    The JSON map has the form::
-
-        { "video_id": "/absolute/path/to/video.mp4" }
-
-    so that videos can live anywhere on disk — not just under data_path.
-    Videos are opened read-only by the downstream frame decoder.
-    Nothing is written, copied, or modified.
-
     Args:
         video_path_map: Path to the JSON file mapping video_id to absolute path.
-        modality: Always ``"RGB"`` for our case.
+        modality: Always  "RGB"   for our case.
     """
 
     def __init__(
@@ -47,15 +44,15 @@ class PrepareVideoInfoAbsPath:
         """Inject the absolute video path into the results dict.
 
         Args:
-            results: Pipeline results dict containing ``"video_name"``.
+            results: Pipeline results dict containing  "video_name"  .
 
         Returns:
-            Updated results dict with ``"filename"`` and ``"modality"`` set.
+            Updated results dict with  "filename"   and  "modality"   set.
         """
         video_name = str(results["video_name"])
         assert video_name in self.path_map, (
             f"video_id '{video_name}' not found in video_path_map. "
-            "Re-run build_path_map if you added new videos."
+            "Re-run build_path_map if added new videos."
         )
         # Set filename to the absolute path — read-only, no modification.
         results["filename"] = self.path_map[video_name]
@@ -67,7 +64,7 @@ class PrepareVideoInfoAbsPath:
 class LoadFramesAt15fps:
     """Sample frames from a 30fps video at effective 15fps.
 
-    Uses ``frame_interval=2`` (every other frame) to match the
+    Uses  frame_interval=2   (every other frame) to match the
     label/feature FPS. Works with mmaction2's RawFrameDecode pipeline
     downstream. Computes frame indices only — actual pixel loading is
     done by mmaction2's SampleFrames/RawFrameDecode which opens the file
@@ -76,25 +73,25 @@ class LoadFramesAt15fps:
     Videos are NEVER modified. Frame indices are computed in RAM.
 
     Args:
-        clip_len: Frames per clip fed to backbone (e.g. ``16``).
-        method: ``"random_trunc"`` for train, ``"sliding_window"`` for
+        clip_len: Frames per clip fed to backbone (e.g.  16  ).
+        method:  "random_trunc"   for train,  "sliding_window"   for
             val/test.
-        trunc_len: Number of snippets to sample during ``random_trunc``.
+        trunc_len: Number of snippets to sample during  random_trunc  .
         trunc_thresh: Minimum overlap ratio for a segment to be kept
             after truncation.
-        crop_ratio: ``[min, max]`` fraction for random crop if the video
-            is shorter than ``trunc_len``.
-        source_fps: Native video FPS (``30.0`` for your videos).
-        target_fps: Desired decode FPS to match labels (``15.0``).
+        crop_ratio:  [min, max]   fraction for random crop if the video
+            is shorter than  trunc_len  .
+        source_fps: video FPS .
+        target_fps: Desired decode FPS to match labels (  15.0  ).
     """
 
     def __init__(
         self,
         clip_len: int,
         method: str = "random_trunc",
-        trunc_len: Optional[int] = None,
-        trunc_thresh: Optional[float] = None,
-        crop_ratio: Optional[list[float]] = None,
+        trunc_len: int | None = None,
+        trunc_thresh: float | None = None,
+        crop_ratio: list[float] | None = None,
         source_fps: float = 30.0,
         target_fps: float = 15.0,
     ) -> None:
@@ -123,18 +120,18 @@ class LoadFramesAt15fps:
         offset: int = 0,
         max_num_trials: int = 200,
     ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
-        """Randomly truncate ``frame_idxs`` to ``trunc_len`` snippets.
+        """Randomly truncate  frame_idxs   to  trunc_len   snippets.
 
         Args:
             frame_idxs: Array of source-frame indices at target FPS.
             trunc_len: Number of snippets in the output window.
-            gt_segments: Ground-truth segment boundaries, shape ``(N, 2)``.
-            gt_labels: Ground-truth labels, shape ``(N,)``.
+            gt_segments: Ground-truth segment boundaries, shape  (N, 2)  .
+            gt_labels: Ground-truth labels, shape  (N,)  .
             offset: Boundary tolerance when computing segment overlap.
             max_num_trials: Maximum random window attempts before giving up.
 
         Returns:
-            Tuple of ``(frame_idxs, gt_segments, gt_labels)`` after
+            Tuple of  (frame_idxs, gt_segments, gt_labels)   after
             truncation and filtering.
         """
         feat_len = len(frame_idxs)
@@ -179,23 +176,23 @@ class LoadFramesAt15fps:
         """Compute frame indices at target FPS and populate the results dict.
 
         Args:
-            results: Pipeline results dict. Must contain ``"total_frames"``.
-                For ``"random_trunc"`` also needs ``"gt_segments"`` and
-                ``"gt_labels"``. For ``"sliding_window"`` also needs
-                ``"window_size"``, ``"feature_start_idx"``, and
-                ``"feature_end_idx"``.
+            results: Pipeline results dict. Must contain  "total_frames"  .
+                For  "random_trunc"   also needs  "gt_segments"   and
+                 "gt_labels"  . For  "sliding_window"   also needs
+                 "window_size"  ,  "feature_start_idx"  , and
+                 "feature_end_idx"  .
 
         Returns:
-            Updated results dict with ``"frame_inds"``, ``"num_clips"``,
-            ``"clip_len"``, ``"masks"``, and ``"effective_fps"`` set.
+            Updated results dict with  "frame_inds"  ,  "num_clips"  ,
+             "clip_len"  ,  "masks"  , and  "effective_fps"   set.
 
         Raises:
-            AssertionError: If ``"total_frames"`` is missing from results.
-            ValueError: If ``method`` is not ``"random_trunc"`` or
-                ``"sliding_window"``.
+            AssertionError: If  "total_frames"   is missing from results.
+            ValueError: If  method   is not  "random_trunc"   or
+                 "sliding_window"  .
         """
         assert "total_frames" in results, "total_frames must be in results"
-        total_frames = int(results["total_frames"])  # type: ignore[arg-type]
+        total_frames  = _int(results["total_frames"])
 
         # Build frame index array at target_fps (15fps) by striding source frames.
         # e.g. [0, 2, 4, 6, ...] for 30→15fps.
@@ -236,13 +233,9 @@ class LoadFramesAt15fps:
                 masks = torch.ones(snippet_num).bool()
 
         elif self.method == "sliding_window":
-            snippet_num = int(results["window_size"])  # type: ignore[arg-type]
-            start_idx = min(
-                int(results["feature_start_idx"]), num_snippets_15fps  # type: ignore[arg-type]
-            )
-            end_idx = min(
-                int(results["feature_end_idx"]) + 1, num_snippets_15fps  # type: ignore[arg-type]
-            )
+            snippet_num = int(str(results["window_size"]))
+            start_idx = min(int(str(results["feature_start_idx"])), num_snippets_15fps)
+            end_idx   = min(int(str(results["feature_end_idx"])) + 1, num_snippets_15fps)
             frame_idxs_15fps = frame_idxs_15fps[start_idx:end_idx]
 
             if len(frame_idxs_15fps) < snippet_num:

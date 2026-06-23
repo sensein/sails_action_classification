@@ -1,10 +1,10 @@
-"""Clip-level child action classifier using the Ovis2 vision-language model.
+"""Clip-level child action classifier using the Ovis2.
 
 Supports two tasks:
   - ``loco``: Locomotion classification (5 classes).
   - ``rmm``: Repetitive Motor Movements classification (4 classes).
 
-Each clip is classified by sampling *N* frames uniformly or randomly,
+Each clip is classified by sampling N frames uniformly or randomly,
 classifying each frame independently, and aggregating predictions via
 majority vote.
 
@@ -26,6 +26,7 @@ import traceback
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import cv2
 import numpy as np
@@ -69,6 +70,23 @@ _RMM_DEFINITIONS: str = (
     "- Spinning: repetitive spinning or turning of the body\n"
 )
 
+_LOCO_DEFINITIONS: str = (
+    "\nDefinitions:\n"
+    "- Crawling: any instance of motion in any direction while the child "
+    "is on all fours — can be hands and knees or hands and feet\n"
+    "- Cruising: any instance of motion in any direction while the child "
+    "is holding onto an inanimate object (e.g., table, chair, toy, wall, "
+    "etc.) for support\n"
+    "- Walking: any instance of motion in any direction while the child "
+    "is in a bipedal stance, moving at a slow pace, and one foot is "
+    "always on the ground\n"
+    "- Running: any instance of motion in any direction while the child "
+    "is in a bipedal stance, moving quickly, and at times both feet are "
+    "off the ground\n"
+    "- Vehicle: any instance of a child using a toy vehicle (e.g., "
+    "scooter, walking bike, etc.) to move in any direction\n"
+)
+
 
 # ---------------------------------------------------------------------------
 # Monkey-patch: suppress duplicate aimv2 config registration
@@ -77,21 +95,16 @@ def _patch_aimv2_registration() -> None:
     """Silently skip duplicate ``aimv2`` ``AutoConfig`` registrations."""
     _original_register = AutoConfig.register
 
-    def _safe_register(
-        model_type: str,
-        config,
-        exist_ok: bool = False,
-    ) -> None:
+    def _safe_register(model_type: str, config: Any, exist_ok: bool = False) -> None:
         try:
-            _original_register(model_type, config, exist_ok=exist_ok)
+            _original_register(model_type, config, exist_ok=exist_ok) 
         except ValueError as exc:
             if "aimv2" in str(exc):
                 pass
             else:
                 raise
 
-    AutoConfig.register = _safe_register
-
+    AutoConfig.register = _safe_register  # type: ignore[method-assign ]
 
 _patch_aimv2_registration()
 
@@ -140,7 +153,7 @@ class ClipActionClassifier:
             f"Frame sampling: {'random (seed={seed})' if random_frames else 'uniform (linspace)'}"
         )
 
-        load_kwargs: dict = {
+        load_kwargs: dict[str, Any] = {
             "torch_dtype": torch.bfloat16,
             "multimodal_max_length": 32768,
             "trust_remote_code": True,
@@ -157,7 +170,7 @@ class ClipActionClassifier:
             load_kwargs["config"] = config
             load_kwargs["attn_implementation"] = "eager"
 
-        self.model = AutoModelForCausalLM.from_pretrained(
+        self.model = AutoModelForCausalLM.from_pretrained(  # type: ignore[call-arg]
             model_name, **load_kwargs
         ).cuda()
 
@@ -176,7 +189,9 @@ class ClipActionClassifier:
         """Construct the zero-shot classification prompt for the task."""
         classes_str = ", ".join(self.class_names)
         desc = _TASK_DESCRIPTIONS[self.task]
-        definitions = _RMM_DEFINITIONS if self.task == "rmm" else ""
+        definitions = (
+            _RMM_DEFINITIONS if self.task == "rmm" else _LOCO_DEFINITIONS
+        )
 
         return (
             f"You are analyzing a video frame of a child performing a "
@@ -367,7 +382,7 @@ class ClipActionClassifier:
             if pred is not None:
                 frame_preds.append(pred)
             else:
-                print(f"  [WARN] Unparseable response: {raw!r}")
+                print(f"  [WARN] Unparsable response: {raw!r}")
 
         if not frame_preds:
             return None, [], 0.0
@@ -399,9 +414,9 @@ def compute_metrics(
     y_pred: list[str],
     class_names: list[str],
     output_dir: str,
-) -> dict:
+) -> dict[str, Any]:
     """Compute classification metrics and persist results to *output_dir*."""
-    metrics: dict = {}
+    metrics: dict[str, Any] = {}
 
     metrics["accuracy"] = accuracy_score(y_true, y_pred)
     metrics["balanced_accuracy"] = balanced_accuracy_score(y_true, y_pred)
@@ -453,7 +468,7 @@ def compute_metrics(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    serialisable: dict = {}
+    serialisable: dict[str, Any] = {}
     for k, v in metrics.items():
         if isinstance(v, np.ndarray):
             serialisable[k] = v.tolist()
@@ -496,7 +511,7 @@ def compute_top2_accuracy(
     """Compute top-2 accuracy from per-clip frame vote distributions."""
     correct = 0
     total = 0
-    for preds, true_label in zip(frame_preds_list, y_true):
+    for preds, true_label in zip(frame_preds_list, y_true, strict=False):
         if not preds:
             continue
         top2 = [cls for cls, _ in Counter(preds).most_common(2)]
@@ -641,13 +656,13 @@ def main() -> None:
     )
 
     # ---- Classify every clip ----
-    results: list[dict] = []
+    results: list[dict[str, Any]] = []
     all_frame_preds: list[list[str]] = []
     successful = 0
     failed = 0
 
     for i, (clip_path, true_label) in enumerate(
-        zip(valid_clips, gt_labels), 1
+        zip(valid_clips, gt_labels, strict=False), 1
     ):
         print(
             f"\n--- [{i}/{len(valid_clips)}] "
@@ -736,7 +751,7 @@ def main() -> None:
     )
 
     chunk_metrics_dir = os.path.join(args.output_dir, f"metrics_{array_id}")
-    metrics = compute_metrics(y_true, y_pred, class_names, chunk_metrics_dir)
+    compute_metrics(y_true, y_pred, class_names, chunk_metrics_dir)
 
     valid_fp = [all_frame_preds[i] for i in eval_df.index]
     top2_acc = compute_top2_accuracy(valid_fp, y_true)
