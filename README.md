@@ -1,4 +1,4 @@
-# sailsprep
+# sails_action_classification
 
 sails_action_classification: action classification and analysis of locomotion and Repetitive Motor Movements actions
 from video data in the SAILS dataset, using pose estimation and tracking as
