@@ -1,10 +1,10 @@
-"""Clip-level child action classifier using the Ovis2.
+"""Clip-level child action classifier using the Ovis2 vision-language model.
 
 Supports two tasks:
   - ``loco``: Locomotion classification (5 classes).
   - ``rmm``: Repetitive Motor Movements classification (4 classes).
 
-Each clip is classified by sampling N frames uniformly or randomly,
+Each clip is classified by sampling *N* frames uniformly or randomly,
 classifying each frame independently, and aggregating predictions via
 majority vote.
 
@@ -26,7 +26,6 @@ import traceback
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import cv2
 import numpy as np
@@ -95,16 +94,21 @@ def _patch_aimv2_registration() -> None:
     """Silently skip duplicate ``aimv2`` ``AutoConfig`` registrations."""
     _original_register = AutoConfig.register
 
-    def _safe_register(model_type: str, config: Any, exist_ok: bool = False) -> None:
+    def _safe_register(
+        model_type: str,
+        config,
+        exist_ok: bool = False,
+    ) -> None:
         try:
-            _original_register(model_type, config, exist_ok=exist_ok) 
+            _original_register(model_type, config, exist_ok=exist_ok)
         except ValueError as exc:
             if "aimv2" in str(exc):
                 pass
             else:
                 raise
 
-    AutoConfig.register = _safe_register  # type: ignore[method-assign ]
+    AutoConfig.register = _safe_register
+
 
 _patch_aimv2_registration()
 
@@ -153,7 +157,7 @@ class ClipActionClassifier:
             f"Frame sampling: {'random (seed={seed})' if random_frames else 'uniform (linspace)'}"
         )
 
-        load_kwargs: dict[str, Any] = {
+        load_kwargs: dict = {
             "torch_dtype": torch.bfloat16,
             "multimodal_max_length": 32768,
             "trust_remote_code": True,
@@ -170,7 +174,7 @@ class ClipActionClassifier:
             load_kwargs["config"] = config
             load_kwargs["attn_implementation"] = "eager"
 
-        self.model = AutoModelForCausalLM.from_pretrained(  # type: ignore[call-arg]
+        self.model = AutoModelForCausalLM.from_pretrained(
             model_name, **load_kwargs
         ).cuda()
 
@@ -305,8 +309,8 @@ class ClipActionClassifier:
 
         When ``random_frames=True``, frames are drawn without replacement
         using a per-clip RNG seeded as ``self.seed + clip_index``.  This
-        gives a different but reproducible draw for every (seed, clip) pair,
-        which is what you want when measuring metric spread across seeds.
+        gives a different but reproducible draw for every (seed, clip) pair, for
+        measuring metric spread across seeds.
 
         Args:
             video_path: Path to the video file.
@@ -414,9 +418,9 @@ def compute_metrics(
     y_pred: list[str],
     class_names: list[str],
     output_dir: str,
-) -> dict[str, Any]:
+) -> dict:
     """Compute classification metrics and persist results to *output_dir*."""
-    metrics: dict[str, Any] = {}
+    metrics: dict = {}
 
     metrics["accuracy"] = accuracy_score(y_true, y_pred)
     metrics["balanced_accuracy"] = balanced_accuracy_score(y_true, y_pred)
@@ -468,7 +472,7 @@ def compute_metrics(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    serialisable: dict[str, Any] = {}
+    serialisable: dict = {}
     for k, v in metrics.items():
         if isinstance(v, np.ndarray):
             serialisable[k] = v.tolist()
@@ -511,7 +515,7 @@ def compute_top2_accuracy(
     """Compute top-2 accuracy from per-clip frame vote distributions."""
     correct = 0
     total = 0
-    for preds, true_label in zip(frame_preds_list, y_true, strict=False):
+    for preds, true_label in zip(frame_preds_list, y_true):
         if not preds:
             continue
         top2 = [cls for cls, _ in Counter(preds).most_common(2)]
@@ -656,13 +660,13 @@ def main() -> None:
     )
 
     # ---- Classify every clip ----
-    results: list[dict[str, Any]] = []
+    results: list[dict] = []
     all_frame_preds: list[list[str]] = []
     successful = 0
     failed = 0
 
     for i, (clip_path, true_label) in enumerate(
-        zip(valid_clips, gt_labels, strict=False), 1
+        zip(valid_clips, gt_labels), 1
     ):
         print(
             f"\n--- [{i}/{len(valid_clips)}] "
@@ -751,7 +755,7 @@ def main() -> None:
     )
 
     chunk_metrics_dir = os.path.join(args.output_dir, f"metrics_{array_id}")
-    compute_metrics(y_true, y_pred, class_names, chunk_metrics_dir)
+    metrics = compute_metrics(y_true, y_pred, class_names, chunk_metrics_dir)
 
     valid_fp = [all_frame_preds[i] for i in eval_df.index]
     top2_acc = compute_top2_accuracy(valid_fp, y_true)

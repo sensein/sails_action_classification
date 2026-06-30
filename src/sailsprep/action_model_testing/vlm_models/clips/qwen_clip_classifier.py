@@ -1,10 +1,10 @@
-"""Clip-level child action classifier using the Qwen2.5-VL .
+"""Clip-level child action classifier using the Qwen2.5-VL model.
 
 Supports two tasks:
   - ``loco``: Locomotion classification (5 classes).
   - ``rmm``: Repetitive Motor Movements classification (4 classes).
 
-Each clip is classified by sampling N frames uniformly or randomly,
+Each clip is classified by sampling *N* frames uniformly or randomly,
 classifying each frame independently via the Qwen2.5-VL chat interface,
 and aggregating predictions via majority vote.
 
@@ -26,7 +26,6 @@ import traceback
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any
 
 import cv2
 import numpy as np
@@ -136,8 +135,8 @@ class ClipActionClassifier:
         print(
             f"Frame sampling: {'random (seed=' + str(seed) + ')' if random_frames else 'uniform (linspace)'}"
         )
-        
-        self.processor = AutoProcessor.from_pretrained(  # type: ignore[no-untyped-call]
+
+        self.processor = AutoProcessor.from_pretrained(
             model_name, cache_dir=cache_dir
         )
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
@@ -241,7 +240,7 @@ class ClipActionClassifier:
 
             generated_ids = [
                 out[len(inp):]
-                for inp, out in zip(inputs["input_ids"], output_ids, strict=False)
+                for inp, out in zip(inputs["input_ids"], output_ids)
             ]
             response = self.processor.batch_decode(
                 generated_ids,
@@ -381,9 +380,9 @@ def compute_metrics(
     y_pred: list[str],
     class_names: list[str],
     output_dir: str,
-) -> dict[str, Any]:
+) -> dict:
     """Compute classification metrics and persist results to *output_dir*."""
-    metrics: dict[str, Any] = {}
+    metrics: dict = {}
 
     metrics["accuracy"] = accuracy_score(y_true, y_pred)
     metrics["balanced_accuracy"] = balanced_accuracy_score(y_true, y_pred)
@@ -435,7 +434,7 @@ def compute_metrics(
 
     os.makedirs(output_dir, exist_ok=True)
 
-    serialisable: dict[str, Any] = {}
+    serialisable: dict = {}
     for k, v in metrics.items():
         if isinstance(v, np.ndarray):
             serialisable[k] = v.tolist()
@@ -478,7 +477,7 @@ def compute_top2_accuracy(
     """Compute top-2 accuracy from per-clip frame vote distributions."""
     correct = 0
     total = 0
-    for preds, true_label in zip(frame_preds_list, y_true, strict=False):
+    for preds, true_label in zip(frame_preds_list, y_true):
         if not preds:
             continue
         top2 = [cls for cls, _ in Counter(preds).most_common(2)]
@@ -624,13 +623,13 @@ def main() -> None:
     )
 
     # ---- Classify every clip ----
-    results: list[dict[str, Any]] = []
+    results: list[dict] = []
     all_frame_preds: list[list[str]] = []
     successful = 0
     failed = 0
 
     for i, (clip_path, true_label) in enumerate(
-        zip(valid_clips, gt_labels, strict=False), 1
+        zip(valid_clips, gt_labels), 1
     ):
         print(
             f"\n--- [{i}/{len(valid_clips)}] "
@@ -717,7 +716,7 @@ def main() -> None:
     )
 
     chunk_metrics_dir = os.path.join(args.output_dir, f"metrics_{array_id}")
-    compute_metrics(y_true, y_pred, class_names, chunk_metrics_dir)
+    metrics = compute_metrics(y_true, y_pred, class_names, chunk_metrics_dir)
 
     valid_fp = [all_frame_preds[i] for i in eval_df.index]
     top2_acc = compute_top2_accuracy(valid_fp, y_true)

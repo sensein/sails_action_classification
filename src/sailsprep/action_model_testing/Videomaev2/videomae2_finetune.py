@@ -1,57 +1,54 @@
 """
-VideoMAE V2 ViT-Base fine-tuning pipeline.
-
+VideoMAE V2 ViT-Base fine-tuning pipeline..
 Usage:
     python videomae2_finetune.py --task loco
     python videomae2_finetune.py --task rmm
 
-Setup:
+Setup (one-time):
+    # Clone the VideoMAEv2 repo (we only need one file from it)
     wget -O modeling_finetune.py \\
       "https://raw.githubusercontent.com/OpenGVLab/VideoMAEv2/master/models/modeling_finetune.py"
 
+    # Download the distilled ViT-B K710 checkpoint
     mkdir -p ~/.cache/videomae2
     wget -O ~/.cache/videomae2/vit_b_k710_dl_from_giant.pth \\
       "https://huggingface.co/OpenGVLab/VideoMAE2/resolve/main/distill/vit_b_k710_dl_from_giant.pth"
-"""
 
+    # Install deps
+    pip install timm
+"""
 from __future__ import annotations
 
 import argparse
 import json
 import os
-from collections import Counter
-from typing import Any
 
 import cv2
 import h5py
 import numpy as np
 import pandas as pd
-import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import pytorch_lightning as pl
+from functools import partial
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader, Dataset
+
 
 # ============================================================
 # TASK CONFIG
 # ============================================================
-TASK_CONFIG: dict[str, dict[str, Any]] = {
+TASK_CONFIG = {
     "loco": {
         "label_col":   "Locomotion",
         "num_classes": 5,
-        "output_dir":  (
-            "/orcd/data/satra/002/projects/SAILS/vjepa_features"
-            "/models_output_seeds/clips_h5/vmae2/loco"
-        ),
+        "output_dir":  "/orcd/data/satra/002/projects/SAILS/action_outputs_features/models_output_seeds/clips_h5/vmae2/loco",
     },
     "rmm": {
         "label_col":   "Repetitive_Motor_Movements",
         "num_classes": 4,
-        "output_dir":  (
-            "/orcd/data/satra/002/projects/SAILS/vjepa_features"
-            "/models_output_seeds/clips_h5/vmae2/rmm"
-        ),
+        "output_dir":  "/orcd/data/satra/002/projects/SAILS/action_outputs_features/models_output_seeds/clips_h5/vmae2/rmm",
     },
 }
 
@@ -60,69 +57,60 @@ SPLIT_CSV = "/home/aparnabg/orcd/scratch/all_project_files/latest_split_csv.csv"
 # ============================================================
 # GLOBAL CONFIG
 # ============================================================
-BATCH_SIZE: int = 8
-NUM_WORKERS: int = 4
-MAX_EPOCHS: int = 50
-LEARNING_RATE: float = 1e-4
-SEED: int = 42
+BATCH_SIZE      = 8     
+NUM_WORKERS     = 4
+MAX_EPOCHS      = 50
+LEARNING_RATE   = 1e-4
+SEED            = 42
 
-NUM_FRAMES: int = 16
-CROP_SIZE: int = 224
-MEAN: tuple[float, float, float] = (0.485, 0.456, 0.406)
-STD: tuple[float, float, float] = (0.229, 0.224, 0.225)
 
-ANN_FPS: float = 15.0
-MIN_FRAMES: int = 15
-CLIP_FRAMES: int = 30
+NUM_FRAMES      = 16     # using VideoMAE V2 ViT-B it expects 16 frames at 224x224
+CROP_SIZE       = 224
+MEAN            = (0.485, 0.456, 0.406)
+STD             = (0.229, 0.224, 0.225)
 
-VMAE2_CKPT: str = os.path.expanduser(
-    "~/.cache/videomae2/vit_b_k710_dl_from_giant.pth"
-)
+# Annotation timing / clipping
+ANN_FPS         = 15.0
+MIN_FRAMES      = 15
+CLIP_FRAMES     = 30
+
+# Checkpoint
+VMAE2_CKPT = os.path.expanduser("~/.cache/videomae2/vit_b_k710_dl_from_giant.pth")
 
 
 # ============================================================
 # 1. BBOX LOADING
 # ============================================================
-def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
+def load_bbox_map(h5_path):
     with h5py.File(h5_path, "r") as f:
         table = f["bboxes/table"][()]
     vb1 = table["values_block_1"]
-    return {
-        int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5]))
-        for r in vb1
-    }
+    return {int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in vb1}
 
 
 # ============================================================
-# 2. ACTION RUNS
+# 2. ACTION RUNS + CLIPPING
 # ============================================================
-def find_action_runs(
-    ann: pd.DataFrame,
-    label_col: str,
-) -> list[tuple[int, int, str]]:
+def find_action_runs(ann, label_col):
     df = ann.sort_values("Frame").reset_index(drop=True)
     frames = df["Frame"].astype(int).tolist()
     labels = df[label_col].astype(str).tolist()
-    runs: list[tuple[int, int, str]] = []
+    runs = []
     i, n = 0, len(df)
     while i < n:
         lab = labels[i].strip()
         if lab in ("N/A", ""):
-            i += 1
-            continue
+            i += 1; continue
         j = i
-        while (
-            j + 1 < n
-            and labels[j + 1].strip() == lab
-            and frames[j + 1] == frames[j] + 1
-        ):
+        while (j + 1 < n and labels[j + 1].strip() == lab
+               and frames[j + 1] == frames[j] + 1):
             j += 1
         runs.append((frames[i], frames[j], lab))
         i = j + 1
     return runs
 
 
-def chunk_run(start: int, end: int) -> list[tuple[int, int]]:
+def chunk_run(start, end):
     total = end - start + 1
     if total < MIN_FRAMES:
         return []
@@ -131,7 +119,7 @@ def chunk_run(start: int, end: int) -> list[tuple[int, int]]:
             return [(start, end)]
         split_pt = start + CLIP_FRAMES
         return [(start, split_pt - 1), (split_pt, end)]
-    clips: list[tuple[int, int]] = []
+    clips = []
     s = start
     while s <= end:
         e = min(s + CLIP_FRAMES - 1, end)
@@ -141,19 +129,14 @@ def chunk_run(start: int, end: int) -> list[tuple[int, int]]:
     return clips
 
 
-def build_samples(
-    split_csv: str,
-    label_col: str,
-) -> dict[str, list[dict[str, Any]]]:
+def build_samples(split_csv, label_col):
     split_df = pd.read_csv(split_csv)
     required = ["video_path", "label_path", "interpolated_anno_h5", "split"]
     for c in required:
         if c not in split_df.columns:
             raise ValueError(f"Split CSV missing column: {c}")
 
-    by_split: dict[str, list[dict[str, Any]]] = {
-        "train": [], "val": [], "test": []
-    }
+    by_split = {"train": [], "val": [], "test": []}
 
     for _, row in split_df.iterrows():
         vp = str(row["video_path"]).strip()
@@ -170,8 +153,7 @@ def build_samples(
             ann = pd.read_csv(lp, encoding="utf-8-sig", keep_default_na=False)
             ann.columns = ann.columns.str.strip()
         except Exception as e:
-            print(f"  skip ({e}): {lp}")
-            continue
+            print(f"  skip ({e}): {lp}"); continue
 
         if label_col not in ann.columns:
             continue
@@ -191,42 +173,35 @@ def build_samples(
 
 
 # ============================================================
-# 3. DATASET
+# 3. DATASET — output shape (C,T,H,W) for VideoMAE V2
 # ============================================================
-class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, int]]):
-    def __init__(
-        self,
-        samples: list[dict[str, Any]],
-        label_map: dict[str, int],
-        num_frames: int = NUM_FRAMES,
-        crop_size: int = CROP_SIZE,
-        training: bool = False,
-    ) -> None:
-        self.samples = samples
-        self.label_map = label_map
+class BBoxCropVideoDataset(Dataset):
+    def __init__(self, samples, label_map, num_frames=NUM_FRAMES,
+                 crop_size=CROP_SIZE, training=False):
+        self.samples    = samples
+        self.label_map  = label_map
         self.num_frames = num_frames
-        self.crop_size = crop_size
-        self.training = training
+        self.crop_size  = crop_size
+        self.training   = training
         self.mean = torch.tensor(MEAN).view(3, 1, 1, 1)
-        self.std = torch.tensor(STD).view(3, 1, 1, 1)
+        self.std  = torch.tensor(STD).view(3, 1, 1, 1)
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self.samples)
 
-    def _read_segment(self, s: dict[str, Any]) -> torch.Tensor:
+    def _read_segment(self, s):
         cap = cv2.VideoCapture(s["video_path"])
         if not cap.isOpened():
-            raise OSError(f"cannot open {s['video_path']}")
+            raise IOError(f"cannot open {s['video_path']}")
         vid_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
-        step = max(1, int(round(vid_fps / s["ann_fps"])))
+        step    = max(1, int(round(vid_fps / s["ann_fps"])))
 
         bbox_map = load_bbox_map(s["h5_path"])
         if not bbox_map:
-            cap.release()
-            raise ValueError("empty bbox map")
+            cap.release(); raise ValueError("empty bbox map")
 
         ann_frames = np.arange(s["start_frame"], s["end_frame"] + 1)
-        idxs = np.linspace(0, len(ann_frames) - 1, self.num_frames).astype(int)
+        idxs   = np.linspace(0, len(ann_frames) - 1, self.num_frames).astype(int)
         chosen = ann_frames[idxs]
 
         bbox_keys = np.array(sorted(bbox_map.keys()))
@@ -236,9 +211,7 @@ class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, int]]):
             cap.set(cv2.CAP_PROP_POS_FRAMES, vf)
             ret, frame = cap.read()
             if not ret:
-                frames.append(
-                    np.zeros((self.crop_size, self.crop_size, 3), dtype=np.uint8)  
-                )
+                frames.append(np.zeros((self.crop_size, self.crop_size, 3), np.uint8))
                 continue
 
             H, W = frame.shape[:2]
@@ -248,23 +221,21 @@ class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, int]]):
                 nearest = int(bbox_keys[np.argmin(np.abs(bbox_keys - af))])
                 x1, y1, x2, y2 = bbox_map[nearest]
 
-            x1 = max(0, min(x1, W - 1))
-            x2 = max(x1 + 1, min(x2, W))
-            y1 = max(0, min(y1, H - 1))
-            y2 = max(y1 + 1, min(y2, H))
+            x1 = max(0, min(x1, W - 1)); x2 = max(x1 + 1, min(x2, W))
+            y1 = max(0, min(y1, H - 1)); y2 = max(y1 + 1, min(y2, H))
 
             crop = frame[y1:y2, x1:x2]
             crop = cv2.resize(crop, (self.crop_size, self.crop_size))
             crop = cv2.cvtColor(crop, cv2.COLOR_BGR2RGB)
-            frames.append(crop) # type: ignore[arg-type]
+            frames.append(crop)
 
         cap.release()
         arr = np.ascontiguousarray(np.stack(frames), dtype=np.float32) / 255.0
-        tensor = torch.from_numpy(arr).permute(3, 0, 1, 2).contiguous()
+        tensor = torch.from_numpy(arr).permute(3, 0, 1, 2).contiguous()  # (C,T,H,W)
         tensor = (tensor - self.mean) / self.std
         return tensor
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, int]:
+    def __getitem__(self, idx):
         s = self.samples[idx]
         label = self.label_map[s["label_str"]]
         try:
@@ -273,114 +244,92 @@ class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, int]]):
                 frames = torch.flip(frames, dims=[3])
             return frames, label
         except Exception as e:
-            print(
-                f"  load error {os.path.basename(s['video_path'])} "
-                f"[{s['start_frame']}-{s['end_frame']}]: {e}"
-            )
-            return (
-                torch.zeros(3, self.num_frames, self.crop_size, self.crop_size),
-                label,
-            )
+            print(f"  load error {os.path.basename(s['video_path'])} "
+                  f"[{s['start_frame']}-{s['end_frame']}]: {e}")
+            return torch.zeros(3, self.num_frames, self.crop_size, self.crop_size), label
 
 
-def collate(
-    batch: list[tuple[torch.Tensor, int]],
-) -> tuple[torch.Tensor, torch.Tensor]:
-    videos, labels = zip(*batch, strict=False)
-    return torch.stack(list(videos)), torch.tensor(list(labels), dtype=torch.long)
+def collate(batch):
+    videos, labels = zip(*batch)
+    return torch.stack(videos), torch.tensor(labels, dtype=torch.long)
 
 
 # ============================================================
 # 4. DATA MODULE
 # ============================================================
 class H5BBoxDataModule(pl.LightningDataModule):
-    def __init__(self, label_col: str, output_dir: str) -> None:
+    def __init__(self, label_col, output_dir):
         super().__init__()
-        self.label_col = label_col
+        self.label_col  = label_col
         self.output_dir = output_dir
-        self.label_map: dict[str, int] | None = None
-        self.train_samples: list[dict[str, Any]] | None = None
-        self.val_samples: list[dict[str, Any]] | None = None
-        self.test_samples: list[dict[str, Any]] | None = None
-        self.class_weights: torch.Tensor | None = None
+        self.label_map  = None
+        self.train_samples = None
+        self.val_samples   = None
+        self.test_samples  = None
 
-    def setup(self, stage: str | None = None) -> None:
+    def setup(self, stage=None):
         print(f"Building samples (label_col={self.label_col})...")
         by_split = build_samples(SPLIT_CSV, self.label_col)
         n_train = len(by_split["train"])
-        n_val = len(by_split["val"])
-        n_test = len(by_split["test"])
+        n_val   = len(by_split["val"])
+        n_test  = len(by_split["test"])
         print(f"Clips  train={n_train}  val={n_val}  test={n_test}")
         if n_train == 0:
             raise RuntimeError("No training clips built.")
 
-        all_labels = sorted(
-            {s["label_str"] for split in by_split.values() for s in split}
-        )
+        all_labels = sorted({s["label_str"] for split in by_split.values() for s in split})
         self.label_map = {lab: i for i, lab in enumerate(all_labels)}
         print(f"Label map: {self.label_map}")
 
+        from collections import Counter
         for sp, samps in by_split.items():
             dist = Counter(s["label_str"] for s in samps)
             print(f"  {sp} distribution: {dict(dist)}")
 
         self.train_samples = by_split["train"]
-        self.val_samples = by_split["val"]
-        self.test_samples = by_split["test"]
+        self.val_samples   = by_split["val"]
+        self.test_samples  = by_split["test"]
 
         with open(os.path.join(self.output_dir, "label_mapping.json"), "w") as f:
             json.dump(self.label_map, f, indent=2)
         pd.DataFrame(self.test_samples).to_csv(
-            os.path.join(self.output_dir, "test_split.csv"), index=False
-        )
+            os.path.join(self.output_dir, "test_split.csv"), index=False)
 
+        # Class weights from TRAIN only
         n_classes = len(self.label_map)
         counts = np.zeros(n_classes, dtype=np.float64)
         for s in self.train_samples:
             counts[self.label_map[s["label_str"]]] += 1
-        counts = np.maximum(counts, 1.0)
+        counts  = np.maximum(counts, 1.0)
         weights = counts.sum() / (n_classes * counts)
         self.class_weights = torch.tensor(weights, dtype=torch.float32)
-
         print("Class weights (train):")
         for lab, idx in self.label_map.items():
-            print(
-                f"  {lab:30s} count={int(counts[idx]):4d}  "
-                f"weight={weights[idx]:.3f}"
-            )
+            print(f"  {lab:30s} count={int(counts[idx]):4d}  weight={weights[idx]:.3f}")
 
-    def train_dataloader(self) -> DataLoader[tuple[torch.Tensor, int]]:
-        ds = BBoxCropVideoDataset(
-            self.train_samples or [], self.label_map or {}, training=True
-        )
-        return DataLoader(
-            ds,
-            batch_size=BATCH_SIZE,
-            shuffle=True,
-            num_workers=NUM_WORKERS,
-            collate_fn=collate,
-        )
+    def train_dataloader(self):
+        ds = BBoxCropVideoDataset(self.train_samples, self.label_map, training=True)
+        return DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True,
+                          num_workers=NUM_WORKERS, collate_fn=collate)
 
-    def val_dataloader(self) -> DataLoader[tuple[torch.Tensor, int]]:
-        ds = BBoxCropVideoDataset(
-            self.val_samples or [], self.label_map or {}, training=False
-        )
-        return DataLoader(
-            ds,
-            batch_size=BATCH_SIZE,
-            shuffle=False,
-            num_workers=NUM_WORKERS,
-            collate_fn=collate,
-        )
+    def val_dataloader(self):
+        ds = BBoxCropVideoDataset(self.val_samples, self.label_map, training=False)
+        return DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False,
+                          num_workers=NUM_WORKERS, collate_fn=collate)
 
 
 # ============================================================
-# 5. MODEL
+# 5. VideoMAE V2 ViT-Base MODEL
 # ============================================================
-def build_videomae2_vitb(
-    num_classes: int,
-    freeze_all_but_last_block: bool = True,
-) -> nn.Module:
+def build_videomae2_vitb(num_classes, freeze_all_but_last_block=True):
+    """
+    Loads VideoMAE V2 ViT-Base with K710 distilled checkpoint (86.6% K400).
+
+    Uses the official modeling_finetune.py from OpenGVLab/VideoMAEv2.
+
+    Architecture: ViT-B/16, 16 frames, tubelet_size=2
+      patch_size=16, embed_dim=768, depth=12, num_heads=12
+    """
     try:
         from modeling_finetune import vit_base_patch16_224
     except ImportError as e:
@@ -388,52 +337,54 @@ def build_videomae2_vitb(
             "Could not import from modeling_finetune.py.\n"
             "Download it:\n"
             "  wget -O modeling_finetune.py "
-            "https://raw.githubusercontent.com/OpenGVLab/VideoMAEv2/"
-            "master/models/modeling_finetune.py\n"
+            "https://raw.githubusercontent.com/OpenGVLab/VideoMAEv2/master/models/modeling_finetune.py\n"
             "Place it in the same directory as this script."
         ) from e
 
-    model: nn.Module = vit_base_patch16_224(num_classes=710)
+    # Build ViT-B with K710's 710 classes first to load the checkpoint
+    model = vit_base_patch16_224(num_classes=710)
 
+    # Load distilled K710 checkpoint
     if not os.path.exists(VMAE2_CKPT):
         print(f"Downloading VideoMAE V2 ViT-B K710 checkpoint -> {VMAE2_CKPT}")
         os.makedirs(os.path.dirname(VMAE2_CKPT), exist_ok=True)
         torch.hub.download_url_to_file(
-            "https://huggingface.co/OpenGVLab/VideoMAE2/resolve/main/distill/"
-            "vit_b_k710_dl_from_giant.pth",
+            "https://huggingface.co/OpenGVLab/VideoMAE2/resolve/main/distill/vit_b_k710_dl_from_giant.pth",
             VMAE2_CKPT,
         )
 
     ckpt = torch.load(VMAE2_CKPT, map_location="cpu")
-    state: dict[str, Any] = ckpt.get("module", ckpt)
+    state = ckpt.get("module", ckpt)
+    # Strip 'module.' prefix if DDP wrapped
     state = {k.replace("module.", ""): v for k, v in state.items()}
     missing, unexpected = model.load_state_dict(state, strict=False)
-    print(
-        f"Loaded VideoMAE V2 ViT-B K710. "
-        f"missing={len(missing)} unexpected={len(unexpected)}"
-    )
+    print(f"Loaded VideoMAE V2 ViT-B K710. missing={len(missing)} unexpected={len(unexpected)}")
     if missing:
         print(f"  missing keys (sample): {missing[:5]}")
     if unexpected:
         print(f"  unexpected keys (sample): {unexpected[:5]}")
 
-    model.head = nn.Linear(768, num_classes)  
-    nn.init.trunc_normal_(model.head.weight, std=0.02)  
-    nn.init.zeros_(model.head.bias)  
+    # Replace the classification head for our task
+    model.head = nn.Linear(768, num_classes)
+    # Re-init head
+    nn.init.trunc_normal_(model.head.weight, std=0.02)
+    nn.init.zeros_(model.head.bias)
 
     if freeze_all_but_last_block:
         print("Freezing all but last transformer block (blocks.11) + head + fc_norm")
         for name, p in model.named_parameters():
-            trainable = (
-                name.startswith("head.")
-                or "blocks.11." in name
-                or "fc_norm" in name
-            )
+            trainable = False
+            if name.startswith("head."):
+                trainable = True
+            elif "blocks.11." in name:
+                trainable = True
+            elif "fc_norm" in name:
+                trainable = True
             p.requires_grad = trainable
 
-        trainable_n = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        total_n = sum(p.numel() for p in model.parameters())
-        print(f"  Trainable params: {trainable_n / 1e6:.2f}M / {total_n / 1e6:.2f}M")
+        trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+        total     = sum(p.numel() for p in model.parameters())
+        print(f"  Trainable params: {trainable/1e6:.2f}M / {total/1e6:.2f}M")
 
     return model
 
@@ -442,68 +393,48 @@ def build_videomae2_vitb(
 # 6. LIGHTNING MODULE
 # ============================================================
 class VideoMAE2FineTune(pl.LightningModule):
-    def __init__(
-        self,
-        num_classes: int,
-        freeze: bool = True,
-        class_weights: torch.Tensor | None = None,
-    ) -> None:
+    def __init__(self, num_classes, freeze=True, class_weights=None):
         super().__init__()
         self.save_hyperparameters(ignore=["class_weights"])
         self.model = build_videomae2_vitb(num_classes, freeze_all_but_last_block=freeze)
-        self.class_weights: torch.Tensor | None = None
         if class_weights is not None:
             self.register_buffer("class_weights", class_weights.float(), persistent=False)
+        else:
+            self.class_weights = None
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        result = self.model(x)
-        return torch.as_tensor(result)
+    def forward(self, x):
+        return self.model(x)
 
-    def training_step( 
-        self, batch: tuple[torch.Tensor, torch.Tensor], _: int
-    ) -> torch.Tensor:
+    def training_step(self, batch, _):
         x, y = batch
         logits = self.model(x)
         loss = F.cross_entropy(logits, y, weight=self.class_weights)
-        acc = (logits.argmax(1) == y).float().mean()
+        acc  = (logits.argmax(1) == y).float().mean()
         self.log("train_loss", loss, prog_bar=True)
-        self.log("train_acc", acc, prog_bar=True)
+        self.log("train_acc",  acc,  prog_bar=True)
         return loss
 
-    def validation_step(  
-        self, batch: tuple[torch.Tensor, torch.Tensor], _: int
-    ) -> torch.Tensor:
+    def validation_step(self, batch, _):
         x, y = batch
         logits = self.model(x)
         loss = F.cross_entropy(logits, y)
-        acc = (logits.argmax(1) == y).float().mean()
+        acc  = (logits.argmax(1) == y).float().mean()
         self.log("val_loss", loss, prog_bar=True)
-        self.log("val_acc", acc, prog_bar=True)
+        self.log("val_acc",  acc,  prog_bar=True)
         return loss
 
-    def configure_optimizers(self) -> Any:
+    def configure_optimizers(self):
         params = filter(lambda p: p.requires_grad, self.parameters())
         opt = torch.optim.AdamW(params, lr=LEARNING_RATE, weight_decay=0.05)
-        sch = torch.optim.lr_scheduler.ReduceLROnPlateau(
-            opt, mode="min", patience=3, factor=0.5
-        )
-        return {
-            "optimizer": opt,
-            "lr_scheduler": {"scheduler": sch, "monitor": "val_loss"},
-        }
+        sch = torch.optim.lr_scheduler.ReduceLROnPlateau(opt, mode="min", patience=3, factor=0.5)
+        return {"optimizer": opt,
+                "lr_scheduler": {"scheduler": sch, "monitor": "val_loss"}}
 
 
 # ============================================================
-# 7. INFERENCE
+# 7. INFERENCE (on test split)
 # ============================================================
-def run_inference(
-    model: nn.Module,
-    test_samples: list[dict[str, Any]],
-    label_map: dict[str, int],
-    device: torch.device,
-    output_csv: str,
-    output_dir: str,
-) -> None:
+def run_inference(model, test_samples, label_map, device, output_csv, output_dir):
     print("\n" + "=" * 60)
     print("INFERENCE ON TEST SET")
     print("=" * 60)
@@ -512,7 +443,7 @@ def run_inference(
     id_to_label = {v: k for k, v in label_map.items()}
     ds = BBoxCropVideoDataset(test_samples, label_map, training=False)
     softmax = nn.Softmax(dim=1)
-    rows: list[dict[str, Any]] = []
+    rows = []
 
     for i in range(len(ds)):
         s = test_samples[i]
@@ -522,8 +453,8 @@ def run_inference(
             with torch.no_grad():
                 logits = model(x)
             probs = softmax(logits)
-            top = int(probs.argmax(1).item())
-            conf = float(probs[0, top].item())
+            top   = int(probs.argmax(1).item())
+            conf  = float(probs[0, top].item())
             rows.append({
                 "video_path":  s["video_path"],
                 "start_frame": s["start_frame"],
@@ -533,11 +464,9 @@ def run_inference(
                 "confidence":  round(conf, 4),
                 "correct":     int(id_to_label[top] == s["label_str"]),
             })
-            print(
-                f"[{i + 1}/{len(ds)}] {os.path.basename(s['video_path'])} "
-                f"[{s['start_frame']}-{s['end_frame']}] "
-                f"true={s['label_str']} pred={id_to_label[top]} ({conf:.2f})"
-            )
+            print(f"[{i+1}/{len(ds)}] {os.path.basename(s['video_path'])} "
+                  f"[{s['start_frame']}-{s['end_frame']}] "
+                  f"true={s['label_str']} pred={id_to_label[top]} ({conf:.2f})")
         except Exception as e:
             print(f"  ERROR: {e}")
             rows.append({
@@ -560,66 +489,50 @@ def run_inference(
         print(f"\nAccuracy: {acc:.4f} ({int(valid['correct'].sum())}/{len(valid)})")
         all_labels = sorted(label_map.keys())
         print("\nClassification report:")
-        print(
-            classification_report(
-                valid["true_label"],
-                valid["pred_label"],
-                labels=all_labels,
-                zero_division=0,
-            )
-        )
-        cm = confusion_matrix(
-            valid["true_label"], valid["pred_label"], labels=all_labels
-        )
+        print(classification_report(valid["true_label"], valid["pred_label"],
+                                    labels=all_labels, zero_division=0))
+        cm = confusion_matrix(valid["true_label"], valid["pred_label"], labels=all_labels)
         cm_df = pd.DataFrame(cm, index=all_labels, columns=all_labels)
         print("Confusion matrix:")
         print(cm_df)
 
         with open(os.path.join(output_dir, "test_metrics.txt"), "w") as f:
             f.write(f"Accuracy: {acc:.4f}\n\n")
-            f.write(
-                classification_report(
-                    valid["true_label"],
-                    valid["pred_label"],
-                    labels=all_labels,
-                    zero_division=0,
-                )
-            )
+            f.write(classification_report(valid["true_label"], valid["pred_label"],
+                                          labels=all_labels, zero_division=0))
             f.write(f"\n{cm_df.to_string()}\n")
 
 
 # ============================================================
 # 8. MAIN
 # ============================================================
-def main() -> None:
+# In TASK_CONFIG, remove hardcoded output_dir (we'll build it dynamically)
+# Change main() to accept --seed:
+
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--task", choices=["loco", "rmm"], required=True)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
     cfg = TASK_CONFIG[args.task]
-    label_col = cfg["label_col"]
-
-    base_dir = str(cfg["output_dir"])
+    label_col  = cfg["label_col"]
+    
+    # Seed-specific output dir
+    base_dir   = cfg["output_dir"]
     output_dir = os.path.join(base_dir, f"seed_{args.seed}")
     output_csv = os.path.join(output_dir, "test_predictions.csv")
     os.makedirs(output_dir, exist_ok=True)
 
-    print(
-        f"\n{'=' * 60}\n"
-        f"TASK: {args.task.upper()} | label_col={label_col} | seed={args.seed}\n"
-        f"{'=' * 60}"
-    )
+    print(f"\n{'='*60}\nTASK: {args.task.upper()} | label_col={label_col} | seed={args.seed}\n{'='*60}")
 
-    pl.seed_everything(args.seed)
+    pl.seed_everything(args.seed)  
     dm = H5BBoxDataModule(label_col=label_col, output_dir=output_dir)
     dm.setup()
 
-    assert dm.label_map is not None
     n_classes = len(dm.label_map)
     assert n_classes == cfg["num_classes"], (
-        f"Expected {cfg['num_classes']} classes for {args.task}, found {n_classes}"
-    )
+        f"Expected {cfg['num_classes']} classes for {args.task}, found {n_classes}")
     print(f"\nNum classes: {n_classes}")
 
     model = VideoMAE2FineTune(
@@ -629,15 +542,10 @@ def main() -> None:
     )
 
     ckpt_cb = pl.callbacks.ModelCheckpoint(
-        dirpath=output_dir,
-        monitor="val_loss",
-        mode="min",
-        save_top_k=2,
+        dirpath=output_dir, monitor="val_loss", mode="min", save_top_k=2,
         filename=f"vmae2-{args.task}-{{epoch:02d}}-{{val_loss:.3f}}",
     )
-    early_cb = pl.callbacks.EarlyStopping(
-        monitor="val_loss", patience=5, mode="min"
-    )
+    early_cb = pl.callbacks.EarlyStopping(monitor="val_loss", patience=5, mode="min")
 
     trainer = pl.Trainer(
         max_epochs=MAX_EPOCHS,
@@ -652,13 +560,11 @@ def main() -> None:
     best = ckpt_cb.best_model_path
     print(f"\nBest checkpoint: {best}")
     best_model = VideoMAE2FineTune.load_from_checkpoint(
-        best, num_classes=n_classes, freeze=False
+        best, num_classes=n_classes, freeze=False,
     )
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    assert dm.test_samples is not None
-    run_inference(
-        best_model, dm.test_samples, dm.label_map, device, output_csv, output_dir
-    )
+    run_inference(best_model, dm.test_samples, dm.label_map, device,
+                  output_csv, output_dir)
     print("\nDone.")
 
 

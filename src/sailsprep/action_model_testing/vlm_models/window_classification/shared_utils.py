@@ -14,7 +14,6 @@ import json
 import os
 from collections import Counter
 from datetime import datetime
-from typing import Any
 
 import cv2
 import numpy as np
@@ -22,8 +21,8 @@ import pandas as pd
 from PIL import Image
 from sklearn.metrics import (
     accuracy_score,
-    auc,
     average_precision_score,
+    auc,
     balanced_accuracy_score,
     classification_report,
     cohen_kappa_score,
@@ -55,7 +54,7 @@ CLIP_DURATION_SEC: float = 2.0
 LABEL_FPS: float = 15.0
 FRAMES_PER_CLIP: int = int(CLIP_DURATION_SEC * LABEL_FPS)
 
-TASK_CONFIG: dict[str, dict[str, Any]] = {
+TASK_CONFIG: dict[str, dict] = {
     "loco": {
         "label_col_keywords": ["locomotion"],
         "exclude_keywords": ["rep"],
@@ -85,12 +84,13 @@ def _find_label_column(df: pd.DataFrame, task: str) -> str:
 
     for col in df.columns:
         col_lower = col.lower()
-        if any(kw in col_lower for kw in keywords) and not any(ex in col_lower for ex in exclude):
-            return str(col)
+        if any(kw in col_lower for kw in keywords):
+            if not any(ex in col_lower for ex in exclude):
+                return col
 
     fallback_idx = 1 if task == "loco" else 2
     if len(df.columns) > fallback_idx:
-        return str(df.columns[fallback_idx])
+        return df.columns[fallback_idx]
 
     raise ValueError(
         f"Cannot find {task} column in label CSV. Columns: {list(df.columns)}"
@@ -122,7 +122,7 @@ def frame_labels_to_clip_labels(
     task: str = "loco",
     clip_duration_sec: float = CLIP_DURATION_SEC,
     fps: float = LABEL_FPS,
-) -> list[dict[str, Any]]:
+) -> list[dict]:
     """Convert frame-level labels to non-overlapping 2-sec clip labels."""
     cfg = TASK_CONFIG[task]
     active = cfg["active_classes"]
@@ -131,7 +131,7 @@ def frame_labels_to_clip_labels(
 
     frames_per_clip = int(clip_duration_sec * fps)
     n_frames = len(frame_labels)
-    clips: list[dict[str, Any]] = []
+    clips: list[dict] = []
 
     for start in range(0, n_frames, frames_per_clip):
         end = min(start + frames_per_clip, n_frames)
@@ -264,9 +264,9 @@ def compute_multiclass_metrics(
     class_names: list[str],
     output_dir: str,
     prefix: str = "",
-) -> dict[str, Any]:
+) -> dict:
     """Compute and persist comprehensive multi-class metrics."""
-    metrics: dict[str, Any] = {}
+    metrics: dict = {}
     metrics["accuracy"] = float(accuracy_score(y_true, y_pred))
     metrics["balanced_accuracy"] = float(
         balanced_accuracy_score(y_true, y_pred)
@@ -352,7 +352,7 @@ def compute_top2_from_votes(
     """Top-2 accuracy from per-clip frame vote lists."""
     correct = 0
     total = 0
-    for preds, true_label in zip(frame_preds_list, y_true, strict=False):
+    for preds, true_label in zip(frame_preds_list, y_true):
         if not preds:
             continue
         top2 = [c for c, _ in Counter(preds).most_common(2)]
@@ -371,13 +371,13 @@ def compute_binary_metrics(
     y_scores: list[float] | np.ndarray,
     output_dir: str,
     prefix: str = "binary_",
-) -> dict[str, Any]:
+) -> dict:
     """Compute and persist binary classification metrics."""
     yt = np.asarray(y_true_bin)
     yp = np.asarray(y_pred_bin)
     ys = np.asarray(y_scores, dtype=float)
 
-    metrics: dict[str, Any] = {}
+    metrics: dict = {}
     metrics["accuracy"] = float(accuracy_score(yt, yp))
     metrics["balanced_accuracy"] = float(balanced_accuracy_score(yt, yp))
     metrics["precision"] = float(precision_score(yt, yp, zero_division=0))
@@ -397,14 +397,14 @@ def compute_binary_metrics(
     metrics["FP"] = int(fp)
     metrics["FN"] = int(fn)
     metrics["NPV"] = float(tn / (tn + fn)) if (tn + fn) > 0 else 0.0
-    metrics["FPR"] = float(fp / (fp + tn)) if (fp + tn) > 0 else 0.0  # codespell:ignore
+    metrics["FPR"] = float(fp / (fp + tn)) if (fp + tn) > 0 else 0.0
     metrics["FNR"] = float(fn / (fn + tp)) if (fn + tp) > 0 else 0.0
 
     try:
         metrics["roc_auc"] = float(roc_auc_score(yt, ys))
-        fpr, tpr, roc_th = roc_curve(yt, ys)  # codespell:ignore
+        fpr, tpr, roc_th = roc_curve(yt, ys)
         metrics["roc_curve"] = {
-            "fpr": fpr.tolist(),  # codespell:ignore
+            "fpr": fpr.tolist(),
             "tpr": tpr.tolist(),
             "thresholds": roc_th.tolist(),
         }
@@ -499,7 +499,7 @@ def iterate_videos(
 
 
 def save_predictions_csv(
-    results: list[dict[str, Any]],
+    results: list[dict],
     output_dir: str,
     prefix: str = "",
     append: bool = False,

@@ -13,14 +13,16 @@ Usage::
     python video_swin_twostage_joint.py --task loco
     python video_swin_twostage_joint.py --task loco --seed 123
 
-Typical invocation is via  job_twostage.sh .
 """
+
+
+from __future__ import annotations
 
 import argparse
 import json
 import os
 from collections import Counter
-from typing import Any
+from typing import Optional
 
 import cv2
 import h5py
@@ -36,7 +38,7 @@ from torch.utils.data import DataLoader, Dataset
 # ---------------------------------------------------------------------------
 # Task configuration
 # ---------------------------------------------------------------------------
-TASK_CONFIG: dict[str, dict[str, Any]] = {                     
+TASK_CONFIG: dict[str, dict] = {
     "loco": {
         "label_col": "Locomotion",
         "num_action_classes": 5,
@@ -82,13 +84,16 @@ MIN_WIN_FRAMES: int = 5
 
 NA_LABEL: str = "N/A"
 
+# Weight balancing binary vs action loss.
+# binary_weight=1.0 and action_weight=1.0 means equal importance.
 BINARY_LOSS_WEIGHT: float = 1.0
 ACTION_LOSS_WEIGHT: float = 1.0
 
+# Pretrained Swin-B Kinetics-400 checkpoint.
 SWIN_CKPT_URL: str = (
     "https://github.com/SwinTransformer/storage/releases/"
     "download/v1.0.4/swin_base_patch244_window877_kinetics400_22k.pth"
-)  # can be changed to any other higher models of video swin  
+)
 SWIN_CKPT_LOCAL: str = os.path.expanduser(
     "~/.cache/video_swin/swin_base_k400.pth"
 )
@@ -104,7 +109,7 @@ def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
         h5_path: Path to the interpolated full-video HDF5 file.
 
     Returns:
-        Mapping from annotation frame index to  (x1, y1, x2, y2)  bbox.
+        Mapping from annotation frame index to ``(x1, y1, x2, y2)`` bbox.
     """
     with h5py.File(h5_path, "r") as f:
         table = f["bboxes/table"][()]
@@ -115,7 +120,7 @@ def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
 
 
 # ---------------------------------------------------------------------------
-# 2. Sliding-window builder (returns both binary and action labels)
+# 2. Sliding-window builder (returns BOTH binary and action labels)
 # ---------------------------------------------------------------------------
 def get_window_labels(
     frame_to_label: dict[int, str], ann_start: int, ann_end: int
@@ -128,8 +133,8 @@ def get_window_labels(
         ann_end: Last annotation frame (exclusive).
 
     Returns:
-        Tuple of  (original_majority_label, binary_label)  where
-         binary_label  is  "N/A"  or  "non-N/A" .
+        Tuple of ``(original_majority_label, binary_label)`` where
+        ``binary_label`` is ``"N/A"`` or ``"non-N/A"``.
     """
     labels: list[str] = []
     for f in range(ann_start, ann_end):
@@ -146,23 +151,23 @@ def get_window_labels(
 
 def build_samples(
     split_csv: str, label_col: str
-) -> dict[str, list[dict[str, Any]]]:         
+) -> dict[str, list[dict]]:
     """Slide 2-sec windows across full videos with both label types.
 
     Each sample contains both the original action label (for multi-class
     head) and a binary label (for the binary head).
 
     Args:
-        split_csv: Path to the CSV.
+        split_csv: Path to the master split CSV.
         label_col: Annotation column to use for labels.
 
     Returns:
-        Dict mapping  "train" / "val" / "test"  to lists of sample
-        dicts. Each dict has  label_str  (original action or N/A) and
-         binary_label  (N/A or non-N/A).
+        Dict mapping ``"train"``/``"val"``/``"test"`` to lists of sample
+        dicts. Each dict has ``label_str`` (original action or N/A) and
+        ``binary_label`` (N/A or non-N/A).
 
     Raises:
-        ValueError: If a required column is missing from  split_csv .
+        ValueError: If a required column is missing from ``split_csv``.
     """
     split_df = pd.read_csv(split_csv)
     required_cols = [
@@ -172,9 +177,7 @@ def build_samples(
         if c not in split_df.columns:
             raise ValueError(f"Split CSV missing column: '{c}'")
 
-    by_split: dict[str, list[dict[str, Any]]] = {   
-        "train": [], "val": [], "test": []
-    }
+    by_split: dict[str, list[dict]] = {"train": [], "val": [], "test": []}
 
     window_ann_frames = int(WINDOW_SEC * ANN_FPS)
     stride_ann_frames = int(WINDOW_STRIDE * ANN_FPS)
@@ -199,7 +202,7 @@ def build_samples(
                 lp, encoding="utf-8-sig", keep_default_na=False
             )
             ann.columns = ann.columns.str.strip()
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             print(f"  [skip] bad label CSV ({e}): {lp}")
             continue
 
@@ -221,7 +224,7 @@ def build_samples(
         max_ann_frame = max(frame_to_label.keys())
         total_ann_frames = max_ann_frame + 1
 
-        video_samples: list[dict[str, Any]] = []     
+        video_samples: list[dict] = []
         start = 0
         while start + window_ann_frames <= total_ann_frames + stride_ann_frames:
             end = min(start + window_ann_frames, total_ann_frames)
@@ -244,6 +247,7 @@ def build_samples(
             })
             start += stride_ann_frames
 
+        # Keep video if at least one window has a real label.
         has_real_label = any(
             s["binary_label"] != NA_LABEL for s in video_samples
         )
@@ -258,23 +262,21 @@ def build_samples(
 # ---------------------------------------------------------------------------
 # 3. Dataset — returns (video_tensor, binary_label, action_label)
 # ---------------------------------------------------------------------------
-class TwoStageVideoDataset(
-    Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]    
-):
+class TwoStageVideoDataset(Dataset):
     """Reads sliding-window segments and returns both label types.
 
     Args:
-        samples: List of sample dicts from  build_samples .
+        samples: List of sample dicts from ``build_samples``.
         binary_map: Mapping for binary labels (N/A=0, non-N/A=1).
         action_map: Mapping for action labels (e.g. Walking=0, ...).
         num_frames: Number of frames to uniformly sample per window.
         crop_size: Spatial size after resizing the bbox crop.
-        training: If  True , applies random horizontal flip.
+        training: If ``True``, applies random horizontal flip.
     """
 
     def __init__(
         self,
-        samples: list[dict[str, Any]],              
+        samples: list[dict],
         binary_map: dict[str, int],
         action_map: dict[str, int],
         num_frames: int = NUM_FRAMES,
@@ -294,18 +296,18 @@ class TwoStageVideoDataset(
     def __len__(self) -> int:
         return len(self.samples)
 
-    def _read_segment(self, sample: dict[str, Any]) -> torch.Tensor:   
+    def _read_segment(self, sample: dict) -> torch.Tensor:
         """Decode, crop, and normalize frames for a single window.
 
         Args:
             sample: Sample dict with video path, h5 path, frame range.
 
         Returns:
-            Tensor of shape  (C, T, H, W) .
+            Tensor of shape ``(C, T, H, W)``.
         """
         cap = cv2.VideoCapture(sample["video_path"])
         if not cap.isOpened():
-            raise OSError(f"cannot open {sample['video_path']}")
+            raise IOError(f"cannot open {sample['video_path']}")
 
         vid_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
         step = max(1, int(round(vid_fps / sample["ann_fps"])))
@@ -364,7 +366,7 @@ class TwoStageVideoDataset(
 
     def __getitem__(
         self, idx: int
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:  
+    ) -> tuple[torch.Tensor, int, int]:
         """Return video tensor, binary label, and action label.
 
         For N/A windows, the action label is set to -1 (ignored in loss).
@@ -372,6 +374,7 @@ class TwoStageVideoDataset(
         sample = self.samples[idx]
         binary_label = self.binary_map[sample["binary_label"]]
 
+        # Action label is -1 for N/A windows (will be masked in loss).
         if sample["label_str"] in self.action_map:
             action_label = self.action_map[sample["label_str"]]
         else:
@@ -381,12 +384,8 @@ class TwoStageVideoDataset(
             frames = self._read_segment(sample)
             if self.training and torch.rand(1).item() < 0.5:
                 frames = torch.flip(frames, dims=[3])
-            return (                                         
-                frames,
-                torch.tensor(binary_label, dtype=torch.long),
-                torch.tensor(action_label, dtype=torch.long),
-            )
-        except Exception as e:  # noqa: BLE001
+            return frames, binary_label, action_label
+        except Exception as e:
             print(
                 f"  load error {os.path.basename(sample['video_path'])} "
                 f"[{sample['start_frame']}-{sample['end_frame']}]: {e}"
@@ -395,20 +394,20 @@ class TwoStageVideoDataset(
                 torch.zeros(
                     3, self.num_frames, self.crop_size, self.crop_size
                 ),
-                torch.tensor(binary_label, dtype=torch.long),
-                torch.tensor(action_label, dtype=torch.long),
+                binary_label,
+                action_label,
             )
 
 
 def collate_fn(
-    batch: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
+    batch: list[tuple[torch.Tensor, int, int]],
 ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """Stack video tensors, binary labels, and action labels."""
-    videos, binary_labels, action_labels = zip(*batch, strict=True)  
+    videos, binary_labels, action_labels = zip(*batch)
     return (
-        torch.stack(list(videos)),
-        torch.stack(list(binary_labels)),
-        torch.stack(list(action_labels)),
+        torch.stack(videos),
+        torch.tensor(binary_labels, dtype=torch.long),
+        torch.tensor(action_labels, dtype=torch.long),
     )
 
 
@@ -419,7 +418,7 @@ class TwoStageDataModule(pl.LightningDataModule):
     """DataModule for joint two-stage sliding-window training.
 
     Args:
-        label_col: Annotation column to use (e.g.  "Locomotion" ).
+        label_col: Annotation column to use (e.g. ``"Locomotion"``).
         output_dir: Directory to save label mappings and test split CSV.
     """
 
@@ -428,14 +427,14 @@ class TwoStageDataModule(pl.LightningDataModule):
         self.label_col = label_col
         self.output_dir = output_dir
         self.binary_map: dict[str, int] = {NA_LABEL: 0, "non-N/A": 1}
-        self.action_map: dict[str, int] = {}       
-        self.binary_weights: torch.Tensor | None = None
-        self.action_weights: torch.Tensor | None = None
-        self.train_samples: list[dict[str, Any]] = []
-        self.val_samples: list[dict[str, Any]] = []
-        self.test_samples: list[dict[str, Any]] = []
+        self.action_map: Optional[dict[str, int]] = None
+        self.binary_weights: Optional[torch.Tensor] = None
+        self.action_weights: Optional[torch.Tensor] = None
+        self.train_samples: list[dict] = []
+        self.val_samples: list[dict] = []
+        self.test_samples: list[dict] = []
 
-    def setup(self, stage: str | None = None) -> None:  # noqa: ARG002
+    def setup(self, stage: Optional[str] = None) -> None:
         """Build samples and compute class weights for both heads."""
         print(
             f"\nBuilding two-stage sliding-window samples"
@@ -450,6 +449,7 @@ class TwoStageDataModule(pl.LightningDataModule):
         if n_tr == 0:
             raise RuntimeError("No training windows built.")
 
+        # Build action label map from non-N/A labels only.
         action_labels = sorted({
             s["label_str"]
             for split in by_split.values()
@@ -462,6 +462,7 @@ class TwoStageDataModule(pl.LightningDataModule):
             f"Action map ({len(self.action_map)} classes): {self.action_map}"
         )
 
+        # Print distributions.
         for sp, samps in by_split.items():
             bin_dist = Counter(s["binary_label"] for s in samps)
             act_dist = Counter(
@@ -488,6 +489,7 @@ class TwoStageDataModule(pl.LightningDataModule):
             os.path.join(self.output_dir, "test_split.csv"), index=False
         )
 
+        # Binary class weights.
         bin_counts = np.zeros(2, dtype=np.float64)
         for s in self.train_samples:
             bin_counts[self.binary_map[s["binary_label"]]] += 1
@@ -504,6 +506,7 @@ class TwoStageDataModule(pl.LightningDataModule):
                 f"  weight={bin_w[idx]:.4f}"
             )
 
+        # Action class weights (non-N/A windows only).
         n_act = len(self.action_map)
         act_counts = np.zeros(n_act, dtype=np.float64)
         for s in self.train_samples:
@@ -522,13 +525,11 @@ class TwoStageDataModule(pl.LightningDataModule):
                 f"  weight={act_w[idx]:.4f}"
             )
 
-    def train_dataloader(   
-        self,
-    ) -> DataLoader[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    def train_dataloader(self) -> DataLoader:
         ds = TwoStageVideoDataset(
             self.train_samples,
             self.binary_map,
-            self.action_map,         
+            self.action_map,
             training=True,
         )
         return DataLoader(
@@ -540,13 +541,11 @@ class TwoStageDataModule(pl.LightningDataModule):
             pin_memory=True,
         )
 
-    def val_dataloader(   
-        self,
-    ) -> DataLoader[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    def val_dataloader(self) -> DataLoader:
         ds = TwoStageVideoDataset(
             self.val_samples,
             self.binary_map,
-            self.action_map,          
+            self.action_map,
             training=False,
         )
         return DataLoader(
@@ -589,15 +588,18 @@ class VideoSwinTwoStage(nn.Module):
         """Forward pass through shared backbone and both heads.
 
         Args:
-            x: Input tensor of shape  (B, C, T, H, W) .
+            x: Input tensor of shape ``(B, C, T, H, W)``.
 
         Returns:
-            Tuple of  (features, binary_logits, action_logits) .
+            Tuple of ``(features, binary_logits, action_logits)`` where
+            features has shape ``(B, feat_dim)``, binary_logits has shape
+            ``(B, 2)``, and action_logits has shape
+            ``(B, num_action_classes)``.
         """
-        feats: torch.Tensor = self.backbone(x)
+        feats = self.backbone(x)
         feats = self.pool(feats).flatten(1)
-        binary_logits: torch.Tensor = self.binary_head(feats)
-        action_logits: torch.Tensor = self.action_head(feats)
+        binary_logits = self.binary_head(feats)
+        action_logits = self.action_head(feats)
         return feats, binary_logits, action_logits
 
 
@@ -610,14 +612,14 @@ def build_video_swin_twostage(
 
     Args:
         num_action_classes: Number of action classes (excluding N/A).
-        freeze_all_but_last_stage: If  True , freeze all parameters
-            except  backbone.layers.3  and both heads.
+        freeze_all_but_last_stage: If ``True``, freeze all parameters
+            except ``backbone.layers.3`` and both heads.
 
     Returns:
-        A  VideoSwinTwoStage  module ready for training.
+        A ``VideoSwinTwoStage`` module ready for training.
 
     Raises:
-        ImportError: If  video_swin_transformer  is not installed.
+        ImportError: If ``video_swin_transformer`` is not installed.
     """
     try:
         from video_swin_transformer import SwinTransformer3D
@@ -686,14 +688,29 @@ def build_video_swin_twostage(
 # 6. Lightning Module with joint loss
 # ---------------------------------------------------------------------------
 class VideoSwinTwoStageModule(pl.LightningModule):
-    """Lightning module for joint binary + action training."""
+    """Lightning module for joint binary + action training.
+
+    The loss is::
+
+        loss = w_bin * CE(binary_logits, binary_labels)
+             + w_act * CE(action_logits[non_na_mask], action_labels[non_na_mask])
+
+    The action loss is only computed on windows where the ground truth
+    is non-N/A (action_label != -1).
+
+    Args:
+        num_action_classes: Number of action classes (excluding N/A).
+        freeze: Whether to freeze all but the last stage.
+        binary_weights: Per-class weights for binary cross-entropy.
+        action_weights: Per-class weights for action cross-entropy.
+    """
 
     def __init__(
         self,
         num_action_classes: int,
         freeze: bool = True,
-        binary_weights: torch.Tensor | None = None,
-        action_weights: torch.Tensor | None = None,
+        binary_weights: Optional[torch.Tensor] = None,
+        action_weights: Optional[torch.Tensor] = None,
     ) -> None:
         super().__init__()
         self.save_hyperparameters(
@@ -707,18 +724,18 @@ class VideoSwinTwoStageModule(pl.LightningModule):
                 "binary_weights", binary_weights.float(), persistent=False
             )
         else:
-            self.binary_weights: torch.Tensor | None = None
+            self.binary_weights = None
         if action_weights is not None:
             self.register_buffer(
                 "action_weights", action_weights.float(), persistent=False
             )
         else:
-            self.action_weights: torch.Tensor | None = None
+            self.action_weights = None
 
     def forward(
         self, x: torch.Tensor
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        return self.model(x)  # type: ignore[no-any-return]
+        return self.model(x)
 
     def _compute_loss(
         self,
@@ -727,13 +744,25 @@ class VideoSwinTwoStageModule(pl.LightningModule):
         binary_labels: torch.Tensor,
         action_labels: torch.Tensor,
     ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-        binary_loss: torch.Tensor = F.cross_entropy(
+        """Compute joint loss from both heads.
+
+        Args:
+            binary_logits: Shape ``(B, 2)``.
+            action_logits: Shape ``(B, num_action_classes)``.
+            binary_labels: Shape ``(B,)`` with values 0 or 1.
+            action_labels: Shape ``(B,)`` with values 0..K-1 or -1.
+
+        Returns:
+            Tuple of ``(total_loss, binary_loss, action_loss)``.
+        """
+        binary_loss = F.cross_entropy(
             binary_logits, binary_labels, weight=self.binary_weights
         )
 
+        # Action loss only on non-N/A windows (action_label != -1).
         non_na_mask = action_labels >= 0
         if non_na_mask.any():
-            action_loss: torch.Tensor = F.cross_entropy(
+            action_loss = F.cross_entropy(
                 action_logits[non_na_mask],
                 action_labels[non_na_mask],
                 weight=self.action_weights,
@@ -752,7 +781,7 @@ class VideoSwinTwoStageModule(pl.LightningModule):
     def training_step(
         self,
         batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-        batch_idx: int,  # noqa: ARG002
+        batch_idx: int,
     ) -> torch.Tensor:
         x, binary_labels, action_labels = batch
         _, binary_logits, action_logits = self.model(x)
@@ -780,7 +809,7 @@ class VideoSwinTwoStageModule(pl.LightningModule):
     def validation_step(
         self,
         batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor],
-        batch_idx: int,  # noqa: ARG002
+        batch_idx: int,
     ) -> torch.Tensor:
         x, binary_labels, action_labels = batch
         _, binary_logits, action_logits = self.model(x)
@@ -805,9 +834,7 @@ class VideoSwinTwoStageModule(pl.LightningModule):
         self.log("val_act_acc", act_acc, prog_bar=True)
         return total_loss
 
-    def configure_optimizers(  # type: ignore[override]  
-        self,
-    ) -> dict[str, Any]:                               
+    def configure_optimizers(self) -> dict:
         params = [p for p in self.parameters() if p.requires_grad]
         opt = torch.optim.AdamW(
             params, lr=LEARNING_RATE, weight_decay=0.05
@@ -826,13 +853,29 @@ class VideoSwinTwoStageModule(pl.LightningModule):
 # ---------------------------------------------------------------------------
 def run_inference(
     model: nn.Module,
-    test_samples: list[dict[str, Any]],              
+    test_samples: list[dict],
     binary_map: dict[str, int],
     action_map: dict[str, int],
     device: torch.device,
     output_dir: str,
 ) -> None:
-    """Run gated two-stage inference on test windows."""
+    """Run gated two-stage inference on test windows.
+
+    For each window:
+      1. Binary head predicts N/A or non-N/A.
+      2. If non-N/A, action head predicts the specific class.
+      3. If N/A, final prediction is N/A regardless of action head.
+
+    Results are saved at both window and video level.
+
+    Args:
+        model: Trained two-stage model.
+        test_samples: List of test sample dicts.
+        binary_map: Binary label mapping.
+        action_map: Action label mapping.
+        device: Torch device.
+        output_dir: Directory to save outputs.
+    """
     print("\n" + "=" * 60)
     print("INFERENCE -- TWO-STAGE (binary gate + action)")
     print("=" * 60)
@@ -844,8 +887,9 @@ def run_inference(
         test_samples, binary_map, action_map, training=False
     )
     softmax = nn.Softmax(dim=1)
-    window_rows: list[dict[str, Any]] = []           
+    window_rows: list[dict] = []
 
+    # Build the full label set for reporting (action labels + N/A).
     all_labels = sorted(action_map.keys()) + [NA_LABEL]
 
     for i in range(len(ds)):
@@ -862,6 +906,7 @@ def run_inference(
             bin_pred_idx = int(bin_probs.argmax(1).item())
             bin_pred = bin_id_to_label[bin_pred_idx]
 
+            # Gated prediction: if binary says N/A, final = N/A.
             if bin_pred == NA_LABEL:
                 final_pred = NA_LABEL
                 final_conf = float(bin_probs[0, 0].item())
@@ -870,9 +915,10 @@ def run_inference(
                 final_pred = act_id_to_label[act_pred_idx]
                 final_conf = float(act_probs[0, act_pred_idx].item())
 
+            # True label for comparison.
             true_label = s["label_str"]
 
-            row: dict[str, Any] = {                
+            row = {
                 "video_path": s["video_path"],
                 "start_frame": s["start_frame"],
                 "end_frame": s["end_frame"],
@@ -886,6 +932,7 @@ def run_inference(
                 "prob_NA": round(float(bin_probs[0, 0].item()), 4),
                 "prob_nonNA": round(float(bin_probs[0, 1].item()), 4),
             }
+            # Add per-action probabilities.
             for j, lab in act_id_to_label.items():
                 row[f"prob_{lab}"] = round(
                     float(act_probs[0, j].item()), 4
@@ -900,7 +947,7 @@ def run_inference(
                     f" true={true_label} bin={bin_pred}"
                     f" final={final_pred} ({final_conf:.2f})"
                 )
-        except Exception as e:  # noqa: BLE001
+        except Exception as e:
             print(f"  ERROR sample {i}: {e}")
             window_rows.append({
                 "video_path": s["video_path"],
@@ -915,6 +962,7 @@ def run_inference(
                 "correct_final": 0,
             })
 
+    # Save window-level predictions.
     win_df = pd.DataFrame(window_rows)
     win_csv = os.path.join(output_dir, "test_predictions_window.csv")
     win_df.to_csv(win_csv, index=False)
@@ -922,15 +970,11 @@ def run_inference(
 
     valid_win = win_df[win_df["pred_action"] != "ERROR"]
 
-    bin_acc: float = 0.0
-    final_acc: float = 0.0
-    binary_labels_list = [NA_LABEL, "non-N/A"]
-    bin_cm_df: pd.DataFrame = pd.DataFrame()
-    final_cm_df: pd.DataFrame = pd.DataFrame()
-
     if len(valid_win):
-        bin_acc = float(valid_win["correct_binary"].mean())
+        # Binary accuracy.
+        bin_acc = valid_win["correct_binary"].mean()
         print(f"\nBinary accuracy: {bin_acc:.4f}")
+        binary_labels_list = [NA_LABEL, "non-N/A"]
         print("\n--- Binary classification report ---")
         print(
             classification_report(
@@ -953,7 +997,8 @@ def run_inference(
         print("Binary confusion matrix:")
         print(bin_cm_df)
 
-        final_acc = float(valid_win["correct_final"].mean())
+        # Final (gated) accuracy.
+        final_acc = valid_win["correct_final"].mean()
         print(f"\nFinal gated accuracy: {final_acc:.4f}")
         print("\n--- Final gated classification report ---")
         print(
@@ -975,11 +1020,12 @@ def run_inference(
         print("Final confusion matrix:")
         print(final_cm_df)
 
+    # Video-level aggregation.
     print("\n" + "=" * 60)
     print("VIDEO-LEVEL AGGREGATION (two-stage)")
     print("=" * 60)
 
-    video_rows: list[dict[str, Any]] = []            
+    video_rows: list[dict] = []
     for vpath, grp in valid_win.groupby("video_path"):
         pred_counts = Counter(grp["pred_action"].tolist())
         pred_label = pred_counts.most_common(1)[0][0]
@@ -999,14 +1045,14 @@ def run_inference(
     vid_df.to_csv(vid_csv, index=False)
     print(f"Video predictions -> {vid_csv}")
 
-    vid_acc: float = 0.0
     if len(vid_df):
-        vid_acc = float(vid_df["correct"].mean())
+        vid_acc = vid_df["correct"].mean()
         print(
             f"Video-level accuracy: {vid_acc:.4f}"
             f" ({int(vid_df['correct'].sum())}/{len(vid_df)})"
         )
 
+    # Save metrics.
     metrics_path = os.path.join(output_dir, "test_metrics.txt")
     with open(metrics_path, "w") as f:
         f.write("=== BINARY (window) ===\n")
@@ -1075,7 +1121,7 @@ def main() -> None:
     args = parser.parse_args()
 
     cfg = TASK_CONFIG[args.task]
-    label_col: str = cfg["label_col"]
+    label_col = cfg["label_col"]
     output_dir = os.path.join(cfg["output_dir"], f"seed_{args.seed}")
     os.makedirs(output_dir, exist_ok=True)
 
@@ -1097,7 +1143,7 @@ def main() -> None:
     dm = TwoStageDataModule(label_col=label_col, output_dir=output_dir)
     dm.setup()
 
-    n_action = len(dm.action_map)                  
+    n_action = len(dm.action_map)
     assert n_action == cfg["num_action_classes"], (
         f"Expected {cfg['num_action_classes']} action classes,"
         f" found {n_action}."
@@ -1147,7 +1193,7 @@ def main() -> None:
         best_model,
         dm.test_samples,
         dm.binary_map,
-        dm.action_map,                            
+        dm.action_map,
         device,
         output_dir,
     )

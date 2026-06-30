@@ -7,8 +7,8 @@
 #SBATCH --mem=200G
 #SBATCH --time=24:00:00
 #SBATCH --gres=gpu:h100:1
-#SBATCH --output=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/InternVideo_v2/clip/logs/IV2_%A_%a_%x.out
-#SBATCH --error=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/InternVideo_v2/clip/logs/IV2_%A_%a_%x.err
+#SBATCH --output=/src/sailsprep/action_model_testing/InternVideo_v2/logs/IV2_%A_%a_%x.out
+#SBATCH --error=/src/sailsprep/action_model_testing/InternVideo_v2/logs/IV2_%A_%a_%x.err
 #SBATCH --array=0-2
 # ==========================================================================
 # Multi-seed fine-tuning for a single task.
@@ -19,11 +19,11 @@
 #   2 -> seed 456
 #
 # Usage:
-#   sbatch job_clip.sh loco      # 3 array jobs: loco x seeds 42, 123, 456
-#   sbatch job_clip.sh rmm       # 3 array jobs: rmm  x seeds 42, 123, 456
+#   sbatch internvideo2_finetune.sh loco      # 3 array jobs: loco x seeds 42, 123, 456
+#   sbatch internvideo2_finetune.sh rmm       # 3 array jobs: rmm  x seeds 42, 123, 456
 #
 
-LABEL=${1:?"ERROR: pass task as first arg, e.g.: sbatch job_clip.sh loco"}
+LABEL=${1:?"ERROR: pass task as first arg, e.g.: sbatch internvideo2_finetune.sh loco"}
 if [[ "${LABEL}" != "loco" && "${LABEL}" != "rmm" ]]; then
     echo "ERROR: argument must be 'loco' or 'rmm', got: ${LABEL}"
     exit 1
@@ -33,7 +33,7 @@ fi
 SEEDS=(42 123 456)
 SEED=${SEEDS[$SLURM_ARRAY_TASK_ID]}
 
-SCRIPT_DIR=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/InternVideo_v2/clip
+SCRIPT_DIR=/src/sailsprep/action_model_testing/InternVideo_v2
 LOG_DIR="${SCRIPT_DIR}/logs"
 mkdir -p "${LOG_DIR}"
 

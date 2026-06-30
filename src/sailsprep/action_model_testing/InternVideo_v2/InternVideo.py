@@ -1,4 +1,4 @@
-"""End-to-end InternVideo2-6B fine-tuning for loco and rmm clips.
+"""End-to-end InternVideo2-6B fine-tuning for Locomotion and RMM tasks.
 
 Usage::
 
@@ -12,6 +12,7 @@ Usage::
 
 """
 
+# HF cache redirect must be set before importing transformers.
 import os
 
 os.environ.setdefault("HF_HOME", "/orcd/data/satra/002/huggingface")
@@ -22,11 +23,10 @@ os.environ.setdefault(
     "TRANSFORMERS_CACHE", "/orcd/data/satra/002/huggingface/hub"
 )
 
+
 import argparse
 import json
 from collections import Counter
-from collections.abc import Sized
-from typing import Any, cast
 
 import cv2
 import h5py
@@ -38,13 +38,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader, Dataset
-
 # ---------------------------------------------------------------------------
 # Task configuration
 # ---------------------------------------------------------------------------
 
-# Per-task metadata: label column, expected class count, and output root.
-TASK_CONFIG: dict[str, dict[str, Any]] = {  # fix: [type-arg]
+TASK_CONFIG: dict[str, dict] = {
     "loco": {
         "label_col": "Locomotion",
         "num_classes": 5,
@@ -63,6 +61,7 @@ TASK_CONFIG: dict[str, dict[str, Any]] = {  # fix: [type-arg]
     },
 }
 
+
 SPLIT_CSV: str = (
     "/home/aparnabg/orcd/scratch/all_project_files/latest_split_csv.csv"
 )
@@ -71,20 +70,48 @@ SPLIT_CSV: str = (
 # Global hyperparameters
 # ---------------------------------------------------------------------------
 
+#: Per-GPU mini-batch size. InternVideo2-6B is large; keep at 2 unless
 BATCH_SIZE: int = 2
-# Effective batch = BATCH_SIZE * num_gpus * ACCUM_STEPS.
+
+#: Gradient accumulation steps.
+#: Effective batch = BATCH_SIZE * num_gpus * ACCUM_STEPS.
 ACCUM_STEPS: int = 8
+
+#: DataLoader worker count per GPU.
 NUM_WORKERS: int = 8
+
+#: Maximum training epochs before early stopping intervenes.
 MAX_EPOCHS: int = 20
+
+#: Peak learning rate for AdamW.  Lower than typical because the backbone
+#: is huge and only the last block is unfrozen.
 LEARNING_RATE: float = 5e-5
+
+#: Seeds used for multi-run reproducibility analysis.
 DEFAULT_SEEDS: list[int] = [42, 123, 456]
+
+#: Number of frames uniformly sampled per clip.
 NUM_FRAMES: int = 4
+
+#: Spatial size (H=W) after resizing the person bounding-box crop.
 CROP_SIZE: int = 224
+
+#: ImageNet RGB channel means for normalisation.
 MEAN: tuple[float, ...] = (0.485, 0.456, 0.406)
+
+#: ImageNet RGB channel standard deviations for normalisation.
 STD: tuple[float, ...] = (0.229, 0.224, 0.225)
+
+#: Frame rate of the behaviour annotation CSVs.
 ANN_FPS: float = 15.0
+
+#: Shortest action run (in annotation frames) to keep as a training clip.
 MIN_FRAMES: int = 15
+
+#: Target clip length in annotation frames used when chunking long runs.
 CLIP_FRAMES: int = 30
+
+#: HuggingFace model ID for InternVideo2 Stage-2 6B.
 IV2_MODEL_ID: str = "OpenGVLab/InternVideo2-Stage2_6B"
 
 
@@ -93,13 +120,18 @@ IV2_MODEL_ID: str = "OpenGVLab/InternVideo2-Stage2_6B"
 # ---------------------------------------------------------------------------
 
 
-def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:  # fix: [type-arg]
-    """Load per-frame bounding boxes from an annotation HDF5.
+def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
+    """Load per-frame bounding boxes from an interpolated annotation HDF5.
+
+    The HDF5 stores a Pandas-style table under ``bboxes/table``.  Column
+    layout inside ``values_block_1``: [frame_idx, ?, x1, y1, x2, y2].
 
     Args:
-        h5_path: bbox h5 file path
+        h5_path: Path to the interpolated annotation HDF5 file produced
+            by the SAILS preprocessing pipeline.
+
     Returns:
-        Mapping from annotation frame index to an  (x1, y1, x2, y2)
+        Mapping from annotation frame index to an ``(x1, y1, x2, y2)``
         bounding box in pixel coordinates.
     """
     with h5py.File(h5_path, "r") as f:
@@ -121,14 +153,18 @@ def find_action_runs(
 ) -> list[tuple[int, int, str]]:
     """Identify contiguous frame runs sharing the same action label.
 
+    Skips rows where the label is ``"N/A"`` or empty.  Only the columns
+    ``Frame`` and ``label_col`` are read; all other annotation columns
+    (Gestures_Functional_Actions, Visual_Attention, etc.) are ignored.
 
     Args:
-        ann: Annotation DataFrame
-        label_col: Name of the target column, either  "Locomotion"
-            or  "Repetitive_Motor_Movements" .
+        ann: Annotation DataFrame loaded from a per-session CSV under
+            ``/home/aparnabg/orcd/scratch/app/all_annoation/``.
+        label_col: Name of the target column, either ``"Locomotion"``
+            or ``"Repetitive_Motor_Movements"``.
 
     Returns:
-        List of  (start_frame, end_frame, label)  tuples in frame order.
+        List of ``(start_frame, end_frame, label)`` tuples in frame order.
     """
     df = ann.sort_values("Frame").reset_index(drop=True)
     frames: list[int] = df["Frame"].astype(int).tolist()
@@ -155,13 +191,17 @@ def find_action_runs(
 def chunk_run(start: int, end: int) -> list[tuple[int, int]]:
     """Split a single action run into fixed-length training clips.
 
+    Short runs (< ``MIN_FRAMES``) are discarded.  Runs shorter than
+    ``2 * CLIP_FRAMES`` are kept whole or split once at ``CLIP_FRAMES``.
+    Longer runs are tiled with a stride of ``CLIP_FRAMES``.
+
     Args:
         start: First annotation frame index of the run (inclusive).
         end: Last annotation frame index of the run (inclusive).
 
     Returns:
-        List of  (clip_start, clip_end)  tuples, each at least
-         MIN_FRAMES  long.
+        List of ``(clip_start, clip_end)`` tuples, each at least
+        ``MIN_FRAMES`` long.
     """
     total = end - start + 1
     if total < MIN_FRAMES:
@@ -184,22 +224,26 @@ def chunk_run(start: int, end: int) -> list[tuple[int, int]]:
 def build_samples(
     split_csv: str,
     label_col: str,
-) -> dict[str, list[dict[str, Any]]]:  # fix: [type-arg]
-    """Build per-split sample dicts from the CSV.
+) -> dict[str, list[dict]]:
+    """Build per-split sample dicts from the master split CSV.
 
+    Reads ``latest_split_csv.csv`` (columns: video_path, label_path,
+    interpolated_anno_h5, split, plus unused feature-path columns), locates
+    each session's annotation CSV, extracts action runs from ``label_col``,
+    and chunks them into clips.
 
     Args:
-        split_csv: Absolute path to the CSV.
-        label_col: Annotation column to use; must be  "Locomotion"
-            or  "Repetitive_Motor_Movements" .
+        split_csv: Absolute path to the master split CSV.
+        label_col: Annotation column to use; must be ``"Locomotion"``
+            or ``"Repetitive_Motor_Movements"``.
 
     Returns:
-        Dict mapping  "train"  /  "val"  /  "test"  to lists of
-        sample dicts.  Each dict has keys:  video_path ,  h5_path ,
-         start_frame ,  end_frame ,  label_str ,  ann_fps .
+        Dict mapping ``"train"`` / ``"val"`` / ``"test"`` to lists of
+        sample dicts.  Each dict has keys: ``video_path``, ``h5_path``,
+        ``start_frame``, ``end_frame``, ``label_str``, ``ann_fps``.
 
     Raises:
-        ValueError: If a required column is absent from  split_csv .
+        ValueError: If a required column is absent from ``split_csv``.
     """
     split_df = pd.read_csv(split_csv)
     required = ["video_path", "label_path", "interpolated_anno_h5", "split"]
@@ -207,7 +251,7 @@ def build_samples(
         if col not in split_df.columns:
             raise ValueError(f"Split CSV missing column: {col}")
 
-    by_split: dict[str, list[dict[str, Any]]] = {"train": [], "val": [], "test": []}  # fix: [type-arg]
+    by_split: dict[str, list[dict]] = {"train": [], "val": [], "test": []}
 
     for _, row in split_df.iterrows():
         vp = str(row["video_path"]).strip()
@@ -250,26 +294,30 @@ def build_samples(
 
 
 # ---------------------------------------------------------------------------
-# 3. Dataset  (on-the-fly bbox crop)  —  output shape  (C, T, H, W)
+# 3. Dataset  (on-the-fly bbox crop)  —  output shape ``(C, T, H, W)``
 # ---------------------------------------------------------------------------
 
 
-class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, int]]):  # fix: [type-arg]
+class BBoxCropVideoDataset(Dataset):
     """Video dataset that crops frames to the subject bounding box.
 
+    Reads frames on-the-fly via OpenCV, crops to the nearest available
+    bounding box from the interpolated HDF5, resizes to ``crop_size x
+    crop_size``, and normalises to ImageNet statistics.  Output tensors
+    have shape ``(C, T, H, W)`` with ``C=3``, ``T=num_frames``.
 
     Args:
         samples: Sample dicts produced by :func:`build_samples`.
         label_map: Mapping from label string to integer class index.
         num_frames: Number of frames uniformly sampled from each clip.
         crop_size: Spatial height and width after resizing the bbox crop.
-        training: When  True  applies random horizontal-flip augmentation.
+        training: When ``True`` applies random horizontal-flip augmentation.
     """
 
     def __init__(
         self,
-        samples: list[dict[str, Any]],  # fix: [type-arg]
-        label_map: dict[str, int],  # fix: [type-arg]
+        samples: list[dict],
+        label_map: dict[str, int],
         num_frames: int = NUM_FRAMES,
         crop_size: int = CROP_SIZE,
         *,
@@ -287,15 +335,19 @@ class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, int]]):  # fix: [type-arg
     def __len__(self) -> int:  # noqa: D105
         return len(self.samples)
 
-    def _read_segment(self, sample: dict[str, Any]) -> torch.Tensor:  # fix: [type-arg]
+    def _read_segment(self, sample: dict) -> torch.Tensor:
         """Decode, crop, resize, and normalise frames for one sample.
 
+        Seeks to each chosen annotation frame, converts the annotation-frame
+        index to a video-frame index using the FPS ratio, and crops the
+        frame to the nearest bounding box in the HDF5 map.
+
         Args:
-            sample: A sample dict with keys  video_path ,  h5_path ,
-                 start_frame ,  end_frame , and  ann_fps .
+            sample: A sample dict with keys ``video_path``, ``h5_path``,
+                ``start_frame``, ``end_frame``, and ``ann_fps``.
 
         Returns:
-            Float32 tensor of shape  (C, T, H, W)  normalised to
+            Float32 tensor of shape ``(C, T, H, W)`` normalised to
             ImageNet mean/std.
 
         Raises:
@@ -379,17 +431,17 @@ class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, int]]):  # fix: [type-arg
 def collate_fn(
     batch: list[tuple[torch.Tensor, int]],
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    """Stack a list of  (video, label)  pairs into batched tensors.
+    """Stack a list of ``(video, label)`` pairs into batched tensors.
 
     Args:
-        batch: List of  (video_tensor, label_int)  pairs from the dataset.
+        batch: List of ``(video_tensor, label_int)`` pairs from the dataset.
 
     Returns:
-        Tuple of  (videos, labels)  where  videos  has shape
-         (B, C, T, H, W)  and  labels  has shape  (B,) .
+        Tuple of ``(videos, labels)`` where ``videos`` has shape
+        ``(B, C, T, H, W)`` and ``labels`` has shape ``(B,)``.
     """
-    videos, labels = zip(*batch, strict=True)
-    return torch.stack(list(videos)), torch.tensor(list(labels), dtype=torch.long)
+    videos, labels = zip(*batch)
+    return torch.stack(videos), torch.tensor(labels, dtype=torch.long)
 
 
 # ---------------------------------------------------------------------------
@@ -397,25 +449,27 @@ def collate_fn(
 # ---------------------------------------------------------------------------
 
 
-class H5BBoxDataModule(pl.LightningDataModule):  # type: ignore[misc]  # fix: LightningDataModule typed as Any
+class H5BBoxDataModule(pl.LightningDataModule):
     """Lightning DataModule for bbox-cropped behavioural video clips.
 
+    Reads the master split CSV, builds train/val/test clip lists, computes
+    inverse-frequency class weights, and exposes standard DataLoaders.
 
     Args:
         label_col: Annotation column to use as supervision signal.
-        output_dir: Directory where  label_mapping.json  and
-             test_split.csv  are written during :meth:`setup`.
+        output_dir: Directory where ``label_mapping.json`` and
+            ``test_split.csv`` are written during :meth:`setup`.
     """
 
     def __init__(self, label_col: str, output_dir: str) -> None:
         super().__init__()
         self.label_col = label_col
         self.output_dir = output_dir
-        self.label_map: dict[str, int] = {}  # fix: [type-arg]
+        self.label_map: dict[str, int] = {}
         self.class_weights: torch.Tensor | None = None
-        self.train_samples: list[dict[str, Any]] = []  # fix: [type-arg]
-        self.val_samples: list[dict[str, Any]] = []  # fix: [type-arg]
-        self.test_samples: list[dict[str, Any]] = []  # fix: [type-arg]
+        self.train_samples: list[dict] = []
+        self.val_samples: list[dict] = []
+        self.test_samples: list[dict] = []
 
     def setup(self, stage: str | None = None) -> None:
         """Build clip sample lists and compute class weights.
@@ -424,7 +478,7 @@ class H5BBoxDataModule(pl.LightningDataModule):  # type: ignore[misc]  # fix: Li
         call on every rank because it only does CPU/disk work.
 
         Args:
-            stage:  "fit" ,  "validate" ,  "test" , or  None .
+            stage: ``"fit"``, ``"validate"``, ``"test"``, or ``None``.
                 Not used here; all splits are always prepared.
         """
         print(f"Building samples (label_col={self.label_col})...")
@@ -474,7 +528,7 @@ class H5BBoxDataModule(pl.LightningDataModule):  # type: ignore[misc]  # fix: Li
                 f"  weight={weights[idx]:.3f}"
             )
 
-    def train_dataloader(self) -> DataLoader[tuple[torch.Tensor, int]]:  # fix: [type-arg]  # noqa: D102
+    def train_dataloader(self) -> DataLoader:  # noqa: D102
         ds = BBoxCropVideoDataset(
             self.train_samples, self.label_map, training=True
         )
@@ -488,7 +542,7 @@ class H5BBoxDataModule(pl.LightningDataModule):  # type: ignore[misc]  # fix: Li
             drop_last=True,
         )
 
-    def val_dataloader(self) -> DataLoader[tuple[torch.Tensor, int]]:  # fix: [type-arg]  # noqa: D102
+    def val_dataloader(self) -> DataLoader:  # noqa: D102
         ds = BBoxCropVideoDataset(
             self.val_samples, self.label_map, training=False
         )
@@ -510,8 +564,12 @@ class H5BBoxDataModule(pl.LightningDataModule):  # type: ignore[misc]  # fix: Li
 class InternVideo2Classifier(nn.Module):
     """Linear classifier head on top of an InternVideo2 vision encoder.
 
+    Extracts the CLS token (index 0) from a ``(B, N, D)`` sequence output,
+    or mean-pools if the output is not three-dimensional, then applies
+    LayerNorm and a linear projection to class logits.
+
     Args:
-        backbone: InternVideo2 vision encoder  nn.Module .
+        backbone: InternVideo2 vision encoder ``nn.Module``.
         feat_dim: Embedding dimensionality of the backbone output.
         num_classes: Number of target action classes.
     """
@@ -531,16 +589,15 @@ class InternVideo2Classifier(nn.Module):
         """Compute class logits from a video clip tensor.
 
         Args:
-            x: Float tensor of shape  (B, C, T, H, W) .
+            x: Float tensor of shape ``(B, C, T, H, W)``.
 
         Returns:
-            Logit tensor of shape  (B, num_classes) .
+            Logit tensor of shape ``(B, num_classes)``.
         """
-        raw_out: Any = self.backbone(x)
+        out = self.backbone(x)
         # Handle tuple or list backbone outputs.
-        if isinstance(raw_out, (tuple, list)):
-            raw_out = raw_out[0]
-        out = cast(torch.Tensor, raw_out)  # fix: no-any-return — backbone is untyped
+        if isinstance(out, (tuple, list)):
+            out = out[0]
         if out.dim() == 3:
             # Sequence output (B, N, D): take CLS token at position 0.
             feat = out[:, 0]
@@ -548,11 +605,16 @@ class InternVideo2Classifier(nn.Module):
             feat = out
         else:
             feat = out.flatten(2).mean(-1)
-        return cast(torch.Tensor, self.head(self.norm(feat)))  # fix: no-any-return
+        return self.head(self.norm(feat))
 
 
 def _freeze_except_last_block(clf: InternVideo2Classifier) -> None:
     """Freeze every parameter except the last transformer block and head.
+
+    Searches for the block container under ``backbone.blocks``,
+    ``backbone.layers``, or ``backbone.encoder.blocks`` and marks all
+    parameters outside the last block, ``norm``, and ``head`` as
+    non-trainable.
 
     Args:
         clf: Classifier whose backbone parameters will be (mostly) frozen.
@@ -561,10 +623,10 @@ def _freeze_except_last_block(clf: InternVideo2Classifier) -> None:
         RuntimeError: If no transformer blocks list can be located.
     """
     print("Freezing all but the LAST transformer block + head...")
-    block_module: nn.Module | None = None
+    block_module = None
     block_attr = ""
     for cand in ("blocks", "layers", "encoder.blocks"):
-        mod: nn.Module = clf.backbone
+        mod = clf.backbone
         ok = True
         for part in cand.split("."):
             if hasattr(mod, part):
@@ -572,7 +634,7 @@ def _freeze_except_last_block(clf: InternVideo2Classifier) -> None:
             else:
                 ok = False
                 break
-        if ok and isinstance(mod, Sized):  # fix: arg-type — cast to Sized before len()
+        if ok and hasattr(mod, "__len__"):
             block_module = mod
             block_attr = cand
             break
@@ -582,10 +644,9 @@ def _freeze_except_last_block(clf: InternVideo2Classifier) -> None:
             "Could not locate transformer blocks list on vision encoder."
         )
 
-    sized_block: Sized = cast(Sized, block_module)  # fix: arg-type for len()
-    last_idx = len(sized_block) - 1
+    last_idx = len(block_module) - 1
     last_prefix = f"backbone.{block_attr}.{last_idx}"
-    print(f"  Last block prefix: {last_prefix}  (depth={len(sized_block)})")
+    print(f"  Last block prefix: {last_prefix}  (depth={len(block_module)})")
 
     for name, param in clf.named_parameters():
         param.requires_grad = (
@@ -609,6 +670,12 @@ def build_internvideo2_6b(
 ) -> InternVideo2Classifier:
     """Download InternVideo2-Stage2_6B and attach a classification head.
 
+    This function **must** be called after Lightning has set the CUDA
+    device for the current process (i.e. from inside
+    ``LightningModule.setup()``, not from ``__init__``).  Calling it
+    earlier triggers ``cudaGetDeviceCount`` Error 101 in multi-GPU
+    ``torchrun`` launches.
+
     Args:
         num_classes: Number of output classes.
         freeze_all_but_last_block: Whether to freeze all parameters except
@@ -630,14 +697,14 @@ def build_internvideo2_6b(
         "(this is ~12 GB, may take a few minutes)..."
     )
     full_model = AutoModel.from_pretrained(
-        IV2_MODEL_ID,
-        trust_remote_code=True,
-        torch_dtype=torch.bfloat16,
-        device_map="auto",
-    )
+            IV2_MODEL_ID,
+            trust_remote_code=True,
+            torch_dtype=torch.bfloat16,
+            device_map="auto",
+        )
     # Extract only the vision tower from the multimodal model.
     if hasattr(full_model, "vision_encoder"):
-        vision: nn.Module = full_model.vision_encoder
+        vision = full_model.vision_encoder
     elif hasattr(full_model, "visual"):
         vision = full_model.visual
     else:
@@ -662,14 +729,11 @@ def build_internvideo2_6b(
     torch.cuda.empty_cache()
 
     # Enable gradient checkpointing to reduce activation memory.
-    # cast(Any, vision) sidesteps nn.Module's overloaded __call__ return type,
-    # which mypy resolves to Tensor|Module, making method calls appear uncallable.
-    _vision_any: Any = vision
     if hasattr(vision, "gradient_checkpointing_enable"):
-        _vision_any.gradient_checkpointing_enable()
+        vision.gradient_checkpointing_enable()
         print("  Gradient checkpointing: ENABLED")
     elif hasattr(vision, "set_grad_checkpointing"):
-        _vision_any.set_grad_checkpointing(True)
+        vision.set_grad_checkpointing(True)
         print("  Gradient checkpointing: ENABLED (set_grad_checkpointing)")
     else:
         print("  WARNING: gradient checkpointing not auto-detected on backbone")
@@ -688,9 +752,13 @@ def build_internvideo2_6b(
 # ---------------------------------------------------------------------------
 
 
-class InternVideo2FineTune(pl.LightningModule):  # type: ignore[misc]  # fix: LightningModule typed as Any
+class InternVideo2FineTune(pl.LightningModule):
     """PyTorch Lightning module wrapping InternVideo2 fine-tuning.
 
+    The backbone is loaded lazily inside :meth:`setup` (called by the
+    Trainer *after* CUDA device initialisation) to avoid the
+    ``cudaGetDeviceCount Error 101`` crash that occurs when ``torchrun``
+    spawns multiple processes and the model is loaded in ``__init__``.
 
     Args:
         num_classes: Number of target action classes.
@@ -715,11 +783,11 @@ class InternVideo2FineTune(pl.LightningModule):  # type: ignore[misc]  # fix: Li
     def setup(self, stage: str) -> None:
         """Build the InternVideo2 backbone after CUDA device is ready.
 
-        Lightning calls this once per process after  set_device , so it
-        is safe to call  AutoModel.from_pretrained  here.
+        Lightning calls this once per process after ``set_device``, so it
+        is safe to call ``AutoModel.from_pretrained`` here.
 
         Args:
-            stage:  "fit" ,  "validate" ,  "test" , or  "predict" .
+            stage: ``"fit"``, ``"validate"``, ``"test"``, or ``"predict"``.
         """
         if self.model is not None:
             # Already built (e.g. called twice in some Lightning versions).
@@ -735,11 +803,10 @@ class InternVideo2FineTune(pl.LightningModule):  # type: ignore[misc]  # fix: Li
                 persistent=False,
             )
         else:
-            self.class_weights: torch.Tensor | None = None
+            self.class_weights = None  # type: ignore[assignment]
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:  # noqa: D102
-        assert self.model is not None, "model not initialised — call setup() first"
-        return cast(torch.Tensor, self.model(x))  # fix: no-any-return — Lightning __call__ untyped
+        return self.model(x)
 
     def training_step(
         self,
@@ -749,13 +816,12 @@ class InternVideo2FineTune(pl.LightningModule):  # type: ignore[misc]  # fix: Li
         """Compute weighted cross-entropy loss and log train metrics.
 
         Args:
-            batch:  (videos, labels)  tensors from the DataLoader.
+            batch: ``(videos, labels)`` tensors from the DataLoader.
             batch_idx: Index of the current batch (unused).
 
         Returns:
             Scalar loss tensor for backpropagation.
         """
-        assert self.model is not None, "model not initialised — call setup() first"  # fix: None not callable
         x, y = batch
         logits = self.model(x)
         loss = F.cross_entropy(logits, y, weight=self.class_weights)
@@ -772,13 +838,12 @@ class InternVideo2FineTune(pl.LightningModule):  # type: ignore[misc]  # fix: Li
         """Compute unweighted cross-entropy and log validation metrics.
 
         Args:
-            batch:  (videos, labels)  tensors from the DataLoader.
+            batch: ``(videos, labels)`` tensors from the DataLoader.
             batch_idx: Index of the current batch (unused).
 
         Returns:
             Scalar validation loss tensor.
         """
-        assert self.model is not None, "model not initialised — call setup() first"  # fix: None not callable
         x, y = batch
         logits = self.model(x)
         loss = F.cross_entropy(logits, y)
@@ -787,8 +852,8 @@ class InternVideo2FineTune(pl.LightningModule):  # type: ignore[misc]  # fix: Li
         self.log("val_acc", acc, prog_bar=True, sync_dist=True)
         return loss
 
-    def configure_optimizers(self) -> dict[str, Any]:  # fix: [type-arg]
-        """Set up AdamW with  ReduceLROnPlateau  on  val_loss .
+    def configure_optimizers(self) -> dict:
+        """Set up AdamW with ``ReduceLROnPlateau`` on ``val_loss``.
 
         Returns:
             Lightning optimizer/scheduler config dict.
@@ -816,21 +881,25 @@ class InternVideo2FineTune(pl.LightningModule):  # type: ignore[misc]  # fix: Li
 
 def run_inference(
     model: nn.Module,
-    test_samples: list[dict[str, Any]],  # fix: [type-arg]
-    label_map: dict[str, int],  # fix: [type-arg]
+    test_samples: list[dict],
+    label_map: dict[str, int],
     device: torch.device,
     output_csv: str,
     output_dir: str,
 ) -> None:
-    """Run per-clip inference on the test set and write predictions and metrics.
+    """Run per-clip inference on the test set and write predictions + metrics.
+
+    Loads each test clip individually (no batching) to avoid OOM on large
+    models, runs under ``torch.cuda.amp.autocast`` with bfloat16, and writes
+    both a CSV of per-clip predictions and a plain-text classification report.
 
     Args:
-        model: Trained model moved to  device  and set to eval mode here.
+        model: Trained model moved to ``device`` and set to eval mode here.
         test_samples: List of sample dicts from the DataModule.
         label_map: String label to integer class-index mapping.
         device: Torch device for inference.
         output_csv: Destination path for the per-sample predictions CSV.
-        output_dir: Directory for  test_metrics.txt .
+        output_dir: Directory for ``test_metrics.txt``.
     """
     print("\n" + "=" * 60)
     print("INFERENCE ON TEST SET")
@@ -840,7 +909,7 @@ def run_inference(
     id_to_label = {v: k for k, v in label_map.items()}
     ds = BBoxCropVideoDataset(test_samples, label_map, training=False)
     softmax = nn.Softmax(dim=1)
-    rows: list[dict[str, Any]] = []  # fix: [type-arg]
+    rows: list[dict] = []
 
     for i in range(len(ds)):
         s = test_samples[i]
@@ -923,7 +992,12 @@ def run_inference(
 
 
 def main() -> None:
-    """Parse CLI arguments and run single-seed training and inference."""
+    """Parse CLI arguments and run single-seed training + inference.
+
+    Each seed writes all outputs to a ``seed_<N>`` subdirectory under the
+    task's base output directory, so multiple seeds can run concurrently
+    as independent SLURM array tasks without path collisions.
+    """
     parser = argparse.ArgumentParser(
         description="InternVideo2-6B fine-tuning for behavioural action recognition."
     )
@@ -949,7 +1023,6 @@ def main() -> None:
         help=(
             "Number of GPUs per node (default: 1).  "
             "InternVideo2-6B fits on a single H100 80 GB; "
-            "use 1 unless you have confirmed multi-GPU headroom."
         ),
     )
     args = parser.parse_args()

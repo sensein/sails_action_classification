@@ -1,3 +1,4 @@
+# save as: extract_logits.py
 """
 Extract logits from all trained models for MLP fusion.
 Usage: python extract_logits.py --dataset rmm

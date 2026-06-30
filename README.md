@@ -46,7 +46,7 @@ pip install git+https://github.com/sensein/sailsprep.git
 ```
 ## Quick start
 
-Tools developped in sailsprep
+Tools developed in sailsprep
 |Tool|Documentation|
 |----|--------------|
 |BIDS-conversion| [link to documentation](docs/BIDS_convertor.md)

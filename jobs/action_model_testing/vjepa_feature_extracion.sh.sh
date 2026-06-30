@@ -25,10 +25,10 @@ echo "Job ID: $SLURM_JOB_ID  Array task: $SLURM_ARRAY_TASK_ID"
 echo "Node: $(hostname)  Start: $(date)"
 echo "=========================================="
 
-cd /home/aparnabg/orcd/scratch/all_project_files/vjepa_feature_extraction
+cd sails_action_classification/src/sailsprep/action_model_testing/feature_extraction
 python -u h5_full_vjepa2.py \
     --splits_csv /home/aparnabg/orcd/scratch/all_project_files/latest_split_csv.csv \
-    --output_dir /orcd/data/satra/002/projects/SAILS/vjepa_features/action_model_outputs/vjepa_features_h5/full_video_introp_h5 \
+    --output_dir /orcd/data/satra/002/projects/SAILS/action_outputs_features/feature_dir/vjepa_features_h5/full_video_introp_h5_vjepa_features \
     --target_fps 15 \
     --crop_size 256 \
     --batch_clips 2 \

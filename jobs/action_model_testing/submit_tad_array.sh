@@ -1,8 +1,8 @@
 #!/bin/bash
 #SBATCH --partition=mit_normal_gpu
 #SBATCH --job-name=tad_loco
-#SBATCH --output=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/opentad/OpenTAD/logs/tad_%A_%a.out
-#SBATCH --error=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/opentad/OpenTAD/logs/tad_%A_%a.err
+#SBATCH --output=/src/sailsprep/action_model_testing/OpenTAD/logs/tad_%A_%a.out
+#SBATCH --error=/src/sailsprep/action_model_testing/OpenTAD/logs/tad_%A_%a.err
 #SBATCH --time=6:00:00
 #SBATCH --gres=gpu:l40s:1
 #SBATCH --cpus-per-task=8
@@ -56,7 +56,7 @@ source /home/aparnabg/orcd/pool/miniconda3/etc/profile.d/conda.sh
 conda activate opentad
 export PYTHONNOUSERSITE=1
 export LD_LIBRARY_PATH=/orcd/pool/007/aparnabg/miniconda3/envs/opentad/lib/python3.10/site-packages/torch/lib:$LD_LIBRARY_PATH
-cd /home/aparnabg/orcd/scratch/all_project_files/action_sota_models/opentad/OpenTAD
+cd /src/sailsprep/action_model_testing/OpenTAD
 mkdir -p logs
 
 echo "LD_LIBRARY_PATH  : ${LD_LIBRARY_PATH}"

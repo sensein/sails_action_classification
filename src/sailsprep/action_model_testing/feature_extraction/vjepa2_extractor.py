@@ -6,17 +6,16 @@ from __future__ import annotations
 import argparse
 import math
 import os
-from typing import Any
 
 import cv2
 import h5py
 import numpy as np
 import pandas as pd
 import torch
-import torch.nn as nn
 from decord import VideoReader
 from decord import cpu as decord_cpu
 from transformers import AutoModel, AutoVideoProcessor
+
 
 # ============================================================
 # Constants
@@ -26,12 +25,12 @@ EMBED_DIM       = 1408        # ViT-g
 TUBELET_SIZE    = 2
 FRAMES_PER_CLIP = 64
 ANN_FPS         = 15.0
-CROP_SIZE       = 256
+
 
 # ============================================================
-# bbox loading 
+# H5 bbox loading (same convention as SlowFast pipeline)
 # ============================================================
-def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
+def load_bbox_map(h5_path: str) -> dict:
     """Return {ann_frame_idx: (x1,y1,x2,y2)} from interpolated H5."""
     with h5py.File(h5_path, "r") as f:
         table = f["bboxes/table"][()]
@@ -39,18 +38,12 @@ def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
     return {int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in vb1}
 
 
-def crop_frame_with_bbox(
-    frame: np.ndarray,
-    bbox: tuple[int, int, int, int],
-    out_size: int = CROP_SIZE,
-) -> np.ndarray:
+def crop_frame_with_bbox(frame: np.ndarray, bbox, out_size: int = 256) -> np.ndarray:
     """Crop frame to bbox and resize to (out_size, out_size). frame is HWC uint8 RGB."""
     H, W = frame.shape[:2]
     x1, y1, x2, y2 = bbox
-    x1 = max(0, min(x1, W - 1))
-    x2 = max(x1 + 1, min(x2, W))
-    y1 = max(0, min(y1, H - 1))
-    y2 = max(y1 + 1, min(y2, H))
+    x1 = max(0, min(x1, W - 1)); x2 = max(x1 + 1, min(x2, W))
+    y1 = max(0, min(y1, H - 1)); y2 = max(y1 + 1, min(y2, H))
     crop = frame[y1:y2, x1:x2]
     crop = cv2.resize(crop, (out_size, out_size))
     return crop
@@ -68,17 +61,14 @@ def read_video_cropped(video_path: str, h5_path: str,
     Returns (T, crop_size, crop_size, 3) uint8 RGB, or None on failure.
     """
     if not os.path.exists(video_path):
-        print(f"  video not found: {video_path}")
-        return None
+        print(f"  video not found: {video_path}"); return None
     if not os.path.exists(h5_path):
-        print(f"  h5 not found: {h5_path}")
-        return None
+        print(f"  h5 not found: {h5_path}"); return None
 
     try:
         bbox_map = load_bbox_map(h5_path)
         if not bbox_map:
-            print(f"  empty bbox map: {h5_path}")
-            return None
+            print(f"  empty bbox map: {h5_path}"); return None
         bbox_keys = np.array(sorted(bbox_map.keys()))
 
         vr = VideoReader(video_path, ctx=decord_cpu(0))
@@ -87,8 +77,7 @@ def read_video_cropped(video_path: str, h5_path: str,
         duration = total_frames / native_fps
         num_target = int(duration * target_fps)
         if num_target == 0:
-            print(f"  video too short: {video_path}")
-            return None
+            print(f"  video too short: {video_path}"); return None
 
         # Evenly spaced native-frame indices to hit target_fps.
         indices = np.linspace(0, total_frames - 1, num_target, dtype=int)
@@ -115,15 +104,8 @@ def read_video_cropped(video_path: str, h5_path: str,
 # ============================================================
 # Feature extraction
 # ============================================================
-_CPU_DEVICE = torch.device("cpu")  
-
-def extract_features_single_video(
-    model: nn.Module,
-    processor: Any,          # AutoVideoProcessor has no py.typed stubs
-    frames: np.ndarray,
-    batch_clips: int = 2,
-    device: torch.device = _CPU_DEVICE,
-) -> np.ndarray:
+def extract_features_single_video(model, processor, frames: np.ndarray,
+                                   batch_clips: int = 2, device=torch.device("cpu")) -> np.ndarray:
     """
     Split frames into 64-frame clips, run V-JEPA 2, spatial-pool, and map
     temporal patches back to per-frame features. Returns (D, T).
@@ -172,7 +154,7 @@ def extract_features_single_video(
 # ============================================================
 # Main
 # ============================================================
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--splits_csv", required=True)
     parser.add_argument("--output_dir", required=True)
@@ -190,7 +172,7 @@ def main() -> None:
     os.makedirs(args.output_dir, exist_ok=True)
 
     print(f"Loading V-JEPA 2: {args.model_name}")
-    processor = AutoVideoProcessor.from_pretrained(args.model_name)  # type: ignore[no-untyped-call]
+    processor = AutoVideoProcessor.from_pretrained(args.model_name)
     model = AutoModel.from_pretrained(
         args.model_name,
         torch_dtype=torch.float16,
@@ -225,15 +207,13 @@ def main() -> None:
         out = os.path.join(args.output_dir, f"{basename}.npy")
 
         if os.path.exists(out) and not args.overwrite:
-            skipped += 1
-            continue
+            skipped += 1; continue
 
         print(f"\n[{i+1}/{len(rows)}] {basename}", flush=True)
 
         frames = read_video_cropped(vp, hp, args.target_fps, args.crop_size)
         if frames is None:
-            failed += 1
-            continue
+            failed += 1; continue
         print(f"  frames (cropped): {frames.shape}")
 
         try:
@@ -243,8 +223,7 @@ def main() -> None:
             )
         except Exception as e:
             print(f"  feature error: {e}")
-            failed += 1
-            continue
+            failed += 1; continue
 
         print(f"  features: {feats.shape}")  # (1536, T)
         np.save(out, feats)

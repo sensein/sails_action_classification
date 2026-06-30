@@ -1,26 +1,34 @@
+'''
+Credit to the official implementation: https://github.com/SwinTransformer/Video-Swin-Transformer
+'''
+
+from __future__ import annotations
+
+import logging
+from functools import lru_cache, reduce
+from operator import mul
+
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.utils.checkpoint as checkpoint
-import numpy as np
+from einops import rearrange
 from timm.models.layers import DropPath, trunc_normal_
 
-from functools import reduce, lru_cache
-from operator import mul
-from einops import rearrange
 
-import logging
-import logging
 def get_logger(name):
     return logging.getLogger(name)
+
+
 def load_checkpoint(*args, **kwargs):
     raise NotImplementedError("load_checkpoint stubbed out; load weights externally")
 
 
 def get_root_logger(log_file=None, log_level=logging.INFO):
-    """Use  get_logger  method in mmcv to get the root logger.
+    """Use ``get_logger`` method in mmcv to get the root logger.
     The logger will be initialized if it has not been initialized. By default a
-    StreamHandler will be added. If  log_file  is specified, a FileHandler
+    StreamHandler will be added. If ``log_file`` is specified, a FileHandler
     will also be added. The name of the root logger is the top-level package
     name, e.g., "mmaction".
     Args:
@@ -328,7 +336,7 @@ class PatchMerging(nn.Module):
 
 
 # cache each stage results
-@lru_cache()
+@lru_cache()  # noqa: UP011
 def compute_mask(D, H, W, window_size, shift_size, device):
     img_mask = torch.zeros((1, D, H, W, 1), device=device)  # 1 Dp Hp Wp 1
     cnt = 0
@@ -340,7 +348,7 @@ def compute_mask(D, H, W, window_size, shift_size, device):
     mask_windows = window_partition(img_mask, window_size)  # nW, ws[0]*ws[1]*ws[2], 1
     mask_windows = mask_windows.squeeze(-1)  # nW, ws[0]*ws[1]*ws[2]
     attn_mask = mask_windows.unsqueeze(1) - mask_windows.unsqueeze(2)
-    attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))
+    attn_mask = attn_mask.masked_fill(attn_mask != 0, float(-100.0)).masked_fill(attn_mask == 0, float(0.0))  # noqa: UP018
     return attn_mask
 
 
@@ -497,8 +505,8 @@ class SwinTransformer3D(nn.Module):
                  patch_size=(4,4,4),
                  in_chans=3,
                  embed_dim=96,
-                 depths=[2, 2, 6, 2],
-                 num_heads=[3, 6, 12, 24],
+                 depths=[2, 2, 6, 2], # noqa: B006
+                 num_heads=[3, 6, 12, 24], # noqa: B006
                  window_size=(2,7,7),
                  mlp_ratio=4.,
                  qkv_bias=True,
@@ -579,25 +587,25 @@ class SwinTransformer3D(nn.Module):
         the 3d counterpart.
         Args:
             logger (logging.Logger): The logger used to print
-                debugging infomation.
+                debugging information.
         """
         checkpoint = torch.load(self.pretrained, map_location='cpu')
         state_dict = checkpoint['model']
 
         # delete relative_position_index since we always re-init it
-        relative_position_index_keys = [k for k in state_dict.keys() if "relative_position_index" in k]
+        relative_position_index_keys = [k for k in state_dict.keys() if "relative_position_index" in k]  # noqa: SIM118
         for k in relative_position_index_keys:
             del state_dict[k]
 
         # delete attn_mask since we always re-init it
-        attn_mask_keys = [k for k in state_dict.keys() if "attn_mask" in k]
+        attn_mask_keys = [k for k in state_dict.keys() if "attn_mask" in k]  # noqa: SIM118
         for k in attn_mask_keys:
             del state_dict[k]
 
         state_dict['patch_embed.proj.weight'] = state_dict['patch_embed.proj.weight'].unsqueeze(2).repeat(1,1,self.patch_size[0],1,1) / self.patch_size[0]
 
         # bicubic interpolate relative_position_bias_table if not match
-        relative_position_bias_table_keys = [k for k in state_dict.keys() if "relative_position_bias_table" in k]
+        relative_position_bias_table_keys = [k for k in state_dict.keys() if "relative_position_bias_table" in k]  # noqa: SIM118
         for k in relative_position_bias_table_keys:
             relative_position_bias_table_pretrained = state_dict[k]
             relative_position_bias_table_current = self.state_dict()[k]
@@ -672,5 +680,5 @@ class SwinTransformer3D(nn.Module):
 
     def train(self, mode=True):
         """Convert the model into training mode while keep layers freezed."""
-        super(SwinTransformer3D, self).train(mode)
+        super(SwinTransformer3D, self).train(mode)  # noqa: UP008
         self._freeze_stages()

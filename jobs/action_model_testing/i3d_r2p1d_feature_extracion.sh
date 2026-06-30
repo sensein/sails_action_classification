@@ -1,17 +1,17 @@
 #!/bin/bash
 #SBATCH --job-name=id3_r2_full
-#SBATCH --partition=pi_satra
+#SBATCH --partition=mit_normal_gpu
 #SBATCH --gres=gpu:h100:1
 #SBATCH --cpus-per-task=4
 #SBATCH --time=6:00:00
-#SBATCH --output=/home/aparnabg/orcd/scratch/all_project_files/id3_r_feature/logs/%x_%j.log
-#SBATCH --error=/home/aparnabg/orcd/scratch/all_project_files/id3_r_feature/logs/%x_%j.err
+#SBATCH --output=/src/sailsprep/action_model_testing/feature_extraction/logs/%x_%j.log
+#SBATCH --error=/src/sailsprep/action_model_testing/feature_extraction/logs/%x_%j.err
 #SBATCH --array=0-7
 #SBATCH --mem=64G
 
 # ── Usage ──────────────────────────────────────────────────
-# sbatch /home/aparnabg/orcd/scratch/all_project_files/id3_r_feature/full_job.sh i3d
-# sbatch full_job.sh r2plus1d
+# sbatch jobs/action_model_testing/i3d_r2p1d_feature_extracion.sh i3d
+# sbatch jobs/action_model_testing/i3d_r2p1d_feature_extracion.sh r2plus1d
 # ───────────────────────────────────────────────────────────
 
 BACKBONE="${1}"
@@ -29,10 +29,10 @@ conda deactivate
 source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
 conda activate mlasformer
 
-BASE="/home/aparnabg/orcd/scratch/all_project_files/id3_r_feature"
+BASE="/src/sailsprep/action_model_testing/feature_extraction"
 SPLITS_CSV="/home/aparnabg/orcd/scratch/all_project_files/latest_split_csv.csv"
-OUT_ROOT="/orcd/data/satra/002/projects/SAILS/vjepa_features/action_model_outputs/features_full_video_interpolated"
-SCRIPT="${BASE}/extract_i3d_r2plus1d_fullvideo.py"
+OUT_ROOT="/orcd/data/satra/002/projects/SAILS/action_outputs_features/feature_dir/features_full_video_interpolated_h5_i3d_r2"
+SCRIPT="${BASE}/i3d_extractor.py"
 
 mkdir -p "${OUT_ROOT}"
 mkdir -p "${BASE}/logs"

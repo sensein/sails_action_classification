@@ -4,15 +4,11 @@ Slides a 2-second window (1-second stride) across full annotated videos,
 assigns each window a majority label (N/A included as a class), and trains
 Video Swin-B on these windows. At inference, window-level predictions are
 aggregated to video-level via average softmax probabilities.
-
-Supports multi-seed runs for result spread analysis.
-
 Usage::
 
     python video_swin_fullvideo_sliding.py --task loco
     python video_swin_fullvideo_sliding.py --task loco --seed 123
 
-Typical invocation is via  job1.sh .
 """
 
 from __future__ import annotations
@@ -21,7 +17,7 @@ import argparse
 import json
 import os
 from collections import Counter
-from typing import Any
+from typing import Dict, List, Optional, Tuple
 
 import cv2
 import h5py
@@ -34,11 +30,12 @@ import torch.nn.functional as F
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader, Dataset
 
+
 # ---------------------------------------------------------------------------
 # Task configuration (N/A included as a class -> num_classes is +1 vs clip)
 # ---------------------------------------------------------------------------
 
-TASK_CONFIG: dict[str, dict[str, Any]] = {
+TASK_CONFIG: Dict[str, Dict] = {
     "loco": {
         "label_col": "Locomotion",
         "num_classes": 6,
@@ -67,26 +64,32 @@ SPLIT_CSV: str = (
 # Global hyperparameters
 # ---------------------------------------------------------------------------
 
+# Per-GPU batch size. Reduce if OOM on the H100.
 BATCH_SIZE: int = 32
 
+# DataLoader worker processes per GPU.
 NUM_WORKERS: int = 16
 
 MAX_EPOCHS: int = 20
 LEARNING_RATE: float = 1e-4
-DEFAULT_SEEDS: list[int] = [42, 123, 456]
+DEFAULT_SEEDS: List[int] = [42, 123, 456]
 
+# Video Swin-B expects 32 frames at 224x224.
 NUM_FRAMES: int = 32
 CROP_SIZE: int = 224
-MEAN: tuple[float, ...] = (0.485, 0.456, 0.406)
-STD: tuple[float, ...] = (0.229, 0.224, 0.225)
+MEAN: Tuple[float, ...] = (0.485, 0.456, 0.406)
+STD: Tuple[float, ...] = (0.229, 0.224, 0.225)
 
+# Annotation timing and windowing constants.
 ANN_FPS: float = 15.0
 WINDOW_SEC: float = 2.0
 WINDOW_STRIDE: float = 1.0
 MIN_WIN_FRAMES: int = 5
 
+# N/A sentinel — kept as a real class in this script.
 NA_LABEL: str = "N/A"
 
+# Official Kinetics-400 pretrained Swin-B checkpoint.
 SWIN_CKPT_URL: str = (
     "https://github.com/SwinTransformer/storage/releases/"
     "download/v1.0.4/swin_base_patch244_window877_kinetics400_22k.pth"
@@ -97,18 +100,18 @@ SWIN_CKPT_LOCAL: str = os.path.expanduser(
 
 
 # ---------------------------------------------------------------------------
-# 1. Bounding-box loading 
+# 1. Bounding-box loading (full-video HDF5)
 # ---------------------------------------------------------------------------
 
 
-def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
-    """Load per-frame bounding boxes.
+def load_bbox_map(h5_path: str) -> Dict[int, Tuple[int, int, int, int]]:
+    """Load per-frame bounding boxes from a full-video HDF5 file.
 
     Args:
-        h5_path: Path to the HDF5 file.
+        h5_path: Path to the interpolated full-video HDF5 file.
 
     Returns:
-        Mapping from annotation frame index to  (x1, y1, x2, y2)  bbox.
+        Mapping from annotation frame index to ``(x1, y1, x2, y2)`` bbox.
     """
     with h5py.File(h5_path, "r") as fh:
         table = fh["bboxes/table"][()]
@@ -124,14 +127,14 @@ def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
 
 
 def get_window_label(
-    frame_to_label: dict[int, str],
+    frame_to_label: Dict[int, str],
     ann_start: int,
     ann_end: int,
 ) -> str:
     """Determine the majority label for a window of annotation frames.
 
-    Frames absent from  frame_to_label  or with empty/null string values
-    are treated as  NA_LABEL .
+    Frames absent from ``frame_to_label`` or with empty/null string values
+    are treated as ``NA_LABEL``.
 
     Args:
         frame_to_label: Mapping from frame index to label string.
@@ -139,10 +142,10 @@ def get_window_label(
         ann_end: Last annotation frame (exclusive).
 
     Returns:
-        The most common label string in the window, or  NA_LABEL  if the
+        The most common label string in the window, or ``NA_LABEL`` if the
         window is empty.
     """
-    labels: list[str] = []
+    labels: List[str] = []
     for f in range(ann_start, ann_end):
         lbl = frame_to_label.get(f, NA_LABEL)
         if lbl in ("", "nan", "None"):
@@ -156,26 +159,26 @@ def get_window_label(
 def build_samples(
     split_csv: str,
     label_col: str,
-) -> dict[str, list[dict[str, Any]]]:
+) -> Dict[str, List[Dict]]:
     """Slide 2-sec windows across full videos and collect sample dicts.
 
-    Only the  Locomotion  and  Repetitive_Motor_Movements  columns are
+    Only the ``Locomotion`` and ``Repetitive_Motor_Movements`` columns are
     used from the annotation CSVs; all other columns are ignored. Videos
-    where every window carries a majority label of  N/A  are skipped
+    where every window carries a majority label of ``N/A`` are skipped
     entirely.
 
     Args:
         split_csv: Path to the master split CSV
-            ( latest_split_csv.csv ).
+            (``latest_split_csv.csv``).
         label_col: Annotation column to extract labels from.
 
     Returns:
-        Dict with keys  "train" ,  "val" ,  "test" , each mapping to
-        a list of sample dicts with keys  video_path ,  h5_path ,
-         start_frame ,  end_frame ,  label_str , and  ann_fps .
+        Dict with keys ``"train"``, ``"val"``, ``"test"``, each mapping to
+        a list of sample dicts with keys ``video_path``, ``h5_path``,
+        ``start_frame``, ``end_frame``, ``label_str``, and ``ann_fps``.
 
     Raises:
-        ValueError: If a required column is absent from  split_csv .
+        ValueError: If a required column is absent from ``split_csv``.
     """
     split_df = pd.read_csv(split_csv)
     required_cols = [
@@ -188,7 +191,7 @@ def build_samples(
         if col not in split_df.columns:
             raise ValueError(f"Split CSV missing column: '{col}'")
 
-    by_split: dict[str, list[dict[str, Any]]] = {"train": [], "val": [], "test": []}
+    by_split: Dict[str, List[Dict]] = {"train": [], "val": [], "test": []}
 
     window_ann_frames = int(WINDOW_SEC * ANN_FPS)
     stride_ann_frames = int(WINDOW_STRIDE * ANN_FPS)
@@ -217,7 +220,7 @@ def build_samples(
             continue
 
         ann = ann.sort_values("Frame").reset_index(drop=True)
-        frame_to_label: dict[int, str] = {}
+        frame_to_label: Dict[int, str] = {}
         for _, r in ann.iterrows():
             fn = int(r["Frame"])
             lbl = str(r[label_col]).strip()
@@ -232,7 +235,7 @@ def build_samples(
         total_ann_frames = max_ann_frame + 1
 
         # Slide windows across the full annotation range.
-        video_samples: list[dict[str, Any]] = []
+        video_samples: List[Dict] = []
         start = 0
         while start + window_ann_frames <= total_ann_frames + stride_ann_frames:
             end = min(start + window_ann_frames, total_ann_frames)
@@ -266,26 +269,31 @@ def build_samples(
 
 
 # ---------------------------------------------------------------------------
-# 3. Dataset — bbox crop from full-video HDF5, output shape  (C, T, H, W) 
+# 3. Dataset — bbox crop from full-video HDF5, output shape ``(C, T, H, W)``
 # ---------------------------------------------------------------------------
 
 
-class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
+class BBoxCropVideoDataset(Dataset):
     """Reads sliding-window segments with bbox crop and ImageNet normalization.
 
+    Each item decodes ``num_frames`` uniformly-sampled frames from the
+    annotation frame range defined by the sample dict, crops each frame to
+    the nearest available bounding box, resizes to ``crop_size x crop_size``,
+    and applies ImageNet normalization.
+
     Args:
-        samples: List of sample dicts from  build_samples .
+        samples: List of sample dicts from ``build_samples``.
         label_map: Mapping from string label to integer class index.
         num_frames: Number of frames to uniformly sample per window.
         crop_size: Spatial size (height and width) after resizing.
-        training: When  True , applies random horizontal flip augmentation
+        training: When ``True``, applies random horizontal flip augmentation
             with probability 0.5.
     """
 
     def __init__(
         self,
-        samples: list[dict[str, Any]],
-        label_map: dict[str, int],
+        samples: List[Dict],
+        label_map: Dict[str, int],
         num_frames: int = NUM_FRAMES,
         crop_size: int = CROP_SIZE,
         *,
@@ -303,14 +311,19 @@ class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
     def __len__(self) -> int:
         return len(self.samples)
 
-    def _read_segment(self, sample: dict[str, Any]) -> torch.Tensor:
+    def _read_segment(self, sample: Dict) -> torch.Tensor:
         """Decode, bbox-crop, resize, and normalize a single window.
+
+        Maps annotation frame indices to video frame indices via the ratio
+        of video FPS to annotation FPS. Falls back to the temporally nearest
+        annotated bbox when the exact frame is absent from the bbox map.
+
         Args:
-            sample: Sample dict with  video_path ,  h5_path ,
-                 start_frame ,  end_frame , and  ann_fps .
+            sample: Sample dict with ``video_path``, ``h5_path``,
+                ``start_frame``, ``end_frame``, and ``ann_fps``.
 
         Returns:
-            Float tensor of shape  (C, T, H, W)  with ImageNet
+            Float tensor of shape ``(C, T, H, W)`` with ImageNet
             normalization applied.
 
         Raises:
@@ -319,7 +332,7 @@ class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         """
         cap = cv2.VideoCapture(sample["video_path"])
         if not cap.isOpened():
-            raise OSError(f"cannot open {sample['video_path']}")
+            raise IOError(f"cannot open {sample['video_path']}")
 
         vid_fps = cap.get(cv2.CAP_PROP_FPS) or 30.0
         # Convert annotation-frame index to video-frame index.
@@ -335,7 +348,7 @@ class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         chosen = ann_frames[idxs]
         bbox_keys = np.array(sorted(bbox_map.keys()))
 
-        frames: list[np.ndarray] = []
+        frames: List[np.ndarray] = []
         for af in chosen:
             vf = int(af * step)
             cap.set(cv2.CAP_PROP_POS_FRAMES, vf)
@@ -373,14 +386,14 @@ class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
         tensor = (tensor - self.mean) / self.std
         return tensor
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx: int) -> Tuple[torch.Tensor, int]:
         sample = self.samples[idx]
         label = self.label_map[sample["label_str"]]
         try:
             frames = self._read_segment(sample)
             if self.training and torch.rand(1).item() < 0.5:
                 frames = torch.flip(frames, dims=[3])
-            return frames, torch.tensor(label, dtype=torch.long)
+            return frames, label
         except Exception as exc:  # noqa: BLE001
             print(
                 f"  load error {os.path.basename(sample['video_path'])}"
@@ -388,23 +401,23 @@ class BBoxCropVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor]]):
             )
             return (
                 torch.zeros(3, self.num_frames, self.crop_size, self.crop_size),
-                torch.tensor(label, dtype=torch.long),
+                label,
             )
 
 
 def collate_fn(
-    batch: list[tuple[torch.Tensor, int]],
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Stack a list of  (video, label)  pairs into batched tensors.
+    batch: List[Tuple[torch.Tensor, int]],
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Stack a list of ``(video, label)`` pairs into batched tensors.
 
     Args:
-        batch: List of  (video_tensor, class_index)  tuples.
+        batch: List of ``(video_tensor, class_index)`` tuples.
 
     Returns:
-        Tuple of  (videos, labels)  with shapes  (B, C, T, H, W) 
-        and  (B,)  respectively.
+        Tuple of ``(videos, labels)`` with shapes ``(B, C, T, H, W)``
+        and ``(B,)`` respectively.
     """
-    videos, labels = zip(*batch, strict=True)
+    videos, labels = zip(*batch)
     return torch.stack(videos), torch.tensor(labels, dtype=torch.long)
 
 
@@ -421,23 +434,23 @@ class H5BBoxDataModule(pl.LightningDataModule):
     training set.
 
     Args:
-        label_col: Annotation column to use, e.g.  "Locomotion"  or
-             "Repetitive_Motor_Movements" .
-        output_dir: Directory to write  label_mapping.json  and
-             test_split.csv  for later evaluation.
+        label_col: Annotation column to use, e.g. ``"Locomotion"`` or
+            ``"Repetitive_Motor_Movements"``.
+        output_dir: Directory to write ``label_mapping.json`` and
+            ``test_split.csv`` for later evaluation.
     """
 
     def __init__(self, label_col: str, output_dir: str) -> None:
         super().__init__()
         self.label_col = label_col
         self.output_dir = output_dir
-        self.label_map: dict[str, int] = {}
-        self.class_weights: torch.Tensor | None = None
-        self.train_samples: list[dict[str, Any]] = []
-        self.val_samples: list[dict[str, Any]] = []
-        self.test_samples: list[dict[str, Any]] = []
+        self.label_map: Optional[Dict[str, int]] = None
+        self.class_weights: Optional[torch.Tensor] = None
+        self.train_samples: List[Dict] = []
+        self.val_samples: List[Dict] = []
+        self.test_samples: List[Dict] = []
 
-    def setup(self, stage: str | None = None) -> None:  # noqa: ARG002
+    def setup(self, stage: Optional[str] = None) -> None:  # noqa: ARG002
         """Build sliding-window samples and compute inverse-frequency weights.
 
         Args:
@@ -499,7 +512,7 @@ class H5BBoxDataModule(pl.LightningDataModule):
                 f"  weight={weights[idx]:.4f}"
             )
 
-    def train_dataloader(self) -> DataLoader[tuple[torch.Tensor, torch.Tensor]]:
+    def train_dataloader(self) -> DataLoader:
         """Return the training DataLoader with shuffle and augmentation."""
         ds = BBoxCropVideoDataset(
             self.train_samples, self.label_map, training=True
@@ -514,7 +527,7 @@ class H5BBoxDataModule(pl.LightningDataModule):
             drop_last=True,
         )
 
-    def val_dataloader(self) -> DataLoader[tuple[torch.Tensor, torch.Tensor]]:
+    def val_dataloader(self) -> DataLoader:
         """Return the validation DataLoader without shuffle."""
         ds = BBoxCropVideoDataset(
             self.val_samples, self.label_map, training=False
@@ -537,8 +550,11 @@ class H5BBoxDataModule(pl.LightningDataModule):
 class VideoSwinClassifier(nn.Module):
     """Classification head wrapper around the Video Swin-B backbone.
 
+    Applies global adaptive average pooling over the spatiotemporal feature
+    volume and projects to ``num_classes`` logits via a linear layer.
+
     Args:
-        backbone: Video Swin-B trunk ( SwinTransformer3D ).
+        backbone: Video Swin-B trunk (``SwinTransformer3D``).
         feat_dim: Channel dimension of the backbone output features.
         num_classes: Number of target action classes (including N/A).
     """
@@ -558,14 +574,14 @@ class VideoSwinClassifier(nn.Module):
         """Run a forward pass through backbone and classification head.
 
         Args:
-            x: Input tensor of shape  (B, C, T, H, W) .
+            x: Input tensor of shape ``(B, C, T, H, W)``.
 
         Returns:
-            Unnormalized logits of shape  (B, num_classes) .
+            Unnormalized logits of shape ``(B, num_classes)``.
         """
-        feats: torch.Tensor = self.backbone(x)
+        feats = self.backbone(x)
         feats = self.pool(feats).flatten(1)
-        return self.head(feats)  # type: ignore[no-any-return]
+        return self.head(feats)
 
 
 def build_video_swin_b(
@@ -573,19 +589,24 @@ def build_video_swin_b(
     *,
     freeze_all_but_last_stage: bool = True,
 ) -> VideoSwinClassifier:
-    """Instantiate Video Swin weights and a classification head.
+    """Instantiate Video Swin-B with K400 weights and a classification head.
+
+    Downloads the official checkpoint on first call and caches it to
+    ``~/.cache/video_swin/``. Requires ``video-swin-transformer-pytorch``::
+
+        pip install git+https://github.com/haofanwang/video-swin-transformer-pytorch.git
 
     Args:
         num_classes: Number of output action classes (including N/A).
-        freeze_all_but_last_stage: When  True , freezes all backbone
-            parameters except those in  backbone.layers.3  and the
+        freeze_all_but_last_stage: When ``True``, freezes all backbone
+            parameters except those in ``backbone.layers.3`` and the
             classification head.
 
     Returns:
         A :class:`VideoSwinClassifier` ready for fine-tuning.
 
     Raises:
-        ImportError: If  video_swin_transformer  cannot be imported.
+        ImportError: If ``video_swin_transformer`` cannot be imported.
     """
     try:
         from video_swin_transformer import SwinTransformer3D
@@ -654,7 +675,7 @@ class VideoSwinFineTune(pl.LightningModule):
     """PyTorch Lightning module for sliding-window Video Swin-B fine-tuning.
 
     Wraps :func:`build_video_swin_b`, adds weighted cross-entropy loss,
-    and configures AdamW with a  ReduceLROnPlateau  scheduler.
+    and configures AdamW with a ``ReduceLROnPlateau`` scheduler.
 
     Args:
         num_classes: Number of output classes (including N/A).
@@ -666,7 +687,7 @@ class VideoSwinFineTune(pl.LightningModule):
         self,
         num_classes: int,
         freeze: bool = True,
-        class_weights: torch.Tensor | None = None,
+        class_weights: Optional[torch.Tensor] = None,
     ) -> None:
         super().__init__()
         self.save_hyperparameters(ignore=["class_weights"])
@@ -678,28 +699,28 @@ class VideoSwinFineTune(pl.LightningModule):
                 "class_weights", class_weights.float(), persistent=False
             )
         else:
-            self.class_weights: torch.Tensor | None = None
+            self.class_weights = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Delegate to the inner classifier.
 
         Args:
-            x: Video tensor of shape  (B, C, T, H, W) .
+            x: Video tensor of shape ``(B, C, T, H, W)``.
 
         Returns:
-            Logits of shape  (B, num_classes) .
+            Logits of shape ``(B, num_classes)``.
         """
-        return self.model(x)  # type: ignore[no-any-return]
+        return self.model(x)
 
     def training_step(
         self,
-        batch: tuple[torch.Tensor, torch.Tensor],
+        batch: Tuple[torch.Tensor, torch.Tensor],
         batch_idx: int,  # noqa: ARG002
     ) -> torch.Tensor:
         """Compute weighted cross-entropy loss for a training batch.
 
         Args:
-            batch:  (videos, labels)  tuple.
+            batch: ``(videos, labels)`` tuple.
             batch_idx: Index of the current batch (unused).
 
         Returns:
@@ -707,7 +728,7 @@ class VideoSwinFineTune(pl.LightningModule):
         """
         x, y = batch
         logits = self.model(x)
-        loss: torch.Tensor = F.cross_entropy(logits, y, weight=self.class_weights)
+        loss = F.cross_entropy(logits, y, weight=self.class_weights)
         acc = (logits.argmax(1) == y).float().mean()
         self.log("train_loss", loss, prog_bar=True, sync_dist=True)
         self.log("train_acc", acc, prog_bar=True, sync_dist=True)
@@ -715,13 +736,13 @@ class VideoSwinFineTune(pl.LightningModule):
 
     def validation_step(
         self,
-        batch: tuple[torch.Tensor, torch.Tensor],
+        batch: Tuple[torch.Tensor, torch.Tensor],
         batch_idx: int,  # noqa: ARG002
     ) -> torch.Tensor:
         """Compute unweighted cross-entropy loss for a validation batch.
 
         Args:
-            batch:  (videos, labels)  tuple.
+            batch: ``(videos, labels)`` tuple.
             batch_idx: Index of the current batch (unused).
 
         Returns:
@@ -729,15 +750,13 @@ class VideoSwinFineTune(pl.LightningModule):
         """
         x, y = batch
         logits = self.model(x)
-        loss: torch.Tensor = F.cross_entropy(logits, y)
+        loss = F.cross_entropy(logits, y)
         acc = (logits.argmax(1) == y).float().mean()
         self.log("val_loss", loss, prog_bar=True, sync_dist=True)
         self.log("val_acc", acc, prog_bar=True, sync_dist=True)
         return loss
 
-    def configure_optimizers(  # type: ignore[override]
-        self,
-    ) -> dict[str, Any]:
+    def configure_optimizers(self) -> Dict:
         """Set up AdamW optimiser with ReduceLROnPlateau scheduler.
 
         Returns:
@@ -761,8 +780,8 @@ class VideoSwinFineTune(pl.LightningModule):
 
 def run_inference(
     model: nn.Module,
-    test_samples: list[dict[str, Any]],
-    label_map: dict[str, int],
+    test_samples: List[Dict],
+    label_map: Dict[str, int],
     device: torch.device,
     output_dir: str,
 ) -> None:
@@ -770,14 +789,14 @@ def run_inference(
 
     Saves three output files:
 
-    -  test_predictions_window.csv  — one row per sliding window.
-    -  test_predictions_video.csv  — one row per video, aggregated via
+    - ``test_predictions_window.csv`` — one row per sliding window.
+    - ``test_predictions_video.csv`` — one row per video, aggregated via
       average softmax probabilities across its windows.
-    -  test_metrics.txt  — accuracy, classification report, and confusion
+    - ``test_metrics.txt`` — accuracy, classification report, and confusion
       matrix at both window and video level.
 
     Args:
-        model: Trained model; will be switched to eval mode on  device .
+        model: Trained model; will be switched to eval mode on ``device``.
         test_samples: List of test sample dicts from the DataModule.
         label_map: Label string to integer class-index mapping.
         device: Torch device for inference.
@@ -791,7 +810,7 @@ def run_inference(
     id_to_label = {v: k for k, v in label_map.items()}
     ds = BBoxCropVideoDataset(test_samples, label_map, training=False)
     softmax = nn.Softmax(dim=1)
-    window_rows: list[dict[str, Any]] = []
+    window_rows: List[Dict] = []
 
     for i in range(len(ds)):
         s = test_samples[i]
@@ -803,7 +822,7 @@ def run_inference(
             probs = softmax(logits)
             top = int(probs.argmax(1).item())
             conf = float(probs[0, top].item())
-            row: dict[str, Any] = {
+            row: Dict = {
                 "video_path": s["video_path"],
                 "start_frame": s["start_frame"],
                 "end_frame": s["end_frame"],
@@ -842,7 +861,7 @@ def run_inference(
 
     valid_win = win_df[win_df["pred_label"] != "ERROR"]
     all_labels_sorted = sorted(label_map.keys())
-    cm_df: pd.DataFrame | None = None
+    cm_df: Optional[pd.DataFrame] = None
 
     if len(valid_win):
         win_acc = valid_win["correct"].mean()
@@ -874,7 +893,7 @@ def run_inference(
     print("=" * 60)
 
     prob_cols = [c for c in win_df.columns if c.startswith("prob_")]
-    video_rows: list[dict[str, Any]] = []
+    video_rows: List[Dict] = []
 
     for vpath, grp in valid_win.groupby("video_path"):
         true_lab = Counter(grp["true_label"].tolist()).most_common(1)[0][0]
@@ -901,7 +920,7 @@ def run_inference(
                 "correct": int(pred_label == true_lab),
                 "n_windows": len(grp),
             }
-            for pc, v in zip(prob_cols, avg_probs, strict=True):
+            for pc, v in zip(prob_cols, avg_probs):
                 row[pc] = round(float(v), 4)
             video_rows.append(row)
 
@@ -974,7 +993,7 @@ def run_inference(
 def main() -> None:
     """Parse arguments and run sliding-window training then test inference.
 
-    Each seed writes outputs to a  seed_<N>  subdirectory under the
+    Each seed writes outputs to a ``seed_<N>`` subdirectory under the
     task's base output directory so that multi-seed runs do not overwrite
     each other.
     """
@@ -1025,7 +1044,7 @@ def main() -> None:
     n_classes = len(dm.label_map)
     assert n_classes == cfg["num_classes"], (
         f"Expected {cfg['num_classes']} classes for task '{args.task}',"
-        f" found {n_classes}. Check your data or update TASK_CONFIG."
+        f" found {n_classes}. Check data or update TASK_CONFIG."
     )
     print(f"\nNum classes: {n_classes}")
 

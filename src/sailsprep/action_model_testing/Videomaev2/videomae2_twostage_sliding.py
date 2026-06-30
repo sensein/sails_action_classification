@@ -26,44 +26,44 @@ Setup:
 import argparse
 import json
 import os
-from collections import Counter
-from typing import Any
 
-import cv2
-import h5py
 import numpy as np
 import pandas as pd
-import pytorch_lightning as pl
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import h5py
+import cv2
+import pytorch_lightning as pl
+from collections import Counter
+from torch.utils.data import Dataset, DataLoader
+
 from sklearn.metrics import (
+    classification_report,
+    confusion_matrix,
+    roc_auc_score,
     average_precision_score,
     balanced_accuracy_score,
-    classification_report,
     cohen_kappa_score,
-    confusion_matrix,
     matthews_corrcoef,
     precision_recall_fscore_support,
-    roc_auc_score,
     top_k_accuracy_score,
 )
 from sklearn.preprocessing import label_binarize
-from torch.utils.data import DataLoader, Dataset
 
 # ============================================================
 # TASK CONFIG
 # ============================================================
-TASK_CONFIG: dict[str, dict[str, Any]] = {
+TASK_CONFIG = {
     "loco": {
         "label_col":      "Locomotion",
         "num_fg_classes": 5,
-        "output_dir":     "/orcd/data/satra/002/projects/SAILS/vjepa_features/models_output_seeds/clips_h5/vmae2/loco_twostage",
+        "output_dir":     "/orcd/data/satra/002/projects/SAILS/action_outputs_features/models_output_seeds/clips_h5/vmae2/loco_twostage",
     },
     "rmm": {
         "label_col":      "Repetitive_Motor_Movements",
         "num_fg_classes": 4,
-        "output_dir":     "/orcd/data/satra/002/projects/SAILS/vjepa_features/models_output_seeds/clips_h5/vmae2/rmm_twostage",
+        "output_dir":     "/orcd/data/satra/002/projects/SAILS/action_outputs_features/models_output_seeds/clips_h5/vmae2/rmm_twostage",
     },
 }
 
@@ -101,7 +101,7 @@ BINARY_THRESHOLDS = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 # ============================================================
 # 1. BBOX LOADING
 # ============================================================
-def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
+def load_bbox_map(h5_path):
     with h5py.File(h5_path, "r") as f:
         table = f["bboxes/table"][()]
     vb1 = table["values_block_1"]
@@ -111,7 +111,7 @@ def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
 # ============================================================
 # 2. SLIDING WINDOW BUILDER
 # ============================================================
-def get_window_label(frame_to_label: dict[int, str], ann_start: int, ann_end: int) -> str:
+def get_window_label(frame_to_label, ann_start, ann_end):
     labels = []
     for f in range(ann_start, ann_end):
         lbl = frame_to_label.get(f, NA_LABEL)
@@ -123,11 +123,7 @@ def get_window_label(frame_to_label: dict[int, str], ann_start: int, ann_end: in
     return Counter(labels).most_common(1)[0][0]
 
 
-def build_samples(
-    split_csv: str,
-    label_col: str,
-    fg_label_map: dict[str, int],
-) -> dict[str, list[dict[str, Any]]]:
+def build_samples(split_csv, label_col, fg_label_map):
     """
     Build sliding-window samples.
 
@@ -144,7 +140,7 @@ def build_samples(
         if c not in split_df.columns:
             raise ValueError(f"Split CSV missing column: '{c}'")
 
-    by_split: dict[str, list[dict[str, Any]]] = {"train": [], "val": [], "test": []}
+    by_split          = {"train": [], "val": [], "test": []}
     window_ann_frames = int(WINDOW_SEC    * ANN_FPS)
     stride_ann_frames = int(WINDOW_STRIDE * ANN_FPS)
     skipped_files     = 0
@@ -177,7 +173,7 @@ def build_samples(
             continue
 
         ann = ann.sort_values("Frame").reset_index(drop=True)
-        frame_to_label: dict[int, str] = {}
+        frame_to_label = {}
         for _, r in ann.iterrows():
             fn  = int(r["Frame"])
             lbl = str(r[label_col]).strip()
@@ -189,7 +185,7 @@ def build_samples(
             continue
 
         total_ann_frames = max(frame_to_label.keys()) + 1
-        video_samples: list[dict[str, Any]] = []
+        video_samples    = []
         start            = 0
 
         while start + window_ann_frames <= total_ann_frames + stride_ann_frames:
@@ -230,15 +226,10 @@ def build_samples(
 # ============================================================
 # 3. DATASET
 # ============================================================
-class TwoStageVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]):
+class TwoStageVideoDataset(Dataset):
     """Returns (video_tensor, bin_label, fg_label). fg_label=-1 for N/A windows."""
-    def __init__(
-        self,
-        samples: list[dict[str, Any]],
-        num_frames: int = NUM_FRAMES,
-        crop_size: int = CROP_SIZE,
-        training: bool = False,
-    ) -> None:
+    def __init__(self, samples, num_frames=NUM_FRAMES,
+                 crop_size=CROP_SIZE, training=False):
         self.samples    = samples
         self.num_frames = num_frames
         self.crop_size  = crop_size
@@ -246,13 +237,13 @@ class TwoStageVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tenso
         self.mean = torch.tensor(MEAN).view(3, 1, 1, 1)
         self.std  = torch.tensor(STD ).view(3, 1, 1, 1)
 
-    def __len__(self) -> int:
+    def __len__(self):
         return len(self.samples)
 
-    def _read_segment(self, s: dict[str, Any]) -> torch.Tensor:
+    def _read_segment(self, s):
         cap = cv2.VideoCapture(s["video_path"])
         if not cap.isOpened():
-            raise OSError(f"cannot open {s['video_path']}")
+            raise IOError(f"cannot open {s['video_path']}")
 
         vid_fps  = cap.get(cv2.CAP_PROP_FPS) or 30.0
         step     = max(1, int(round(vid_fps / s["ann_fps"])))
@@ -265,7 +256,7 @@ class TwoStageVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tenso
         idxs       = np.linspace(0, len(ann_frames) - 1, self.num_frames).astype(int)
         chosen     = ann_frames[idxs]
         bbox_keys  = np.array(sorted(bbox_map.keys()))
-        frames: list[np.ndarray[Any, np.dtype[Any]]] = []
+        frames     = []
 
         for af in chosen:
             vf = int(af * step)
@@ -282,10 +273,8 @@ class TwoStageVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tenso
                 nearest = int(bbox_keys[np.argmin(np.abs(bbox_keys - af))])
                 x1, y1, x2, y2 = bbox_map[nearest]
 
-            x1 = max(0, min(x1, W - 1))
-            x2 = max(x1 + 1, min(x2, W))
-            y1 = max(0, min(y1, H - 1))
-            y2 = max(y1 + 1, min(y2, H))
+            x1 = max(0, min(x1, W-1)); x2 = max(x1+1, min(x2, W))
+            y1 = max(0, min(y1, H-1)); y2 = max(y1+1, min(y2, H))
 
             crop = frame[y1:y2, x1:x2]
             crop = cv2.resize(crop, (self.crop_size, self.crop_size))
@@ -298,7 +287,7 @@ class TwoStageVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tenso
         tensor = (tensor - self.mean) / self.std
         return tensor
 
-    def __getitem__(self, idx: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def __getitem__(self, idx):
         s = self.samples[idx]
         try:
             frames = self._read_segment(s)
@@ -316,10 +305,8 @@ class TwoStageVideoDataset(Dataset[tuple[torch.Tensor, torch.Tensor, torch.Tenso
         )
 
 
-def collate_fn(
-    batch: list[tuple[torch.Tensor, torch.Tensor, torch.Tensor]],
-) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    videos, bin_labels, fg_labels = zip(*batch, strict=False)
+def collate_fn(batch):
+    videos, bin_labels, fg_labels = zip(*batch)
     return torch.stack(videos), torch.stack(bin_labels), torch.stack(fg_labels)
 
 
@@ -327,26 +314,26 @@ def collate_fn(
 # 4. DATA MODULE
 # ============================================================
 class TwoStageDataModule(pl.LightningDataModule):
-    def __init__(self, label_col: str, num_fg_classes: int, output_dir: str) -> None:
+    def __init__(self, label_col, num_fg_classes, output_dir):
         super().__init__()
         self.label_col      = label_col
         self.num_fg_classes = num_fg_classes
         self.output_dir     = output_dir
-        self.fg_label_map: dict[str, int] = {}
-        self.id_to_fg: dict[int, str]     = {}
-        self.train_samples: list[dict[str, Any]] = []
-        self.val_samples: list[dict[str, Any]]   = []
-        self.test_samples: list[dict[str, Any]]  = []
-        self.bin_weights: torch.Tensor | None = None
-        self.fg_weights: torch.Tensor | None  = None
+        self.fg_label_map   = None
+        self.id_to_fg       = None
+        self.train_samples  = None
+        self.val_samples    = None
+        self.test_samples   = None
+        self.bin_weights    = None
+        self.fg_weights     = None
 
-    def setup(self, stage: str | None = None) -> None:
+    def setup(self, stage=None):
         print(f"\nBuilding 2-stage sliding-window samples "
               f"(label_col={self.label_col})...")
 
         # Pass 1: discover all non-N/A label strings
         split_df = pd.read_csv(SPLIT_CSV)
-        all_fg: set[str] = set()
+        all_fg   = set()
         for lp in split_df["label_path"].dropna().unique():
             lp = str(lp).strip()
             if not os.path.exists(lp):
@@ -369,7 +356,7 @@ class TwoStageDataModule(pl.LightningDataModule):
 
         assert len(fg_classes) == self.num_fg_classes, (
             f"Expected {self.num_fg_classes} fg classes, discovered {len(fg_classes)}. "
-            f"Update TASK_CONFIG or check your data.")
+            f"Update TASK_CONFIG or check data.")
 
         # Pass 2: build windowed samples
         by_split = build_samples(SPLIT_CSV, self.label_col, self.fg_label_map)
@@ -421,13 +408,13 @@ class TwoStageDataModule(pl.LightningDataModule):
             print(f"  {cls:35s}  count={int(fg_counts[idx]):5d}  "
                   f"weight={fg_w[idx]:.4f}")
 
-    def train_dataloader(self) -> DataLoader[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    def train_dataloader(self):
         ds = TwoStageVideoDataset(self.train_samples, training=True)
         return DataLoader(ds, batch_size=BATCH_SIZE, shuffle=True,
                           num_workers=NUM_WORKERS, collate_fn=collate_fn,
                           pin_memory=True)
 
-    def val_dataloader(self) -> DataLoader[tuple[torch.Tensor, torch.Tensor, torch.Tensor]]:
+    def val_dataloader(self):
         ds = TwoStageVideoDataset(self.val_samples, training=False)
         return DataLoader(ds, batch_size=BATCH_SIZE, shuffle=False,
                           num_workers=NUM_WORKERS, collate_fn=collate_fn,
@@ -445,7 +432,7 @@ class TwoStageVideoMAE2(nn.Module):
     """
     FEAT_DIM = 768   # ViT-B embed_dim
 
-    def __init__(self, num_fg_classes: int) -> None:
+    def __init__(self, num_fg_classes):
         super().__init__()
         self.backbone    = self._load_backbone()
         self.binary_head = nn.Linear(self.FEAT_DIM, 2)
@@ -456,7 +443,7 @@ class TwoStageVideoMAE2(nn.Module):
             nn.init.zeros_(head.bias)
 
     @staticmethod
-    def _load_backbone() -> nn.Module:
+    def _load_backbone():
         try:
             from modeling_finetune import vit_base_patch16_224
         except ImportError as e:
@@ -468,7 +455,7 @@ class TwoStageVideoMAE2(nn.Module):
             ) from e
 
         # Build with K710 classes to load checkpoint, then strip the head
-        backbone: nn.Module = vit_base_patch16_224(num_classes=710)
+        backbone = vit_base_patch16_224(num_classes=710)
 
         if not os.path.exists(VMAE2_CKPT):
             print(f"Downloading VideoMAE V2 ViT-B K710 → {VMAE2_CKPT}")
@@ -489,20 +476,19 @@ class TwoStageVideoMAE2(nn.Module):
         backbone.head = nn.Identity()
         return backbone
 
-    def get_features(self, x: torch.Tensor) -> torch.Tensor:
+    def get_features(self, x):
         """Run backbone up to fc_norm, return (B, 768) feature vector."""
         # vit_base_patch16_224 forward returns logits via self.head.
         # With head=Identity it returns the 768-d fc_norm output directly.
-        feat: torch.Tensor = self.backbone(x)
-        return feat
+        return self.backbone(x)   # (B, 768)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
+    def forward(self, x):
         feat       = self.get_features(x)     # (B, 768)
         bin_logits = self.binary_head(feat)   # (B, 2)
         fg_logits  = self.fg_head(feat)       # (B, K)
         return bin_logits, fg_logits
 
-    def freeze_except_last_block(self) -> None:
+    def freeze_except_last_block(self):
         print("Freezing all but blocks.11 + fc_norm + both heads")
         for name, p in self.named_parameters():
             p.requires_grad = (
@@ -520,38 +506,25 @@ class TwoStageVideoMAE2(nn.Module):
 # 6. LIGHTNING MODULE
 # ============================================================
 class TwoStageFineTune(pl.LightningModule):
-    def __init__(
-        self,
-        num_fg_classes: int,
-        freeze: bool = True,
-        bin_weights: torch.Tensor | None = None,
-        fg_weights: torch.Tensor | None = None,
-    ) -> None:
+    def __init__(self, num_fg_classes, freeze=True,
+                 bin_weights=None, fg_weights=None):
         super().__init__()
         self.save_hyperparameters(ignore=["bin_weights", "fg_weights"])
         self.model = TwoStageVideoMAE2(num_fg_classes)
         if freeze:
             self.model.freeze_except_last_block()
 
-        self.bin_weights: torch.Tensor | None = None
-        self.fg_weights: torch.Tensor | None  = None
+        self.bin_weights = None
+        self.fg_weights  = None
         if bin_weights is not None:
             self.register_buffer("bin_weights", bin_weights.float(), persistent=False)
         if fg_weights is not None:
             self.register_buffer("fg_weights",  fg_weights.float(),  persistent=False)
 
-    def forward(self, x: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-        result: tuple[torch.Tensor, torch.Tensor] = self.model(x)
-        return result
+    def forward(self, x):
+        return self.model(x)
 
-    def _compute_loss(
-        self,
-        bin_logits: torch.Tensor,
-        fg_logits: torch.Tensor,
-        bin_labels: torch.Tensor,
-        fg_labels: torch.Tensor,
-        stage: str,
-    ) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+    def _compute_loss(self, bin_logits, fg_logits, bin_labels, fg_labels, stage):
         loss_bin = F.cross_entropy(
             bin_logits, bin_labels,
             weight=self.bin_weights if stage == "train" else None)
@@ -565,7 +538,7 @@ class TwoStageFineTune(pl.LightningModule):
 
         return loss_bin + FG_LOSS_LAMBDA * loss_fg, loss_bin, loss_fg
 
-    def training_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor], _: int) -> torch.Tensor:
+    def training_step(self, batch, _):
         x, bin_y, fg_y = batch
         bin_l, fg_l    = self.model(x)
         loss, l_bin, l_fg = self._compute_loss(bin_l, fg_l, bin_y, fg_y, "train")
@@ -580,7 +553,7 @@ class TwoStageFineTune(pl.LightningModule):
                        "train_fg_acc": fg_acc}, prog_bar=True)
         return loss
 
-    def validation_step(self, batch: tuple[torch.Tensor, torch.Tensor, torch.Tensor], _: int) -> torch.Tensor:
+    def validation_step(self, batch, _):
         x, bin_y, fg_y = batch
         bin_l, fg_l    = self.model(x)
         loss, l_bin, l_fg = self._compute_loss(bin_l, fg_l, bin_y, fg_y, "val")
@@ -595,7 +568,7 @@ class TwoStageFineTune(pl.LightningModule):
                        "val_fg_acc": fg_acc}, prog_bar=True)
         return loss
 
-    def configure_optimizers(self) -> dict[str, Any]:  # type: ignore[override]
+    def configure_optimizers(self):
         params = filter(lambda p: p.requires_grad, self.parameters())
         opt    = torch.optim.AdamW(params, lr=LEARNING_RATE, weight_decay=0.05)
         sch    = torch.optim.lr_scheduler.ReduceLROnPlateau(
@@ -607,17 +580,11 @@ class TwoStageFineTune(pl.LightningModule):
 # ============================================================
 # 7. METRICS HELPERS
 # ============================================================
-def binary_metrics_report(
-    y_true_bin: np.ndarray,
-    y_prob_active: np.ndarray,
-    output_dir: str,
-    tag: str,
-) -> None:
-    lines: list[str] = []
+def binary_metrics_report(y_true_bin, y_prob_active, output_dir, tag):
+    lines = []
 
-    def log(s: str = "") -> None:
-        print(s)
-        lines.append(s)
+    def log(s=""):
+        print(s); lines.append(s)
 
     y_pred   = (y_prob_active >= 0.5).astype(int)
     tp = int(((y_pred == 1) & (y_true_bin == 1)).sum())
@@ -642,12 +609,12 @@ def binary_metrics_report(
     log(f"  Specificity (N/A) : {spec:.4f}")
     log(f"  F1 (active)       : {f1:.4f}")
     log(f"  ROC-AUC           : {roc_auc:.4f}")
-    log("\n  Confusion matrix (rows=actual, cols=pred):")
-    log("              pred_NA  pred_active")
+    log(f"\n  Confusion matrix (rows=actual, cols=pred):")
+    log(f"              pred_NA  pred_active")
     log(f"  actual_NA   {tn:8d}  {fp:10d}")
     log(f"  actual_act  {fn:8d}  {tp:10d}")
 
-    log("\n  Active-Recall @ thresholds:")
+    log(f"\n  Active-Recall @ thresholds:")
     log(f"  {'Thresh':>8} {'Precision':>10} {'Recall':>8} {'F1':>8} {'Flagged%':>10}")
     thresh_rows = []
     for thr in BINARY_THRESHOLDS:
@@ -679,19 +646,12 @@ def binary_metrics_report(
     print(f"  Binary metrics → {output_dir}/binary_metrics_{tag_safe}.[txt|json]")
 
 
-def fg_metrics_report(
-    y_true_fg: np.ndarray,
-    y_pred_fg: np.ndarray,
-    y_prob_fg: np.ndarray,
-    fg_classes: list[str],
-    output_dir: str,
-    tag: str,
-) -> None:
-    lines: list[str] = []
+def fg_metrics_report(y_true_fg, y_pred_fg, y_prob_fg,
+                      fg_classes, output_dir, tag):
+    lines = []
 
-    def log(s: str = "") -> None:
-        print(s)
-        lines.append(s)
+    def log(s=""):
+        print(s); lines.append(s)
 
     K       = len(fg_classes)
     top1    = (y_pred_fg == y_true_fg).mean() * 100
@@ -727,7 +687,7 @@ def fg_metrics_report(
     log("\n" + "=" * 60)
     log(f"STAGE-2 FINE-GRAINED METRICS  [{tag}]")
     log("=" * 60)
-    log("\nOVERALL")
+    log(f"\nOVERALL")
     log(f"  Top-1 Accuracy    : {top1:.2f}%")
     log(f"  Top-2 Accuracy    : {top2:.2f}%")
     log(f"  Balanced Accuracy : {bal_acc:.2f}%")
@@ -740,7 +700,7 @@ def fg_metrics_report(
     log(f"  Precision Macro   : {p_mac:.4f}")
     log(f"  Recall Macro      : {r_mac:.4f}")
 
-    log("\nPER-CLASS")
+    log(f"\nPER-CLASS")
     log(f"  {'Class':<30} {'Acc%':>7} {'Prec':>7} {'Rec':>7} "
         f"{'F1':>7} {'AP':>8} {'N':>6}")
     log(f"  {'-'*70}")
@@ -749,12 +709,12 @@ def fg_metrics_report(
         log(f"  {cls:<30} {per_acc[i]:>7.2f} {prec[i]:>7.4f} "
             f"{rec[i]:>7.4f} {f1[i]:>7.4f} {ap_s:>8} {sup[i]:>6}")
 
-    log("\nCONFUSION MATRIX (Rows=Actual, Cols=Predicted)")
+    log(f"\nCONFUSION MATRIX (Rows=Actual, Cols=Predicted)")
     log(f"  {'':30}" + "".join(f"{c[:8]:>10}" for c in fg_classes))
     for i, cls in enumerate(fg_classes):
         log(f"  {cls:<30}" + "".join(f"{cm[i,j]:>10}" for j in range(K)))
 
-    log("\nCLASSIFICATION REPORT")
+    log(f"\nCLASSIFICATION REPORT")
     log(classification_report(y_true_fg, y_pred_fg,
                               target_names=fg_classes, digits=4, zero_division=0))
     log("=" * 60)
@@ -763,13 +723,10 @@ def fg_metrics_report(
     with open(os.path.join(output_dir, f"fg_metrics_{tag_safe}.txt"), "w") as f:
         f.write("\n".join(lines))
 
-    def cv(o: Any) -> Any:
-        if isinstance(o, (np.integer,)):
-            return int(o)
-        if isinstance(o, (np.floating,)):
-            return float(o)
-        if isinstance(o, np.ndarray):
-            return o.tolist()
+    def cv(o):
+        if isinstance(o, (np.integer,)):  return int(o)
+        if isinstance(o, (np.floating,)): return float(o)
+        if isinstance(o, np.ndarray):     return o.tolist()
         return o
 
     with open(os.path.join(output_dir, f"fg_metrics_{tag_safe}.json"), "w") as f:
@@ -802,13 +759,7 @@ def fg_metrics_report(
 # ============================================================
 # 8. INFERENCE
 # ============================================================
-def run_inference(
-    model: TwoStageFineTune,
-    test_samples: list[dict[str, Any]],
-    fg_label_map: dict[str, int],
-    device: torch.device,
-    output_dir: str,
-) -> None:
+def run_inference(model, test_samples, fg_label_map, device, output_dir):
     print("\n" + "=" * 60)
     print("INFERENCE — TEST SET")
     print("=" * 60)
@@ -818,7 +769,7 @@ def run_inference(
     fg_classes = [id_to_fg[i] for i in range(len(id_to_fg))]
     ds         = TwoStageVideoDataset(test_samples, training=False)
     softmax    = nn.Softmax(dim=1)
-    window_rows: list[dict[str, Any]] = []
+    window_rows = []
 
     for i in range(len(ds)):
         s = test_samples[i]
@@ -904,7 +855,7 @@ def run_inference(
     print("VIDEO-LEVEL AGGREGATION")
     print("=" * 60)
 
-    video_rows: list[dict[str, Any]] = []
+    video_rows = []
     for vpath, grp in valid.groupby("video_path"):
         avg_prob_active = grp["prob_active"].mean()
         vid_bin_pred    = int(avg_prob_active >= 0.5)
@@ -929,7 +880,7 @@ def run_inference(
             "pred_fg_label":   id_to_fg[vid_fg_pred],
             "true_fg_label":   id_to_fg[true_fg_vid] if true_fg_vid >= 0 else NA_LABEL,
             **{pc: round(float(v), 4)
-               for pc, v in zip(fg_prob_cols, avg_fg_probs, strict=False)},
+               for pc, v in zip(fg_prob_cols, avg_fg_probs)},
         })
 
     vid_df  = pd.DataFrame(video_rows)
@@ -959,20 +910,22 @@ def run_inference(
 # ============================================================
 # 9. MAIN
 # ============================================================
-def main() -> None:
+def main():
     parser = argparse.ArgumentParser(
         description="VideoMAE V2 2-stage sliding window fine-tuning")
     parser.add_argument("--task", choices=["loco", "rmm"], required=True)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
+
     cfg            = TASK_CONFIG[args.task]
-    label_col      = str(cfg["label_col"])
-    num_fg_classes = int(cfg["num_fg_classes"])
-    base_dir       = str(cfg["output_dir"])
-    output_dir     = os.path.join(base_dir, f"seed_{args.seed}")
+    label_col      = cfg["label_col"]
+    num_fg_classes = cfg["num_fg_classes"]
+    base_dir   = cfg["output_dir"]
+    output_dir = os.path.join(base_dir, f"seed_{args.seed}")
     os.makedirs(output_dir, exist_ok=True)
     pl.seed_everything(args.seed)
+
 
     print(f"\n{'='*60}")
     print(f"TASK       : {args.task.upper()}")
@@ -980,6 +933,7 @@ def main() -> None:
     print(f"FG CLASSES : {num_fg_classes}  (+ N/A binary)")
     print(f"WINDOW     : {WINDOW_SEC}s / stride {WINDOW_STRIDE}s")
     print(f"{'='*60}\n")
+
 
     dm = TwoStageDataModule(
         label_col=label_col,

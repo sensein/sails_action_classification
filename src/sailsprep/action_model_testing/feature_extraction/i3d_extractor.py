@@ -1,6 +1,8 @@
 """
-Extract per-frame features using BOTH I3D (R3D-18) and R2Plus1D backbones.
-output layout:
+Extract per-frame features using both I3D and R2Plus1D backbones
+for full videos.
+
+Output layout:
   <output_dir>/i3d/<basename>.npy        shape: (512, T)
   <output_dir>/r2plus1d/<basename>.npy   shape: (512, T)
 """
@@ -20,6 +22,7 @@ import torch.nn as nn
 import torchvision.models.video as video_models
 import torchvision.transforms as T
 
+
 # ============================================================
 # Constants
 # ============================================================
@@ -33,10 +36,7 @@ BACKBONES     = ["i3d", "r2plus1d"]
 # ============================================================
 # Build both backbones
 # ============================================================
-def build_backbones(
-    gpu: int, active_backbones: list[str] = BACKBONES
-) -> tuple[dict[str, nn.Module], torch.device]:
-
+def build_backbones(gpu: int, active_backbones: list[str] = BACKBONES):
     device = torch.device(f"cuda:{gpu}" if torch.cuda.is_available() else "cpu")
     models = {}
     for name in active_backbones:
@@ -53,32 +53,27 @@ def build_backbones(
 
 
 # ============================================================
-# H5 bbox loading  
+# H5 bbox loading  (identical to V-JEPA script)
 # ============================================================
-def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
+def load_bbox_map(h5_path: str) -> dict:
     with h5py.File(h5_path, "r") as f:
         table = f["bboxes/table"][()]
     vb1 = table["values_block_1"]
     return {int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in vb1}
 
 
-def crop_frame_with_bbox(
-    frame: np.ndarray, bbox: tuple[int, int, int, int], out_size: int = CROP_SIZE
-) -> np.ndarray:
-
+def crop_frame_with_bbox(frame: np.ndarray, bbox, out_size: int = CROP_SIZE) -> np.ndarray:
     """Crop frame to bbox and resize. frame is HWC uint8 RGB."""
     H, W = frame.shape[:2]
     x1, y1, x2, y2 = bbox
-    x1 = max(0, min(x1, W - 1))
-    x2 = max(x1 + 1, min(x2, W))
-    y1 = max(0, min(y1, H - 1))
-    y2 = max(y1 + 1, min(y2, H))
+    x1 = max(0, min(x1, W - 1)); x2 = max(x1 + 1, min(x2, W))
+    y1 = max(0, min(y1, H - 1)); y2 = max(y1 + 1, min(y2, H))
     crop = frame[y1:y2, x1:x2]
     return cv2.resize(crop, (out_size, out_size))
 
 
 # ============================================================
-# Read full video with bbox cropping 
+# Read full video with bbox cropping  (mirrors V-JEPA)
 # ============================================================
 def read_video_cropped(
     video_path: str,
@@ -89,28 +84,24 @@ def read_video_cropped(
     """
     Decode video at target_fps, crop each frame using the H5 bbox map.
     Returns (T, crop_size, crop_size, 3) uint8 RGB, or None on failure.
+    Uses OpenCV (consistent with the clip-based I3D script).
     """
     if not os.path.exists(video_path):
-        print(f"  video not found: {video_path}")
-        return None
+        print(f"  video not found: {video_path}"); return None
     if not os.path.exists(h5_path):
-        print(f"  h5 not found: {h5_path}")
-        return None
+        print(f"  h5 not found: {h5_path}"); return None
 
     try:
         bbox_map = load_bbox_map(h5_path)
         if not bbox_map:
-            print(f"  empty bbox map: {h5_path}")
-            return None
+            print(f"  empty bbox map: {h5_path}"); return None
         bbox_keys = np.array(sorted(bbox_map.keys()))
     except Exception as e:
-        print(f"  H5 load error {h5_path}: {e}")
-        return None
+        print(f"  H5 load error {h5_path}: {e}"); return None
 
     cap = cv2.VideoCapture(video_path)
     if not cap.isOpened():
-        print(f"  cannot open video: {video_path}")
-        return None
+        print(f"  cannot open video: {video_path}"); return None
 
     native_fps   = cap.get(cv2.CAP_PROP_FPS) or 30.0
     total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
@@ -118,9 +109,7 @@ def read_video_cropped(
     num_target   = int(duration * target_fps)
 
     if num_target == 0:
-        print(f"  video too short: {video_path}")
-        cap.release()
-        return None
+        print(f"  video too short: {video_path}"); cap.release(); return None
 
     # Evenly spaced native-frame indices to match target_fps
     native_indices = np.linspace(0, total_frames - 1, num_target, dtype=int)
@@ -165,12 +154,12 @@ def preprocess_clip_tensor(frames: list[np.ndarray]) -> torch.Tensor:
     processed = [transform(f) for f in frames]
     return torch.stack(processed, dim=1)   # (3, T, H, W)
 
-_CPU_DEVICE = torch.device("cpu") 
+
 def extract_features(
     model: nn.Module,
     frames: np.ndarray,
     batch_size: int = 8,
-    device: torch.device = _CPU_DEVICE,
+    device: torch.device = torch.device("cpu"),
 ) -> np.ndarray:
     """
     Centered sliding window: one 512-d vector per frame.
@@ -214,7 +203,7 @@ def extract_features(
 # ============================================================
 # Main
 # ============================================================
-def main() -> None:
+def main():
     p = argparse.ArgumentParser(
         description="Extract full-video I3D + R2Plus1D features (mirrors V-JEPA pipeline)."
     )
@@ -223,7 +212,7 @@ def main() -> None:
     p.add_argument("--output_dir",  required=True,
                    help="Root output dir. Saves to <output_dir>/i3d/ and <output_dir>/r2plus1d/")
     p.add_argument("--target_fps",  type=float, default=ANN_FPS,
-                   help="FPS to decode video at (default: 15)")
+                   help="FPS to decode video at (default: 15, matching annotations)")
     p.add_argument("--crop_size",   type=int,   default=CROP_SIZE)
     p.add_argument("--batch_size",  type=int,   default=8)
     p.add_argument("--gpu",         type=int,   default=0)
@@ -237,7 +226,7 @@ def main() -> None:
     # Which backbones to run
     active_backbones = [args.backbone] if args.backbone else BACKBONES
 
-    # Output dirs — one per backbone
+    # Output dirs — one per backbone, same structure as V-JEPA
     out_dirs = {name: os.path.join(args.output_dir, name) for name in active_backbones}
     for d in out_dirs.values():
         os.makedirs(d, exist_ok=True)
@@ -259,7 +248,7 @@ def main() -> None:
 
     rows = list(df.itertuples(index=False))
 
-    # SLURM array sharding 
+    # SLURM array sharding (identical pattern to V-JEPA script)
     if args.task_id is not None:
         chunk = math.ceil(len(rows) / args.num_tasks)
         s = args.task_id * chunk
@@ -277,7 +266,7 @@ def main() -> None:
         hp       = str(r.interpolated_full_h5).strip()
         basename = os.path.splitext(os.path.basename(vp))[0]
 
-        # Check if both backbone outputs already exist
+        # Check if BOTH backbone outputs already exist
         both_exist = all(
             os.path.exists(os.path.join(out_dirs[name], f"{basename}.npy"))
             for name in out_dirs
@@ -289,7 +278,7 @@ def main() -> None:
 
         print(f"\n[{i+1}/{len(rows)}] {basename}", flush=True)
 
-        # Read full video - shared by both backbones
+        # Read full video — ONCE, shared by both backbones
         frames = read_video_cropped(vp, hp, args.target_fps, args.crop_size)
         if frames is None:
             print(f"  FAIL read: {basename}")
@@ -323,7 +312,7 @@ def main() -> None:
             success += 1
 
     print(f"\n{'='*60}")
-    print("Done.")
+    print(f"Done.")
     print(f"  success = {success}")
     print(f"  skipped = {skipped}")
     print(f"  failed  = {failed}")

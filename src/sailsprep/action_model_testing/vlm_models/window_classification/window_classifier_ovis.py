@@ -21,11 +21,13 @@ import ast
 import math
 import os
 import traceback
+from collections import Counter
 from pathlib import Path
-from typing import Any, cast
 
 import torch
+from transformers import AutoConfig, AutoModelForCausalLM
 from PIL import Image
+
 from shared_utils import (
     TASK_CONFIG,
     add_metadata_to_metrics,
@@ -39,22 +41,21 @@ from shared_utils import (
     sample_frames_from_window,
     save_predictions_csv,
 )
-from transformers import AutoConfig, AutoModelForCausalLM
 
 
 def _patch_aimv2_registration() -> None:
     _orig = AutoConfig.register
 
-    def _safe(model_type: str, config: Any, exist_ok: bool = False) -> None:
+    def _safe(model_type: str, config, exist_ok: bool = False) -> None:
         try:
-            _orig(model_type, config, exist_ok=exist_ok) 
+            _orig(model_type, config, exist_ok=exist_ok)
         except ValueError as exc:
             if "aimv2" in str(exc):
                 pass
             else:
                 raise
 
-    AutoConfig.register = _safe  # type: ignore[method-assign]
+    AutoConfig.register = _safe
 
 
 _patch_aimv2_registration()
@@ -159,10 +160,10 @@ class OvisClassifier:
     ) -> None:
         self.task = task
         self.cfg = TASK_CONFIG[task]
-        self.active_classes: list[str] = cast(list[str], self.cfg["active_classes"])
-        self.all_classes: list[str] = cast(list[str], self.cfg["all_classes"])
-        self.no_label: str = cast(str, self.cfg["no_action_label"])
-        self.binary_pos: str = cast(str, self.cfg["binary_positive"])
+        self.active_classes = self.cfg["active_classes"]
+        self.all_classes = self.cfg["all_classes"]
+        self.no_label = self.cfg["no_action_label"]
+        self.binary_pos = self.cfg["binary_positive"]
         self.num_frames = num_frames
         self.max_partition = max_partition
         self.random_frames = random_frames
@@ -174,11 +175,13 @@ class OvisClassifier:
             f"{'random (seed=' + str(seed) + ')' if random_frames else 'uniform (linspace)'}"
         )
 
-        load_kwargs: dict[str, Any] = {
+        # Match the working ovis_clip_classifier.py load pattern exactly.
+        load_kwargs: dict = {
             "torch_dtype": torch.bfloat16,
             "multimodal_max_length": 32768,
             "trust_remote_code": True,
         }
+
         if not use_flash_attn:
             config = AutoConfig.from_pretrained(
                 model_name, trust_remote_code=True
@@ -190,61 +193,66 @@ class OvisClassifier:
             load_kwargs["config"] = config
             load_kwargs["attn_implementation"] = "eager"
 
-        self.model: Any = AutoModelForCausalLM.from_pretrained(
+        self.model = AutoModelForCausalLM.from_pretrained(
             model_name, **load_kwargs
-        )
-        self.model = self.model.cuda()  # type: ignore[call-arg]
-
+        ).cuda()
 
         self.text_tok = self.model.get_text_tokenizer()
         self.vis_tok = self.model.get_visual_tokenizer()
+        self.max_partition = max_partition
+
         print(f"Ovis2 loaded on {self.model.device}.")
 
     # ------------------------------------------------------------------
-    # Low-level call — FIXED output slicing
+    # Low-level call — uses the SAME decode pattern as the working
+    # ovis_clip_classifier.py: generate()[0] + decode full sequence
     # ------------------------------------------------------------------
     def _call(self, image: Image.Image, prompt: str) -> str:
         """Send a single image + prompt to Ovis2 and return the text."""
         query = f"<image>\n{prompt}"
-        _, input_ids, pixel_values = self.model.preprocess_inputs(  
+        _, input_ids, pixel_values = self.model.preprocess_inputs(
             query, [image], max_partition=self.max_partition
         )
-        attn = torch.ne(input_ids, self.text_tok.pad_token_id)
-        input_ids = input_ids.unsqueeze(0).to(self.model.device)
-        attn = attn.unsqueeze(0).to(self.model.device)
+
+        attention_mask = torch.ne(input_ids, self.text_tok.pad_token_id)
+        input_ids = input_ids.unsqueeze(0).to(device=self.model.device)
+        attention_mask = attention_mask.unsqueeze(0).to(
+            device=self.model.device
+        )
 
         if pixel_values is not None:
             pixel_values = pixel_values.to(
-                dtype=self.vis_tok.dtype, device=self.vis_tok.device
+                dtype=self.vis_tok.dtype,
+                device=self.vis_tok.device,
             )
             pixel_values = [pixel_values]
 
-        input_len = input_ids.shape[1]
-
         with torch.inference_mode():
-            out = self.model.generate(
+            output_ids = self.model.generate(
                 input_ids,
                 pixel_values=pixel_values,
-                attention_mask=attn,
+                attention_mask=attention_mask,
                 max_new_tokens=64,
                 do_sample=False,
                 eos_token_id=self.model.generation_config.eos_token_id,
                 pad_token_id=self.text_tok.pad_token_id,
                 use_cache=True,
-            )
+            )[0]  # [0] to get 1-D tensor — exactly like the working code
 
-        # out is (1, full_seq_len) — slice generated tokens only
-        new_tokens = out[0, input_len:]
-        resp: str = self.text_tok.decode(
-            new_tokens, skip_special_tokens=True
+        # Decode full sequence; skip_special_tokens strips prompt tokens
+        resp = self.text_tok.decode(
+            output_ids, skip_special_tokens=True
         ).strip()
 
         if not resp:
             print(
-                f"  [WARN] Empty response. out_shape={out.shape}, "
-                f"input_len={input_len}, "
-                f"new_token_ids={new_tokens.tolist()[:20]}"
+                f"  [WARN] Empty response. "
+                f"output_ids shape: {output_ids.shape}"
             )
+
+        del output_ids, input_ids, attention_mask, pixel_values
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
 
         return resp
 
@@ -252,19 +260,26 @@ class OvisClassifier:
     # Helpers
     # ------------------------------------------------------------------
     def _get_frames(
-        self, video_path: str, start_sec: float, end_sec: float,
+        self,
+        video_path: str,
+        start_sec: float,
+        end_sec: float,
         clip_index: int,
     ) -> list[Image.Image]:
-        return cast(list[Image.Image], sample_frames_from_window(
-            video_path, start_sec, end_sec,
+        return sample_frames_from_window(
+            video_path,
+            start_sec,
+            end_sec,
             num_frames=self.num_frames,
             random_frames=self.random_frames,
             seed=self.seed,
             clip_index=clip_index,
-        ))
+        )
 
     def _make_grid(
-        self, images: list[Image.Image], cols: int = 3,
+        self,
+        images: list[Image.Image],
+        cols: int = 3,
     ) -> Image.Image:
         """Tile a list of PIL images into a single grid image."""
         if not images:
@@ -283,7 +298,7 @@ class OvisClassifier:
         return grid
 
     # ------------------------------------------------------------------
-    # Prompts — with real annotation definitions
+    # Prompts
     # ------------------------------------------------------------------
     def _multiclass_prompt(self) -> str:
         definitions = (
@@ -329,7 +344,7 @@ class OvisClassifier:
         )
 
     # ------------------------------------------------------------------
-    # Parsers — FIXED: no more aggressive fallback keywords
+    # Parsers
     # ------------------------------------------------------------------
     def _parse_multiclass(self, resp: str) -> str | None:
         if not resp:
@@ -344,17 +359,14 @@ class OvisClassifier:
             for cls in self.all_classes:
                 if cls.lower() == after.lower():
                     return cls
-            # Handle underscore/space variants
             for cls in self.all_classes:
                 if cls.replace("_", " ").lower() == after.lower():
                     return cls
 
-        # Check if any class name appears in the response
         for cls in self.active_classes:
             if cls.lower() in resp.lower():
                 return cls
 
-        # Only match no_label if it explicitly appears
         no_variants = [
             self.no_label.lower(),
             self.no_label.replace("_", " ").lower(),
@@ -376,7 +388,6 @@ class OvisClassifier:
             if after.startswith("NO"):
                 return False
 
-        # Strict fallback: only exact YES/NO
         stripped = upper.strip().rstrip(".")
         if stripped == "YES":
             return True
@@ -401,7 +412,6 @@ class OvisClassifier:
             for cls in self.active_classes:
                 if cls.replace("_", " ").lower() == after.lower():
                     return cls
-            # RMM special case
             if self.task == "rmm" and "flap" in after.lower():
                 return "Hands_flapping"
 
@@ -418,7 +428,10 @@ class OvisClassifier:
     # Approach A — multi-class via temporal grid
     # ------------------------------------------------------------------
     def classify_multiclass(
-        self, video_path: str, start_sec: float, end_sec: float,
+        self,
+        video_path: str,
+        start_sec: float,
+        end_sec: float,
         clip_index: int,
     ) -> tuple[str, list[str], float]:
         images = self._get_frames(video_path, start_sec, end_sec, clip_index)
@@ -446,7 +459,10 @@ class OvisClassifier:
     # Approach B — 2-stage via temporal grid
     # ------------------------------------------------------------------
     def classify_2stage(
-        self, video_path: str, start_sec: float, end_sec: float,
+        self,
+        video_path: str,
+        start_sec: float,
+        end_sec: float,
         clip_index: int,
     ) -> tuple[str, float, str, list[str], str]:
         images = self._get_frames(video_path, start_sec, end_sec, clip_index)
@@ -470,7 +486,7 @@ class OvisClassifier:
                 [self.no_label], self.no_label,
             )
 
-        # Stage 2: fine-grained
+        # Stage 2: fine-grained (reuse same grid)
         try:
             raw_fine = self._call(grid, self._finegrained_prompt())
             print(f"  [DEBUG] clip={clip_index} fine_raw={raw_fine!r}")
@@ -489,7 +505,10 @@ class OvisClassifier:
     # Approach C — binary via temporal grid
     # ------------------------------------------------------------------
     def classify_binary(
-        self, video_path: str, start_sec: float, end_sec: float,
+        self,
+        video_path: str,
+        start_sec: float,
+        end_sec: float,
         clip_index: int,
     ) -> tuple[str, float, list[bool]]:
         images = self._get_frames(video_path, start_sec, end_sec, clip_index)
@@ -525,7 +544,7 @@ def _run_approach_a(
 ) -> None:
     cfg = TASK_CONFIG[task]
     processed = get_processed_videos(output_dir, prefix="multiclass_")
-    all_results: list[dict[str, Any]] = []
+    all_results: list[dict] = []
     all_fpreds: list[list[str]] = []
     global_clip_index = 0
 
@@ -580,14 +599,14 @@ def _run_approach_a(
     y_true = [r["true_label"] for r in all_results]
     y_pred = [r["predicted_label"] for r in all_results]
     valid = [
-        (t, p, fp) for t, p, fp in zip(y_true, y_pred, all_fpreds, strict=False)
+        (t, p, fp) for t, p, fp in zip(y_true, y_pred, all_fpreds)
         if p in cfg["all_classes"]
     ]
     if not valid:
         print("[ERROR] No valid predictions.")
         return
 
-    vt, vp, vfp = zip(*valid, strict=False)
+    vt, vp, vfp = zip(*valid)
     prefix_full = f"{len(cfg['all_classes'])}class_"
     compute_multiclass_metrics(
         list(vt), list(vp), cfg["all_classes"], output_dir, prefix=prefix_full
@@ -596,20 +615,22 @@ def _run_approach_a(
     print(f"  Top-2 accuracy: {top2:.4f}")
     add_metadata_to_metrics(
         os.path.join(output_dir, f"{prefix_full}evaluation_metrics.json"),
-        top2_accuracy=top2, model=model_name,
+        top2_accuracy=top2,
+        model=model_name,
         num_frames_per_clip=num_frames,
-        total_clips=len(all_results), valid_clips=len(valid),
+        total_clips=len(all_results),
+        valid_clips=len(valid),
         random_frames=classifier.random_frames,
         seed=classifier.seed if classifier.random_frames else None,
     )
 
     active = cfg["active_classes"]
     loco_valid = [
-        (t, p, fp) for t, p, fp in zip(vt, vp, vfp, strict=False)
+        (t, p, fp) for t, p, fp in zip(vt, vp, vfp)
         if t in active and p in active
     ]
     if loco_valid:
-        lt, lp, lfp = zip(*loco_valid, strict=False)
+        lt, lp, lfp = zip(*loco_valid)
         prefix_fine = f"{len(active)}class_active_only_"
         compute_multiclass_metrics(
             list(lt), list(lp), active, output_dir, prefix=prefix_fine
@@ -631,7 +652,7 @@ def _run_approach_b(
 ) -> None:
     cfg = TASK_CONFIG[task]
     processed = get_processed_videos(output_dir, prefix="2stage_")
-    all_results: list[dict[str, Any]] = []
+    all_results: list[dict] = []
     all_fpreds: list[list[str]] = []
     global_clip_index = 0
 
@@ -706,11 +727,11 @@ def _run_approach_b(
     y_true_f = [r["true_full"] for r in all_results]
     y_pred_f = [r["pred_combined"] for r in all_results]
     valid_f = [
-        (t, p, fp) for t, p, fp in zip(y_true_f, y_pred_f, all_fpreds, strict=False)
+        (t, p, fp) for t, p, fp in zip(y_true_f, y_pred_f, all_fpreds)
         if p in cfg["all_classes"]
     ]
     if valid_f:
-        vt, vp, vfp = zip(*valid_f, strict=False)
+        vt, vp, vfp = zip(*valid_f)
         prefix_comb = f"combined_{len(cfg['all_classes'])}class_"
         compute_multiclass_metrics(
             list(vt), list(vp), cfg["all_classes"], output_dir,
@@ -721,7 +742,8 @@ def _run_approach_b(
             os.path.join(
                 output_dir, f"{prefix_comb}evaluation_metrics.json"
             ),
-            top2_accuracy=top2, model=model_name,
+            top2_accuracy=top2,
+            model=model_name,
             random_frames=classifier.random_frames,
             seed=classifier.seed if classifier.random_frames else None,
         )
@@ -761,7 +783,7 @@ def _run_approach_c(
 ) -> None:
     cfg = TASK_CONFIG[task]
     processed = get_processed_videos(output_dir, prefix="binary_")
-    all_results: list[dict[str, Any]] = []
+    all_results: list[dict] = []
     global_clip_index = 0
 
     for vid_path, lab_path in video_pairs:
@@ -827,7 +849,8 @@ def _run_approach_c(
     )
     add_metadata_to_metrics(
         os.path.join(output_dir, "binary_evaluation_metrics.json"),
-        model=model_name, num_frames_per_clip=num_frames,
+        model=model_name,
+        num_frames_per_clip=num_frames,
         total_clips=len(all_results),
         random_frames=classifier.random_frames,
         seed=classifier.seed if classifier.random_frames else None,
@@ -886,8 +909,10 @@ def main() -> None:
 
     pairs = iterate_videos(args.csv, args.video_col, args.label_col)
     runner = _APPROACH_RUNNERS[args.approach]
-    runner(classifier, pairs, args.task, args.num_frames,
-           args.output_dir, args.model)
+    runner(
+        classifier, pairs, args.task, args.num_frames,
+        args.output_dir, args.model,
+    )
 
     print(f"\n{'=' * 60}")
     print(f"DONE — results in {args.output_dir}")

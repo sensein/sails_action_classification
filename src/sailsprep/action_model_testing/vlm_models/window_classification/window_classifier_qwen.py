@@ -1,5 +1,6 @@
 """Unified 2-sec window classifier using Qwen2.5-VL.
  
+Same three approaches and two tasks as the Ovis2 version.
 Qwen processes each frame individually and majority-votes.
 
 Usage:
@@ -16,11 +17,12 @@ import os
 import traceback
 from collections import Counter
 from pathlib import Path
-from typing import Any, cast
 
 import torch
 from PIL import Image
 from qwen_vl_utils import process_vision_info
+from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+
 from shared_utils import (
     TASK_CONFIG,
     add_metadata_to_metrics,
@@ -34,7 +36,7 @@ from shared_utils import (
     sample_frames_from_window,
     save_predictions_csv,
 )
-from transformers import AutoProcessor, Qwen2_5_VLForConditionalGeneration
+
 
 # ──────────────────────────────────────────────────────────────
 # Task-specific prompt definitions (single-frame versions)
@@ -133,10 +135,10 @@ class QwenClassifier:
     ) -> None:
         self.task = task
         self.cfg = TASK_CONFIG[task]
-        self.active_classes: list[str] = cast(list[str], self.cfg["active_classes"])
-        self.all_classes: list[str] = cast(list[str], self.cfg["all_classes"])
-        self.no_label: str = cast(str, self.cfg["no_action_label"])
-        self.binary_pos: str = cast(str, self.cfg["binary_positive"])
+        self.active_classes = self.cfg["active_classes"]
+        self.all_classes = self.cfg["all_classes"]
+        self.no_label = self.cfg["no_action_label"]
+        self.binary_pos = self.cfg["binary_positive"]
         self.num_frames = num_frames
         self.random_frames = random_frames
         self.seed = seed
@@ -150,7 +152,7 @@ class QwenClassifier:
         self._torch_dtype = (
             torch.bfloat16 if dtype == "bfloat16" else torch.float16
         )
-        self.processor = AutoProcessor.from_pretrained(  # type: ignore[no-untyped-call]
+        self.processor = AutoProcessor.from_pretrained(
             model_name, cache_dir=cache_dir
         )
         self.model = Qwen2_5_VLForConditionalGeneration.from_pretrained(
@@ -189,8 +191,8 @@ class QwenClassifier:
                 **inputs, max_new_tokens=64, do_sample=False
             )
 
-        gen = [o[len(i):] for i, o in zip(inputs["input_ids"], out, strict=False)]
-        resp: str = self.processor.batch_decode(
+        gen = [o[len(i):] for i, o in zip(inputs["input_ids"], out)]
+        resp = self.processor.batch_decode(
             gen, skip_special_tokens=True,
             clean_up_tokenization_spaces=False,
         )[0].strip()
@@ -215,13 +217,13 @@ class QwenClassifier:
         self, video_path: str, start_sec: float, end_sec: float,
         clip_index: int,
     ) -> list[Image.Image]:
-        return cast(list[Image.Image], sample_frames_from_window(
+        return sample_frames_from_window(
             video_path, start_sec, end_sec,
             num_frames=self.num_frames,
             random_frames=self.random_frames,
             seed=self.seed,
             clip_index=clip_index,
-        ))
+        )
 
     # ------------------------------------------------------------------
     # Prompts — single-frame with real annotation definitions
@@ -486,7 +488,7 @@ def _run_approach_a(
 ) -> None:
     cfg = TASK_CONFIG[task]
     processed = get_processed_videos(output_dir, prefix="multiclass_")
-    all_results: list[dict[str, Any]] = []
+    all_results: list[dict] = []
     all_fpreds: list[list[str]] = []
     global_clip_index = 0
 
@@ -541,14 +543,14 @@ def _run_approach_a(
     y_true = [r["true_label"] for r in all_results]
     y_pred = [r["predicted_label"] for r in all_results]
     valid = [
-        (t, p, fp) for t, p, fp in zip(y_true, y_pred, all_fpreds, strict=False)
+        (t, p, fp) for t, p, fp in zip(y_true, y_pred, all_fpreds)
         if p in cfg["all_classes"]
     ]
     if not valid:
         print("[ERROR] No valid predictions.")
         return
 
-    vt, vp, vfp = zip(*valid, strict=False)
+    vt, vp, vfp = zip(*valid)
     prefix_full = f"{len(cfg['all_classes'])}class_"
     compute_multiclass_metrics(
         list(vt), list(vp), cfg["all_classes"], output_dir, prefix=prefix_full
@@ -566,11 +568,11 @@ def _run_approach_a(
 
     active = cfg["active_classes"]
     loco_valid = [
-        (t, p, fp) for t, p, fp in zip(vt, vp, vfp, strict=False)
+        (t, p, fp) for t, p, fp in zip(vt, vp, vfp)
         if t in active and p in active
     ]
     if loco_valid:
-        lt, lp, lfp = zip(*loco_valid, strict=False)
+        lt, lp, lfp = zip(*loco_valid)
         prefix_fine = f"{len(active)}class_active_only_"
         compute_multiclass_metrics(
             list(lt), list(lp), active, output_dir, prefix=prefix_fine
@@ -592,7 +594,7 @@ def _run_approach_b(
 ) -> None:
     cfg = TASK_CONFIG[task]
     processed = get_processed_videos(output_dir, prefix="2stage_")
-    all_results: list[dict[str, Any]] = []
+    all_results: list[dict] = []
     all_fpreds: list[list[str]] = []
     global_clip_index = 0
 
@@ -667,11 +669,11 @@ def _run_approach_b(
     y_true_f = [r["true_full"] for r in all_results]
     y_pred_f = [r["pred_combined"] for r in all_results]
     valid_f = [
-        (t, p, fp) for t, p, fp in zip(y_true_f, y_pred_f, all_fpreds, strict=False)
+        (t, p, fp) for t, p, fp in zip(y_true_f, y_pred_f, all_fpreds)
         if p in cfg["all_classes"]
     ]
     if valid_f:
-        vt, vp, vfp = zip(*valid_f, strict=False)
+        vt, vp, vfp = zip(*valid_f)
         prefix_comb = f"combined_{len(cfg['all_classes'])}class_"
         compute_multiclass_metrics(
             list(vt), list(vp), cfg["all_classes"], output_dir,
@@ -722,7 +724,7 @@ def _run_approach_c(
 ) -> None:
     cfg = TASK_CONFIG[task]
     processed = get_processed_videos(output_dir, prefix="binary_")
-    all_results: list[dict[str, Any]] = []
+    all_results: list[dict] = []
     global_clip_index = 0
 
     for vid_path, lab_path in video_pairs:
