@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Video Annotation Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .marker {
+            position: absolute;
+            top: 0;
+            height: 100%;
+            width: 2px;
+            background-color: red;
+            z-index: 10;
+            pointer-events: none;
+        }
+        .segment {
+            position: absolute;
+            height: 100%;
+            border: 1px solid #333;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            text-shadow: 1px 1px 2px black;
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+        .segment.na-segment {
+            font-style: italic;
+            opacity: 0.8;
+            border: 2px solid #555;
+            background: repeating-linear-gradient(
+                45deg,
+                #999999,
+                #999999 10px,
+                #888888 10px,
+                #888888 20px
+            );
+        }
+        .label-bar-container {
+            position: relative;
+            width: 100%;
+            height: 24px;
+            border: 1px solid #ccc;
+            background: #f5f5f5;
+        }
+       
+        .notification {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 24px;
+            border-radius: 4px;
+            font-weight: 500;
+            z-index: 10000;
+            animation: slideIn 0.3s ease-out;
+        }
+        .notification.success {
+            background-color: #10b981;
+            color: white;
+        }
+        .notification.error {
+            background-color: #ef4444;
+            color: white;
+        }
+        .notification.warning {
+            background-color: #f59e0b;
+            color: white;
+        }
+        .notification.info {
+            background-color: #3b82f6;
+            color: white;
+        }
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 h-screen overflow-hidden">
+    <div class="flex flex-col h-screen p-4 gap-4">
+        <!-- Header -->
+        <div id="videoInfo" class="text-sm font-mono bg-white p-3 rounded shadow">
+            Loading...
+        </div>
+
+        <!-- Video Container -->
+        <div class="flex gap-4">
+            <div class="w-48"></div>
+            <div class="flex-1">
+                <video id="videoPlayer" class="w-full max-h-[45vh] bg-black" preload="auto"></video>
+            </div>
+        </div>
+
+        <!-- Slider -->
+        <div class="flex gap-4 items-center">
+            <div class="w-48"></div>
+            <div class="flex-1 flex flex-col gap-1">
+                <div id="frameLabel" class="text-sm font-mono font-bold">Frame: 0 / 0</div>
+                <input type="range" id="slider" min="0" max="0" value="0" step="1" class="w-full">
+            </div>
+        </div>
+
+        <!-- Controls -->
+        <div class="flex gap-2 flex-wrap items-center">
+            <button id="prevBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">◀ Prev</button>
+            <button id="nextBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">Next ▶</button>
+            <button id="skipBtn" class="px-4 py-2 bg-purple-500 text-white rounded hover:bg-purple-600">⏭ Skip to Unprocessed</button>
+            <button id="loadBtn" class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">Load Video</button>
+            <button id="playBtn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">▶ Play</button>
+            
+            <div class="flex gap-1 bg-white rounded shadow">
+                <button class="speed-btn px-2 py-2 text-sm hover:bg-gray-200" data-speed="0.25">0.25x</button>
+                <button class="speed-btn px-2 py-2 text-sm hover:bg-gray-200" data-speed="0.5">0.5x</button>
+                <button class="speed-btn px-2 py-2 text-sm bg-blue-100 hover:bg-gray-200" data-speed="1">1x</button>
+                <button class="speed-btn px-2 py-2 text-sm hover:bg-gray-200" data-speed="1.5">1.5x</button>
+                <button class="speed-btn px-2 py-2 text-sm hover:bg-gray-200" data-speed="2">2x</button>
+            </div>
+            
+            <button id="breakpointBtn" class="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 min-w-[400px]">+ Breakpoint</button>
+            <button id="saveBtn" class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">💾 Save</button>
+        </div>
+
+        <!-- Categories -->
+        <div id="categories" class="flex-1 overflow-y-auto space-y-2"></div>
+    </div>
+
+    <!-- Label Dialog Modal -->
+    <div id="labelDialog" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg shadow-xl max-w-md w-full">
+            <h3 id="dialogTitle" class="text-lg font-bold mb-4"></h3>
+            <div id="dialogLabels" class="grid grid-cols-3 gap-2 mb-4"></div>
+            <div class="flex gap-2 justify-end">
+                <button id="dialogNA" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">N/A</button>
+                <button id="dialogCancel" class="px-4 py-2 bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let config = {};
+        let videos = [];
+        let currentIndex = 0;
+        let videoLoaded = false;
+        let totalFrames = 0;
+        let currentFrame = 0;
+        let videoFps = 15;
+        let isPlaying = false;
+        let playbackSpeed = 1.0;
+        let selectedCategory = "Locomotion";
+        let categoryData = {};
+        let updateInterval = null;
+
+        // DOM elements
+        const videoPlayer = document.getElementById('videoPlayer');
+        const slider = document.getElementById('slider');
+        const frameLabel = document.getElementById('frameLabel');
+        const videoInfo = document.getElementById('videoInfo');
+        const playBtn = document.getElementById('playBtn');
+        const categoriesContainer = document.getElementById('categories');
+        const labelDialog = document.getElementById('labelDialog');
+
+        // Notification system
+        function showNotification(message, type = 'info', duration = 2000) {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.style.animation = 'slideIn 0.3s ease-out reverse';
+                setTimeout(() => {
+                    document.body.removeChild(notification);
+                }, 300);
+            }, duration);
+        }
+
+        // Loading state management
+        function showLoading(message = 'Loading...') {
+            const loadBtn = document.getElementById('loadBtn');
+            loadBtn.textContent = message;
+            loadBtn.disabled = true;
+            loadBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed';
+        }
+
+        function hideLoading() {
+            const loadBtn = document.getElementById('loadBtn');
+            loadBtn.textContent = 'Load Video';
+            loadBtn.disabled = false;
+            loadBtn.className = 'px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700';
+        }
+
+        // Initialize
+        async function init() {
+            await loadConfig();
+            await loadVideos();
+            setupEventListeners();
+            updateVideoInfo();
+        }
+
+        async function loadConfig() {
+            const response = await fetch('/api/config');
+            config = await response.json();
+            videoFps = config.video_fps;
+            
+            // Initialize category data
+            for (const category of Object.keys(config.all_categories)) {
+                categoryData[category] = { breakpoints: [], segments: [] };
+            }
+            
+            renderCategories();
+        }
+
+        async function loadVideos() {
+            const response = await fetch('/api/videos');
+            const data = await response.json();
+            videos = data.videos;
+        }
+
+        function setupEventListeners() {
+            document.getElementById('prevBtn').onclick = prevVideo;
+            document.getElementById('nextBtn').onclick = nextVideo;
+            document.getElementById('skipBtn').onclick = skipToUnprocessed;
+            document.getElementById('loadBtn').onclick = loadVideo;
+            document.getElementById('playBtn').onclick = togglePlayPause;
+            document.getElementById('breakpointBtn').onclick = addBreakpoint;
+            document.getElementById('saveBtn').onclick = saveAnnotations;
+            
+            slider.oninput = onSliderChange;
+            videoPlayer.ontimeupdate = updateFromVideo;
+            
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                btn.onclick = () => setPlaybackSpeed(parseFloat(btn.dataset.speed));
+            });
+            
+            document.getElementById('dialogCancel').onclick = closeDialog;
+            document.getElementById('dialogNA').onclick = () => setSegmentLabel('N/A');
+
+            // Keyboard shortcuts
+            document.addEventListener('keydown', handleKeyPress);
+        }
+
+        function handleKeyPress(e) {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+            
+            switch(e.key) {
+                case ' ':
+                    e.preventDefault();
+                    togglePlayPause();
+                    break;
+            }
+        }
+
+        function renderCategories() {
+            categoriesContainer.innerHTML = '';
+            
+            for (const [category, labels] of Object.entries(config.action_categories)) {
+                const row = document.createElement('div');
+                row.className = 'flex gap-4 items-center';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.checked = category === selectedCategory;
+                checkbox.onchange = () => selectCategory(category);
+               
+                const label = document.createElement('div');
+                label.className = 'text-xs font-semibold text-blue-600 w-48 text-right pr-2';
+                label.id = `label-${category}`;
+                label.textContent = category;
+              
+                label.onclick = () => selectCategory(category);
+
+                const barContainer = document.createElement('div');
+                barContainer.className = 'flex-1 label-bar-container';
+                
+                const markerContainer = document.createElement('div');
+                markerContainer.className = 'absolute w-full h-full pointer-events-none z-10';
+                markerContainer.id = `markers-${category}`;
+                
+                const segmentContainer = document.createElement('div');
+                segmentContainer.className = 'relative w-full h-full';
+                segmentContainer.id = `segments-${category}`;
+                
+                barContainer.appendChild(markerContainer);
+                barContainer.appendChild(segmentContainer);
+                
+                row.appendChild(checkbox);
+                row.appendChild(label);
+                row.appendChild(barContainer);
+                
+                categoriesContainer.appendChild(row);
+            }
+        }
+
+        function selectCategory(category) {
+            selectedCategory = category;
+            document.querySelectorAll('#categories input[type="checkbox"]').forEach((cb, idx) => {
+                cb.checked = Object.keys(config.action_categories)[idx] === category;
+            });
+        }
+
+        function updateVideoInfo() {
+            if (videos.length === 0) {
+                videoInfo.innerHTML = 'No videos loaded';
+                return;
+            }
+            
+            const video = videos[currentIndex];
+            const statusColor = video.status === 1 ? 'green' : 'red';
+            const statusText = video.status === 1 ? '✓ Processed' : '⚠ Unprocessed';
+            
+            videoInfo.innerHTML = `${currentIndex + 1}/${videos.length} | <span style="color: ${statusColor}; font-weight: bold;">${statusText}</span> | ${video.path}`;
+            
+            updateCategoryLabels();
+        }
+
+        function updateCategoryLabels() {
+            const video = videos[currentIndex];
+            for (const category of Object.keys(config.action_categories)) {
+                const labelEl = document.getElementById(`label-${category}`);
+                if (labelEl) {
+                    const value = video.category_values[category] || '';
+                    labelEl.textContent = value ? `${category} [${value}]` : category;
+                }
+            }
+        }
+
+        function prevVideo() {
+            if (currentIndex > 0) {
+                currentIndex--;
+                updateVideoInfo();
+            }
+        }
+
+        function nextVideo() {
+            if (currentIndex < videos.length - 1) {
+                currentIndex++;
+                updateVideoInfo();
+            }
+        }
+
+        async function skipToUnprocessed() {
+            const response = await fetch('/api/first-unprocessed');
+            const data = await response.json();
+            
+            if (data.found) {
+                currentIndex = data.index;
+                updateVideoInfo();
+            } else {
+                showNotification('All videos are already processed!', 'info', 2000);
+            }
+        }
+
+        async function loadVideo() {
+            if (videos.length === 0) {
+                showNotification('Please load videos first', 'warning', 1000);
+                return;
+            }
+            
+            showLoading('Loading...');
+            
+            try {
+                if (isPlaying) {
+                    videoPlayer.pause();
+                    isPlaying = false;
+                    playBtn.textContent = '▶ Play';
+                    playBtn.className = 'px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700';
+                }
+                
+                const video = videos[currentIndex];
+                
+                // Load annotations first (faster than video)
+                await loadAnnotations();
+                
+                // Then load video
+                await loadVideoFile(video.path);
+                
+                hideLoading();
+            } catch (error) {
+                hideLoading();
+                console.error('Error loading:', error);
+                showNotification('Error loading video: ' + error.message, 'error', 2000);
+            }
+        }
+
+        function loadVideoFile(videoPath) {
+            return new Promise((resolve, reject) => {
+                const oldSrc = videoPlayer.src;
+                videoPlayer.src = `/videos/${videoPath}`;
+                
+                const timeout = setTimeout(() => {
+                    reject(new Error('Video load timeout'));
+                }, 30000);
+                
+                videoPlayer.onloadedmetadata = () => {
+                    clearTimeout(timeout);
+                    totalFrames = Math.floor(videoPlayer.duration * videoFps);
+                    slider.max = totalFrames - 1;
+                    slider.value = 0;
+                    currentFrame = 0;
+                    frameLabel.textContent = `Frame: 0 / ${totalFrames - 1}`;
+                    videoLoaded = true;
+                    
+                    // Render only action categories
+                    requestAnimationFrame(() => {
+                        for (const category of Object.keys(config.action_categories)) {
+                            renderMarkers(category);
+                            renderSegments(category);
+                        }
+                        resolve();
+                    });
+                };
+                
+                videoPlayer.onerror = () => {
+                    clearTimeout(timeout);
+                    reject(new Error('Failed to load video'));
+                };
+            });
+        }
+
+        async function loadAnnotations() {
+            try {
+                const response = await fetch(`/api/annotations/${currentIndex}`);
+                const data = await response.json();
+                
+                console.log('Loaded annotations:', data); // DEBUG
+                
+                // Clear all data first
+                for (const category of Object.keys(config.all_categories)) {
+                    categoryData[category] = { breakpoints: [], segments: [] };
+                }
+                
+                if (data.categories) {
+                    for (const [category, catData] of Object.entries(data.categories)) {
+                        // Normalize segments - ensure all have proper labels
+                        const normalizedSegments = catData.segments.map(seg => ({
+                            start_frame: seg.start_frame,
+                            end_frame: seg.end_frame,
+                            label: seg.label && seg.label.trim() !== '' ? seg.label : 'N/A'
+                        }));
+                        
+                        categoryData[category] = {
+                            breakpoints: catData.breakpoints || [],
+                            segments: normalizedSegments
+                        };
+                        
+                        console.log(`Category ${category}:`, categoryData[category]); // DEBUG
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading annotations:', error);
+            }
+        }
+
+        function onSliderChange(e) {
+            if (!videoLoaded || isPlaying) return;
+            
+            currentFrame = parseInt(e.target.value);
+            frameLabel.textContent = `Frame: ${currentFrame} / ${totalFrames - 1}`;
+            videoPlayer.currentTime = currentFrame / videoFps;
+        }
+
+        function updateFromVideo() {
+            if (isPlaying && videoLoaded) {
+                currentFrame = Math.floor(videoPlayer.currentTime * videoFps);
+                frameLabel.textContent = `Frame: ${currentFrame} / ${totalFrames - 1}`;
+                slider.value = currentFrame;
+                
+                if (currentFrame >= totalFrames - 1) {
+                    videoPlayer.pause();
+                    isPlaying = false;
+                    playBtn.textContent = '▶ Play';
+                    playBtn.className = 'px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700';
+                }
+            }
+        }
+
+        function togglePlayPause() {
+            if (!videoLoaded) {
+                showNotification('Please load a video first', 'warning', 1000);
+                return;
+            }
+            
+            if (isPlaying) {
+                videoPlayer.pause();
+                isPlaying = false;
+                playBtn.textContent = '▶ Play';
+                playBtn.className = 'px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700';
+            } else {
+                videoPlayer.currentTime = currentFrame / videoFps;
+                videoPlayer.playbackRate = playbackSpeed;
+                videoPlayer.play();
+                isPlaying = true;
+                playBtn.textContent = '⏸ Pause';
+                playBtn.className = 'px-4 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700';
+            }
+        }
+
+        function setPlaybackSpeed(speed) {
+            playbackSpeed = speed;
+            if (isPlaying) {
+                videoPlayer.playbackRate = speed;
+            }
+            
+            document.querySelectorAll('.speed-btn').forEach(btn => {
+                if (parseFloat(btn.dataset.speed) === speed) {
+                    btn.className = 'speed-btn px-2 py-2 text-sm bg-blue-100';
+                } else {
+                    btn.className = 'speed-btn px-2 py-2 text-sm hover:bg-gray-200';
+                }
+            });
+            
+            showNotification(`Playback speed: ${speed}x`, 'info', 1000);
+        }
+
+        function addBreakpoint() {
+            if (!videoLoaded) {
+                showNotification('Please load a video first', 'warning', 1000);
+                return;
+            }
+            
+            const category = selectedCategory;
+            const breakpoints = categoryData[category].breakpoints;
+            
+            for (const bp of breakpoints) {
+                if (Math.abs(currentFrame - bp) < 2) {
+                    showNotification(`Breakpoint exists in ${category}`, 'warning', 1000);
+                    return;
+                }
+            }
+            
+            breakpoints.push(currentFrame);
+            breakpoints.sort((a, b) => a - b);
+            
+            renderMarkers(category);
+            splitSegmentAtBreakpoint(currentFrame, category);
+        }
+
+        function splitSegmentAtBreakpoint(breakpointFrame, category) {
+            const segments = categoryData[category].segments;
+            
+            for (let i = 0; i < segments.length; i++) {
+                const seg = segments[i];
+                if (seg.start_frame < breakpointFrame && breakpointFrame < seg.end_frame) {
+                    const newSegments = [
+                        ...segments.slice(0, i),
+                        { start_frame: seg.start_frame, end_frame: breakpointFrame, label: seg.label },
+                        { start_frame: breakpointFrame, end_frame: seg.end_frame, label: seg.label },
+                        ...segments.slice(i + 1)
+                    ];
+                    categoryData[category].segments = newSegments;
+                    renderSegments(category);
+                    return;
+                }
+            }
+        }
+
+        function renderMarkers(category) {
+            const container = document.getElementById(`markers-${category}`);
+            if (!container || totalFrames === 0) return;
+            
+            container.innerHTML = '';
+            
+            for (const frame of categoryData[category].breakpoints) {
+                const percent = (frame / totalFrames) * 100;
+                const marker = document.createElement('div');
+                marker.className = 'marker';
+                marker.style.left = `${percent}%`;
+                container.appendChild(marker);
+            }
+        }
+
+        const SEGMENT_COLORS = {
+            'N/A': '#999999',
+            'Crawling': '#4CAF50',
+            'Cruising': '#FF5722',
+            'Walking': '#2196F3',
+            'Running': '#FFC107',
+            'Vehicle': '#9C27B0',
+            'Standing up': '#00BCD4',
+            'Sitting down': '#FF9800',
+            'Bending': '#E91E63'
+        };
+
+        function getColor(label) {
+            if (SEGMENT_COLORS[label]) return SEGMENT_COLORS[label];
+            
+            let hash = 0;
+            for (let i = 0; i < label.length; i++) {
+                hash = label.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            return `hsl(${Math.abs(hash % 360)}, 70%, 50%)`;
+        }
+
+        function renderSegments(category) {
+            const container = document.getElementById(`segments-${category}`);
+            if (!container || totalFrames === 0) return;
+            
+            const fragment = document.createDocumentFragment();
+            const segments = categoryData[category].segments;
+            
+            console.log(`Rendering ${category} with ${segments.length} segments`); // DEBUG
+            
+            for (const seg of segments) {
+                // Triple check the label
+                let displayLabel = 'N/A';
+                if (seg.label && typeof seg.label === 'string' && seg.label.trim() !== '') {
+                    displayLabel = seg.label.trim();
+                }
+                
+                console.log(`Segment: ${seg.start_frame}-${seg.end_frame}, label: "${displayLabel}"`); // DEBUG
+                
+                const startPercent = (seg.start_frame / totalFrames) * 100;
+                const widthPercent = ((seg.end_frame - seg.start_frame) / totalFrames) * 100;
+                
+                const segDiv = document.createElement('div');
+                segDiv.className = 'segment';
+                
+                // Add special class for N/A segments
+                if (displayLabel === 'N/A') {
+                    segDiv.classList.add('na-segment');
+                }
+                
+                segDiv.style.left = `${startPercent}%`;
+                segDiv.style.width = `${widthPercent}%`;
+                segDiv.style.backgroundColor = getColor(displayLabel);
+                
+                // Force text content
+                segDiv.textContent = displayLabel;
+                segDiv.setAttribute('data-label', displayLabel);
+                
+                segDiv.onclick = () => openLabelDialog(seg.start_frame, seg.end_frame, category);
+                
+                fragment.appendChild(segDiv);
+            }
+            
+            container.innerHTML = '';
+            container.appendChild(fragment);
+        }
+
+        let currentSegment = null;
+
+        function openLabelDialog(startFrame, endFrame, category) {
+            currentSegment = { startFrame, endFrame, category };
+            
+            document.getElementById('dialogTitle').textContent = `${category}: Frame ${startFrame}-${endFrame}`;
+            
+            const labelsContainer = document.getElementById('dialogLabels');
+            labelsContainer.innerHTML = '';
+            
+            for (const label of config.all_categories[category]) {
+                const btn = document.createElement('button');
+                btn.className = 'px-3 py-2 bg-blue-500 text-white text-sm rounded hover:bg-blue-600';
+                btn.textContent = label;
+                btn.onclick = () => setSegmentLabel(label);
+                labelsContainer.appendChild(btn);
+            }
+            
+            labelDialog.classList.remove('hidden');
+        }
+
+        function setSegmentLabel(newLabel) {
+            if (!currentSegment) return;
+            
+            const { startFrame, endFrame, category } = currentSegment;
+            const segments = categoryData[category].segments;
+            
+            for (let i = 0; i < segments.length; i++) {
+                if (segments[i].start_frame === startFrame && segments[i].end_frame === endFrame) {
+                    segments[i].label = newLabel;
+                    break;
+                }
+            }
+            
+            renderSegments(category);
+            closeDialog();
+        }
+
+        function closeDialog() {
+            labelDialog.classList.add('hidden');
+            currentSegment = null;
+        }
+
+        async function saveAnnotations() {
+            if (!videoLoaded) {
+                showNotification('No video loaded', 'warning', 1000);
+                return;
+            }
+            
+            const hasSegments = Object.values(categoryData).some(cat => cat.segments.length > 0);
+            if (!hasSegments) {
+                showNotification('No labels to save', 'warning', 1000);
+                return;
+            }
+            
+            const saveBtn = document.getElementById('saveBtn');
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = 'Saving...';
+            saveBtn.disabled = true;
+            saveBtn.className = 'px-4 py-2 bg-gray-400 text-white rounded cursor-not-allowed';
+            
+            try {
+                const response = await fetch('/api/save', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        video_index: currentIndex,
+                        total_frames: totalFrames,
+                        categories: categoryData
+                    })
+                });
+                
+                const data = await response.json();
+                
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+                saveBtn.className = 'px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700';
+                
+                if (data.success) {
+                    videos[currentIndex].status = 1;
+                    updateVideoInfo();
+                    showNotification(`Saved: ${data.filename}`, 'success', 2000);
+                } else {
+                    showNotification('Save failed', 'error', 2000);
+                }
+            } catch (error) {
+                saveBtn.textContent = originalText;
+                saveBtn.disabled = false;
+                saveBtn.className = 'px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700';
+                showNotification(`Error: ${error.message}`, 'error', 2000);
+            }
+        }
+
+        // Start the app
+        init();
+    </script>
+</body>
+</html>

@@ -1,23 +1,13 @@
-name: Python Tests
-
-on:
-  push:
-    branches:
-    - main
-  pull_request:
-  schedule:
-  - cron: 0 6 1 * *
-
 jobs:
   unit:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest] # For demonstration, other OSes are commented out: macos-latest, windows-latest
+        os: [ubuntu-latest]
         python-version: ['3.11', '3.10']
     steps:
     - uses: actions/checkout@v5
-      with:  # no need for the history
+      with:
         fetch-depth: 1
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v6
@@ -31,7 +21,6 @@ jobs:
     - name: Install poetry
       run: pipx install poetry
       shell: bash
-    # Cache Poetry dependencies to speed up builds
     - name: Cache Poetry virtualenv
       uses: actions/cache@v4
       with:
@@ -43,68 +32,45 @@ jobs:
       run: |
         poetry install --with dev
       shell: bash
-    - name: Run unit tests
+    - name: Run codespell
+      run: poetry run codespell
+      shell: bash
+    - name: Run mypy
+      run: poetry run mypy .
+      shell: bash
+    - name: Run ruff
+      run: poetry run ruff check .
+      shell: bash
+    - name: Run unit tests (isolated per file)
       id: run-tests
-      run: >
-        poetry run pytest -n auto \
-          --junitxml=pytest.xml \
-          --cov-report=term-missing:skip-covered \
-          --cov-report=xml:coverage.xml \
-          --cov=src src/tests \
-          --log-level=DEBUG \
-          --verbose
+      run: |
+        set -uo pipefail
+        FAILED=0
+        mkdir -p test-results
+        i=0
+        while IFS= read -r -d '' file; do
+          i=$((i+1))
+          echo "=== [$i] Running $file ==="
+          poetry run pytest "$file" \
+            -o addopts="" \
+            --junitxml="test-results/result-$i.xml" \
+            --cov=src \
+            --cov-append \
+            --cov-report= \
+            --log-level=DEBUG \
+            --verbose
+          if [ $? -ne 0 ]; then
+            echo "!!! FAILED: $file"
+            FAILED=1
+          fi
+        done < <(find src/tests -name "test_*.py" -print0)
+
+        poetry run coverage report -m
+        poetry run coverage xml -o coverage.xml
+
+        exit $FAILED
       shell: bash
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-
-  ruff:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest] # For demonstration, other OSes are commented out: macos-latest, windows-latest
-        python-version: ['3.11', '3.10']
-    steps:
-    - uses: actions/checkout@v5
-      with:  # no need for the history
-        fetch-depth: 1
-    - uses: chartboost/ruff-action@v1
-
-  mypy:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest] # For demonstration, other OSes are commented out: macos-latest, windows-latest
-        python-version: ['3.11', '3.10']
-    steps:
-    - uses: actions/checkout@v5
-      with:  # no need for the history
-        fetch-depth: 1
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v6
-      with:
-        python-version: ${{ matrix.python-version }}
-    - name: Install pipx and ensure it's up to date
-      run: |
-        python -m pip install --upgrade pipx
-        pipx ensurepath
-      shell: bash
-    - name: Install poetry
-      run: pipx install poetry
-      shell: bash
-    # Cache Poetry dependencies to speed up builds
-    - name: Cache Poetry virtualenv
-      uses: actions/cache@v4
-      with:
-        path: ~/.cache/pypoetry
-        key: ${{ runner.os }}-poetry-${{ hashFiles('**/poetry.lock') }}
-        restore-keys: |
-          ${{ runner.os }}-poetry-
-    - name: Install dependencies with Poetry
-      run: |
-        poetry install --with dev
-      shell: bash
-    - name: Run mypy
-      run: poetry run mypy .
-      shell: bash
