@@ -101,7 +101,7 @@ def load_pose_from_json(json_path: str) -> np.ndarray:
         for kp_name, kp_val in frame_kps.items():
             # kp_name is like "kp_001", "kp_023", etc.
             try:
-                idx = int(kp_name.split("_")[1])  # "kp_001" -> 1
+                idx = int(kp_name.split("_")[1]) - 1  # "kp_001" -> 0
             except (IndexError, ValueError):
                 continue
 
