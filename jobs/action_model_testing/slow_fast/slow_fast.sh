@@ -5,8 +5,8 @@
 #SBATCH --mem=80G
 #SBATCH --time=48:00:00
 #SBATCH --gres=gpu:h100:1
-#SBATCH --output=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/slowfast/h5_file/clip/logs/slowfast_%j_%x.out
-#SBATCH --error=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/slowfast/h5_file/clip/logs/slowfast_%j_%x.err
+#SBATCH --output=/src/sailsprep/action_model_testing/slow_fast/logs/slowfast_%j_%x.out
+#SBATCH --error=/src/sailsprep/action_model_testing/slow_fast/logs/slowfast_%j_%x.err
 
 # ============================================================
 # Usage:
@@ -22,7 +22,7 @@ if [[ "$LABEL" != "loco" && "$LABEL" != "rmm" ]]; then
     exit 1
 fi
 
-SCRIPT_DIR=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/slowfast/h5_file/clip
+SCRIPT_DIR=/src/sailsprep/action_model_testing/slow_fast
 LOG_DIR=${SCRIPT_DIR}/logs
 
 mkdir -p ${LOG_DIR}
@@ -45,7 +45,7 @@ echo "=========================================="
 
 cd ${SCRIPT_DIR}
 
-python clips_combined.py --label ${LABEL}
+python slow_fast.py --label ${LABEL}
 
 echo "=========================================="
 echo "End time: $(date)"

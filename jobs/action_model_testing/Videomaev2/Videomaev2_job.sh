@@ -4,8 +4,8 @@
 #SBATCH --mem=200G
 #SBATCH --time=24:00:00
 #SBATCH --gres=gpu:h100:1
-#SBATCH --output=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/Videomaev2/clip/logs/videomae_%j_%x.out
-#SBATCH --error=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/Videomaev2/clip/logs/videomae_%j_%x.err
+#SBATCH --output=/src/sailsprep/action_model_testing/Videomaev2/logs/videomae_%j_%x.out
+#SBATCH --error=/src/sailsprep/action_model_testing/Videomaev2/logs/videomae_%j_%x.err
 
 # ============================================================
 # Usage (called by submit_all.sh, not directly):
@@ -32,7 +32,7 @@ case "$MODE" in
     twostage)  SCRIPT="videomae2_twostage_sliding.py" ;;
 esac
 
-SCRIPT_DIR=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/Videomaev2/clip
+SCRIPT_DIR=/src/sailsprep/action_model_testing/Videomaev2
 LOG_DIR=${SCRIPT_DIR}/logs
 mkdir -p ${LOG_DIR}
 

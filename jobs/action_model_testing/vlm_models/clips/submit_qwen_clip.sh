@@ -6,8 +6,8 @@
 #SBATCH --mem=100GB
 #SBATCH --time=10:00:00
 #SBATCH --array=0-5
-#SBATCH --output=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vlm_models/clips/logs/qwen_%x_%A_%a.out
-#SBATCH --error=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vlm_models/clips/logs/qwen_%x_%A_%a.err
+#SBATCH --output=/src/sailsprep/action_model_testing/vlm_models/clips/logs/qwen_%x_%A_%a.out
+#SBATCH --error=/src/sailsprep/action_model_testing/vlm_models/clips/logs/qwen_%x_%A_%a.err
 
 # ============================================================
 # Usage (deterministic ):
@@ -45,7 +45,7 @@ fi
 # ---------------------------------------------------------------------------
 # 2. Per-task paths
 # ---------------------------------------------------------------------------
-SCRIPT_DIR="/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vlm_models/clips"
+SCRIPT_DIR="/src/sailsprep/action_model_testing/vlm_models/clips"
 
 if [[ "${TASK}" == "loco" ]]; then
     CSV_FILE="/home/aparnabg/orcd/scratch/all_project_files/splits_loco_cut-clips_v2.csv"

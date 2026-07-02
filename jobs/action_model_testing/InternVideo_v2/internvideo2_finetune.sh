@@ -74,7 +74,7 @@ cd "${SCRIPT_DIR}"
 torchrun \
     --standalone \
     --nproc_per_node="${NUM_GPUS}" \
-    internvideo2_finetune.py \
+    InternVideo.py \
     --task "${LABEL}" \
     --seed "${SEED}" \
     --gpus "${NUM_GPUS}"

@@ -56,11 +56,11 @@ echo "Task ${SLURM_ARRAY_TASK_ID}/${SLURM_ARRAY_TASK_COUNT}"
 mkdir -p "$TEMP_DIR"
 
 # --- Run ---
-cd /home/aparnabg/sam2/entitysam || exit 1
-echo "Running batch_esam.py..."
+cd /src/sailsprep/tracking_pose_model_testing || exit 1
+echo "Running entitysam.py..."
 echo "------------------------------------------"
 
-python /home/aparnabg/sam2/batch_esam.py \
+python /src/sailsprep/tracking_pose_model_testing/entitysam.py \
     --csv_file "$CSV_FILE" \
     --ckpt_dir "$CKPT_DIR" \
     --model_cfg "$MODEL_CFG" \

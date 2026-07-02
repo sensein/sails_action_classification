@@ -1,16 +1,16 @@
 #!/bin/bash
-#SBATCH --job-name=Swin_Binary
+#SBATCH --job-name=Video_Swin
 #SBATCH --partition=ou_bcs_normal
 #SBATCH --cpus-per-task=8
-#SBATCH --mem=100G
+#SBATCH --mem=300G
 #SBATCH --time=24:00:00
 #SBATCH --gres=gpu:h100:1
-#SBATCH --output=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/Video_Swin-B/full_video_multi/logs/Swin_Binary_%A_%a_%x.out
-#SBATCH --error=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/Video_Swin-B/full_video_multi/logs/Swin_Binary_%A_%a_%x.err
+#SBATCH --output=/src/sailsprep/action_model_testing/Video_Swin/clip_based/logs/Video_Swin_%A_%a_%x.out
+#SBATCH --error=/src/sailsprep/action_model_testing/Video_Swin/clip_based/logs/Video_Swin_%A_%a_%x.err
 #SBATCH --array=0-2
 
 # ==========================================================================
-# Multi-seed binary (N/A vs non-N/A) sliding-window classifier.
+# Multi-seed fine-tuning for Video Swin-B on a single task.
 #
 # Array index mapping (3 seeds):
 #   0 -> seed 42
@@ -18,11 +18,12 @@
 #   2 -> seed 456
 #
 # Usage:
-#   sbatch job1.sh loco    # 3 jobs: loco x seeds 42, 123, 456
-#   sbatch job1.sh rmm     # 3 jobs: rmm  x seeds 42, 123, 456
+#   sbatch job_clip.sh loco      # 3 jobs: loco x seeds 42, 123, 456
+#   sbatch job_clip.sh rmm       # 3 jobs: rmm  x seeds 42, 123, 456
+#
 # ==========================================================================
 
-LABEL=${1:?"ERROR: pass task as first arg, e.g.: sbatch job1.sh loco"}
+LABEL=${1:?"ERROR: pass task as first arg, e.g.: sbatch job_clip.sh loco"}
 if [[ "${LABEL}" != "loco" && "${LABEL}" != "rmm" ]]; then
     echo "ERROR: argument must be 'loco' or 'rmm', got: ${LABEL}"
     exit 1
@@ -32,7 +33,7 @@ fi
 SEEDS=(42 123 456)
 SEED=${SEEDS[$SLURM_ARRAY_TASK_ID]}
 
-SCRIPT_DIR=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/Video_Swin-B/full_video_multi
+SCRIPT_DIR=/src/sailsprep/action_model_testing/Video_Swin/clip_based
 LOG_DIR="${SCRIPT_DIR}/logs"
 mkdir -p "${LOG_DIR}"
 
@@ -48,7 +49,7 @@ echo "=========================================="
 echo "Job ID       : ${SLURM_JOB_ID}"
 echo "Array task   : ${SLURM_ARRAY_TASK_ID}"
 echo "Node         : ${SLURMD_NODENAME}"
-echo "Task         : ${LABEL} (BINARY: N/A vs non-N/A)"
+echo "Task         : ${LABEL}"
 echo "Seed         : ${SEED}"
 echo "GPU          : $(nvidia-smi --query-gpu=name --format=csv,noheader)"
 echo "GPU Memory   : $(nvidia-smi --query-gpu=memory.total --format=csv,noheader)"
@@ -57,7 +58,7 @@ echo "=========================================="
 
 cd "${SCRIPT_DIR}"
 
-python video_swin_binary_sliding.py --task "${LABEL}" --seed "${SEED}"
+python video_swin_finetune.py --task "${LABEL}" --seed "${SEED}"
 
 echo "=========================================="
 echo "End time: $(date)"

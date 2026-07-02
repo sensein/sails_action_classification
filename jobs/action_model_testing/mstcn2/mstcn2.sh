@@ -5,8 +5,8 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=64G
 #SBATCH --time=24:00:00
-#SBATCH --output=/src/sailsprep/action_model_testing/mstcn2logs/mstcn2_%j.log
-#SBATCH --error=/src/sailsprep/action_model_testing/mstcn2logs/mstcn2_%j.err
+#SBATCH --output=/src/sailsprep/action_model_testing/mstcn2/logs/mstcn2_%j.log
+#SBATCH --error=/src/sailsprep/action_model_testing/mstcn2/logs/mstcn2_%j.err
 
 # ============================================================
 # USAGE:
