@@ -194,7 +194,7 @@ The SAILS videos and derived data are not included in this repository. To
 reproduce the full results, prepare the following inputs:
 
 1. Raw or standardized SAILS videos (this repo used videos from bids preprocessed folder).
-2. A split CSV with train/validation/test assignments. 
+2. A split CSV with train/validation/test assignments.
 3. Per-video or per-session annotation CSVs with frame-level locomotion and RMM
    labels.
 4. Detection/pose model checkpoints for the selected pose pipeline.
@@ -361,17 +361,17 @@ The PySKL workflow expects a separate PySKL checkout/environment. The provided
 SLURM scripts show the original setup:
 
 ```bash
-sbatch jobs/train_pyskl_sw.sh posec3d locomotion
-sbatch jobs/train_pyskl_sw.sh ctrgcn_b locomotion
-sbatch jobs/train_pyskl_sw.sh stgcnpp_b locomotion
-sbatch jobs/train_pyskl_sw.sh posec3d rmm
-sbatch jobs/train_pyskl_sw.sh stgcnpp_jm rmm
+sbatch jobs/fusion_model/pyskl/train_pyskl_sw.sh posec3d locomotion
+sbatch jobs/fusion_model/pyskl/train_pyskl_sw.sh ctrgcn_b locomotion
+sbatch jobs/fusion_model/pyskl/train_pyskl_sw.sh stgcnpp_b locomotion
+sbatch jobs/fusion_model/pyskl/train_pyskl_sw.sh posec3d rmm
+sbatch jobs/fusion_model/pyskl/train_pyskl_sw.sh stgcnpp_jm rmm
 ```
 
 Evaluate trained PySKL models:
 
 ```bash
-bash jobs/test_pyskl_sw.sh
+bash jobs/fusion_model/pyskl/test_pyskl_sw.sh
 ```
 
 ### 7. Train V-JEPA Window Classifier
@@ -430,7 +430,7 @@ python -m sailsprep.analysis.rmm_combined.rmm_combined
 On SLURM, see:
 
 ```bash
-sbatch jobs/analysis_job.sh
+sbatch jobs/analysis/analysis_job.sh
 ```
 
 ## SLURM Jobs
@@ -450,16 +450,17 @@ Common edits:
 
 Representative job scripts:
 
-- `jobs/action_model_testing/Video_Swin_full_video_multi_job2.sh`
-- `jobs/action_model_testing/Video_Swin_full_video_multi_job_twostage.sh`
-- `jobs/action_model_testing/Videomaev2_submit_all.sh`
-- `jobs/action_model_testing/mstcn2.sh`
-- `jobs/action_model_testing/slow_fast.sh`
-- `jobs/action_model_testing/frame_level_qwen2_5.sh`
-- `jobs/action_model_testing/frame_level_ovis.sh`
-- `jobs/train_pyskl_sw.sh`
-- `jobs/test_pyskl_sw.sh`
-- `jobs/analysis_job.sh`
+- `jobs/action_model_testing/Video_Swin/sliding_window/Video_Swin_full_video_multi_job.sh`
+- `jobs/action_model_testing/Video_Swin/sliding_window/Video_Swin_full_video_multi_job_twostage.sh`
+- `jobs/action_model_testing/Video_Swin/sliding_window/full_video_window_job_video_swin.sh`
+- `jobs/action_model_testing/Videomaev2/Videomaev2_submit_all.sh`
+- `jobs/action_model_testing/mstcn2/mstcn2.sh`
+- `jobs/action_model_testing/slow_fast/slow_fast.sh`
+- `jobs/action_model_testing/vlm_models/clips/submit_qwen_clip.sh`
+- `jobs/action_model_testing/vlm_models/clips/submit_ovis_clip.sh`
+- `jobs/fusion_model/pyskl/train_pyskl_sw.sh`
+- `jobs/fusion_model/pyskl/test_pyskl_sw.sh`
+- `jobs/analysis/analysis_job.sh`
 
 ## Outputs
 
@@ -530,4 +531,3 @@ poetry run pre-commit install
 - For exact reproduction, run multi-seed experiments with seeds `42`, `123`,
   and `456`, then aggregate metrics using the relevant evaluation or fusion
   scripts.
-
