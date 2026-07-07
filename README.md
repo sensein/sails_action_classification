@@ -520,7 +520,6 @@ poetry run pre-commit install
 
 ## Known Reproducibility Notes
 
-- The raw SAILS dataset is not distributed with this repository.
 - Many scripts currently use absolute paths from the original ORCD/HPC
   environment.
 - Some action-model dependencies require CUDA-compatible versions of PyTorch,
