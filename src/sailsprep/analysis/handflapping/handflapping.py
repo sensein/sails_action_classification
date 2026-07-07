@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""
-flapping analysis
-"""
-# ═══════════════════════════════════════════════════════════════════
-# IMPORTS
-# ═══════════════════════════════════════════════════════════════════
+
 import json
 import os
 import re
@@ -71,8 +66,9 @@ except Exception:
 MAIN_CSV = "/home/aparnabg/orcd/scratch/all_project_files/latest_split_csv.csv"
 RMM_CSV  = "/home/aparnabg/orcd/scratch/all_project_files/phase_2_analyais/clip_to_csv_matching.csv"
 BASE_DIR = (
-    "/orcd/data/satra/002/projects/SAILS/action_outputs_features/analysis/handflapping"
+    "/orcd/data/satra/002/projects/SAILS/action_outputs_features/analysis/handflapping/v3"
 )
+
 
 
 FPS      = 15.0
@@ -137,18 +133,18 @@ VARIANTS = [
     {
         'name':            'hands_and_onehand',
         'flapping_labels': {'hands flapping', 'one hand flap'},
-        'output_dir':      os.path.join(BASE_DIR, 'v2_hands_and_onehand'),
+        'output_dir':      os.path.join(BASE_DIR, 'v3_hands_and_onehand'),
     },
     {
         'name':            'full_analysis',
         'flapping_labels': {'hands flapping', 'arm flapping', 'arms flapping',
                             'one hand flap', 'one arm flap'},
-        'output_dir':      os.path.join(BASE_DIR, 'v2_full_analysis'),
+        'output_dir':      os.path.join(BASE_DIR, 'v3_full_analysis'),
     },
     {
         'name':            'hands_only',
         'flapping_labels': {'hands flapping'},
-        'output_dir':      os.path.join(BASE_DIR, 'v2_hands_only'),
+        'output_dir':      os.path.join(BASE_DIR, 'v3_hands_only'),
     },
 ]
 
@@ -1431,7 +1427,7 @@ def run_figures(feat_df, child_df, stream_clip_dfs, stream_child_dfs,
             if grp not in pr.columns: continue
             ax = axes[ci]
             cols_sp = [ASD_COLOR if v > 0 else NONASD_COLOR for v in pr[grp]]
-            ax.barh(pr.index.map(SHORT_LABELS).fillna(pr.index), pr[grp],
+            ax.barh([_sl(f) for f in pr.index], pr[grp],
                     color=cols_sp, edgecolor='white', height=0.65, alpha=0.85)
             # mark significant
             for j, feat in enumerate(pr.index):
