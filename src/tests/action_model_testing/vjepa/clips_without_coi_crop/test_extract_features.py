@@ -7,6 +7,7 @@ Run: poetry run pytest
 
 from __future__ import annotations
 
+import importlib.machinery
 import os
 import sys
 import types
@@ -17,10 +18,14 @@ import torch
 # The module hard-imports `decord` at module load time. decord ships only as
 # manylinux wheels, so stub it out here for platforms/CI runners where it
 # isn't installed; the tests below never touch VideoReader/cpu directly.
+# A bare types.ModuleType leaves __spec__ as None, which later crashes
+# importlib.util.find_spec("decord") (e.g. transformers' optional-dep probing)
+# for any other test collected in this same pytest process, so give it a spec.
 if "decord" not in sys.modules:
     _decord_stub = types.ModuleType("decord")
     _decord_stub.VideoReader = object
     _decord_stub.cpu = lambda *args, **kwargs: None
+    _decord_stub.__spec__ = importlib.machinery.ModuleSpec("decord", loader=None)
     sys.modules["decord"] = _decord_stub
 
 # The module also calls os.makedirs(OUTPUT_BASE, ...) at import time against
