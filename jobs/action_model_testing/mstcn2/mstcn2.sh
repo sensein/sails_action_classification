@@ -52,7 +52,8 @@ module load miniforge/24.3.0-0
 module load cudnn
 module load cuda
 conda deactivate
-source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
+CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 conda activate mlasformer
 export PYTHONNOUSERSITE=1
 export PYTHONWARNINGS="ignore::UserWarning,ignore::FutureWarning"

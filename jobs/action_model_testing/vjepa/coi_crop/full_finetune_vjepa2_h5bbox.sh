@@ -5,20 +5,22 @@
 #SBATCH --mem=400G
 #SBATCH --gres=gpu:h100:1
 #SBATCH --time=24:00:00
-#SBATCH --output=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/h5_file_vjepa/logs/vjepa_ft_%j.out
-#SBATCH --error=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/h5_file_vjepa/logs/vjepa_ft_%j.err
+#SBATCH --output=${CODE_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/h5_file_vjepa}/logs/vjepa_ft_%j.out
+#SBATCH --error=${CODE_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/h5_file_vjepa}/logs/vjepa_ft_%j.err
 
-mkdir -p /home/aparnabg/orcd/scratch/all_project_files/action_sota_models/h5_file_vjepa/logs
+CODE_DIR="${CODE_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/h5_file_vjepa}"
+mkdir -p "${CODE_DIR}/logs"
 
 module load miniforge/24.3.0-0
 module load cudnn
 module load cuda
 conda deactivate
-source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
+CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 conda activate vjepa2-312
 
 echo "Job $SLURM_JOB_ID  $(date)"
-cd /home/aparnabg/orcd/scratch/all_project_files/action_sota_models/h5_file_vjepa/
+cd "${CODE_DIR}"
 
 python finetune_vjepa2_h5bbox.py --full_finetune
 

@@ -48,10 +48,10 @@ fi
 SCRIPT_DIR="/src/sailsprep/action_model_testing/vlm_models/clips"
 
 if [[ "${TASK}" == "loco" ]]; then
-    CSV_FILE="/home/aparnabg/orcd/scratch/all_project_files/splits_loco_cut-clips_v2.csv"
+    CSV_FILE="${CSV_FILE:-/home/aparnabg/orcd/scratch/all_project_files/splits_loco_cut-clips_v2.csv}"
     BASE_OUTPUT="/orcd/data/satra/002/projects/SAILS/vjepa_features/action_model_outputs/vlm_models/ovis/clips_loco"
 else
-    CSV_FILE="/home/aparnabg/orcd/scratch/all_project_files/splits_rmm_cut-clips_v1.csv"
+    CSV_FILE="${CSV_FILE:-/home/aparnabg/orcd/scratch/all_project_files/splits_rmm_cut-clips_v1.csv}"
     BASE_OUTPUT="/orcd/data/satra/002/projects/SAILS/vjepa_features/action_model_outputs/vlm_models/ovis/clips_rmm"
 fi
 
@@ -71,7 +71,8 @@ module load cuda
 module load cudnn
 
 conda deactivate
-source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
+CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 conda activate ovis
 
 export HF_HOME="/orcd/data/satra/002/huggingface"

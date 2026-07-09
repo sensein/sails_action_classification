@@ -1,6 +1,6 @@
 #!/bin/bash
 # test_all_new_sw.sh
-WORKSPACE=/home/aparnabg/orcd/pool/pyskl_workspace
+WORKSPACE="${WORKSPACE:-/home/aparnabg/orcd/pool/pyskl_workspace}"
 PYSKL_ROOT=${WORKSPACE}/pyskl
 ENV_PATH=${WORKSPACE}/envs/pyskl
 

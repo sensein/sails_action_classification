@@ -29,7 +29,7 @@ from torch.utils.data import DataLoader, Dataset
 SPLITS_CSV    = "/home/aparnabg/orcd/scratch/latest_split_csv_new.csv"
 OUTPUT_BASE   = "/orcd/data/satra/002/projects/SAILS/vjepa_features/models_output_seeds/vjepa/window/"
 
-EMBED_DIM     = 1408       # ViT-H feature dimension
+EMBED_DIM     = 1024       # ViT-H feature dimension
 WINDOW_FRAMES = 30         # 2s at 15fps
 STRIDE_FRAMES = 15         # 1s at 15fps
 BATCH_SIZE    = 64

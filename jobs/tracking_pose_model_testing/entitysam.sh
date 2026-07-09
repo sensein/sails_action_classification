@@ -21,14 +21,16 @@ echo "=========================================="
 
 # --- Load and Initialize Conda ---
 module load miniforge/23.11.0-0
-source /orcd/software/community/001/rocky8/miniforge/23.11.0-0/etc/profile.d/conda.sh
+CONDA_SH="${CONDA_SH:-/orcd/software/community/001/rocky8/miniforge/23.11.0-0/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 eval "$(conda shell.bash hook)"
 conda activate batch_env
 
 # Ensure environment site-packages are visible safely
 export PYTHONPATH="$CONDA_PREFIX/lib/python3.10/site-packages:${PYTHONPATH:-}"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
-export PYTHONPATH="/home/aparnabg/sam2/entitysam:/home/aparnabg/sam2:${PYTHONPATH:-}"
+SAM2_DIR="${SAM2_DIR:-/home/aparnabg/sam2}"
+export PYTHONPATH="${SAM2_DIR}/entitysam:${SAM2_DIR}:${PYTHONPATH:-}"
 
 
 # --- Environment Diagnostics (Optional, safe checks) ---
@@ -45,12 +47,12 @@ python -c "import detectron2; print('detectron2 OK')"
 nvidia-smi || echo "nvidia-smi not found"
 
 # --- Configurations ---
-CSV_FILE="/home/aparnabg/orcd/scratch/csvfiles/mutichild_in_out_paths.csv"
-CKPT_DIR="/home/aparnabg/sam2/checkpoints/vit-s/"
+CSV_FILE="${CSV_FILE:-/home/aparnabg/orcd/scratch/csvfiles/mutichild_in_out_paths.csv}"
+CKPT_DIR="${CKPT_DIR:-${SAM2_DIR}/checkpoints/vit-s/}"
 MODEL_CFG="configs/sam2.1_hiera_s.yaml"
 MASK_DECODER_DEPTH=5
 TARGET_FPS=15
-TEMP_DIR="/home/aparnabg/orcd/scratch/entitysam_temp"
+TEMP_DIR="${TEMP_DIR:-/home/aparnabg/orcd/scratch/entitysam_temp}"
 
 echo "Task ${SLURM_ARRAY_TASK_ID}/${SLURM_ARRAY_TASK_COUNT}"
 mkdir -p "$TEMP_DIR"

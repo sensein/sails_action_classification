@@ -56,7 +56,7 @@ fi
 # 2. Paths
 # ---------------------------------------------------------------------------
 SCRIPT_DIR="/src/sailsprep/action_model_testing/vlm_models/window_classification"
-CSV_FILE="/home/aparnabg/orcd/scratch/latest_split_csv_new.csv"
+CSV_FILE="${CSV_FILE:-/home/aparnabg/orcd/scratch/latest_split_csv_new.csv}"
 export HF_HOME="/orcd/data/satra/002/huggingface"
 export TRANSFORMERS_CACHE="/orcd/data/satra/002/huggingface"
 export HF_DATASETS_CACHE="/orcd/data/satra/002/huggingface"
@@ -89,10 +89,12 @@ module load cudnn
 conda deactivate 2>/dev/null || true
 
 if [[ "${MODEL_KEY}" == "ovis" ]]; then
-    source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
+    CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh}"
+    source "${CONDA_SH}"
     conda activate ovis
 else
-    source /home/aparnabg/orcd/pool/miniconda3/etc/profile.d/conda.sh
+    CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/pool/miniconda3/etc/profile.d/conda.sh}"
+    source "${CONDA_SH}"
     conda activate ovis_qwen_env
 fi
 

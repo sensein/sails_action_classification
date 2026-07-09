@@ -10,14 +10,15 @@
 #SBATCH --error=/src/sailsprep/action_model_testing/feature_extraction/logs/vjepa_%A_%a.err
 
 mkdir -p /src/sailsprep/action_model_testing/feature_extraction/logs
-export HF_HOME=/home/aparnabg/.cache/huggingface
+export HF_HOME="${HF_HOME:-/home/aparnabg/.cache/huggingface}"
 export PYTHONUNBUFFERED=1
 
 module load miniforge/24.3.0-0
 module load cudnn
 module load cuda
 conda deactivate
-source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
+CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 conda activate vjepa2-312
 
 echo "=========================================="
@@ -25,9 +26,11 @@ echo "Job ID: $SLURM_JOB_ID  Array task: $SLURM_ARRAY_TASK_ID"
 echo "Node: $(hostname)  Start: $(date)"
 echo "=========================================="
 
+SPLITS_CSV="${SPLITS_CSV:-/home/aparnabg/orcd/scratch/all_project_files/latest_split_csv.csv}"
+
 cd /src/sailsprep/action_model_testing/feature_extraction
 python -u vjepa2_extractor.py \
-    --splits_csv /home/aparnabg/orcd/scratch/all_project_files/latest_split_csv.csv \
+    --splits_csv "${SPLITS_CSV}" \
     --output_dir /orcd/data/satra/002/projects/SAILS/action_outputs_features/feature_dir/vjepa_features_h5/full_video_introp_h5_vjepa_features \
     --target_fps 15 \
     --crop_size 256 \

@@ -1,5 +1,5 @@
 #!/bin/bash
-WORKSPACE=/home/aparnabg/orcd/pool/pyskl_workspace
+WORKSPACE="${WORKSPACE:-/home/aparnabg/orcd/pool/pyskl_workspace}"
 PYSKL_ROOT=${WORKSPACE}/pyskl
 LOG_DIR=${WORKSPACE}/train_logs
 ENV_PATH=${WORKSPACE}/envs/pyskl

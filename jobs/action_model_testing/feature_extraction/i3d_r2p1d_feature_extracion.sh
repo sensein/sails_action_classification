@@ -26,11 +26,12 @@ module load miniforge/24.3.0-0
 module load cudnn
 module load cuda
 conda deactivate
-source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
+CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 conda activate mlasformer
 
 BASE="/src/sailsprep/action_model_testing/feature_extraction"
-SPLITS_CSV="/home/aparnabg/orcd/scratch/all_project_files/latest_split_csv.csv"
+SPLITS_CSV="${SPLITS_CSV:-/home/aparnabg/orcd/scratch/all_project_files/latest_split_csv.csv}"
 OUT_ROOT="/orcd/data/satra/002/projects/SAILS/action_outputs_features/feature_dir/features_full_video_interpolated_h5_i3d_r2"
 SCRIPT="${BASE}/i3d_extractor.py"
 

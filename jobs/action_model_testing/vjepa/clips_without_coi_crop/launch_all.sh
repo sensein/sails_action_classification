@@ -12,7 +12,7 @@
 LOG_DIR="/orcd/data/satra/002/projects/SAILS/vjepa_features/models_output_seeds/clips/vjepa/logs"
 mkdir -p $LOG_DIR
 
-CODE_DIR="/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjeap_full_video"
+CODE_DIR="${CODE_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjeap_full_video}"
 
 # --- Step 1: Submit feature extraction ---
 EXTRACT_JOB=$(sbatch --parsable ${CODE_DIR}/submit_extract.sh)

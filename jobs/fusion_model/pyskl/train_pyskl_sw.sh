@@ -7,7 +7,7 @@
 #SBATCH --array=0-2
 
 
-WORKSPACE=/home/aparnabg/orcd/pool/pyskl_workspace
+WORKSPACE="${WORKSPACE:-/home/aparnabg/orcd/pool/pyskl_workspace}"
 PYSKL_ROOT=${WORKSPACE}/pyskl
 ENV_PATH=${WORKSPACE}/envs/pyskl
 mkdir -p ${WORKSPACE}/train_logs
@@ -23,8 +23,9 @@ module load miniforge
 module load cuda/12.9.1
 export PATH=/usr/bin:/bin:${ENV_PATH}/bin:$PATH
 export CONDA_PREFIX=${ENV_PATH}
-conda deactivate 
-source /home/aparnabg/orcd/pool/miniconda3/etc/profile.d/conda.sh
+conda deactivate
+CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/pool/miniconda3/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 conda activate ${ENV_PATH}
 export LD_PRELOAD=${ENV_PATH}/lib/libstdc++.so.6
 

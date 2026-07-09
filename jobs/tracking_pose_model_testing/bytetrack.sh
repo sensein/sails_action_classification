@@ -5,17 +5,19 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=80G
 #SBATCH --time=6:00:00
-#SBATCH --output=/home/aparnabg/orcd/pool/files_from_scratch/pose_models_test/logs/bytetrack_%j.out
-#SBATCH --error=/home/aparnabg/orcd/pool/files_from_scratch/pose_models_test/logs/bytetrack_%j.err
+#SBATCH --output=${POSE_LOG_DIR:-/home/aparnabg/orcd/pool/files_from_scratch/pose_models_test/logs}/bytetrack_%j.out
+#SBATCH --error=${POSE_LOG_DIR:-/home/aparnabg/orcd/pool/files_from_scratch/pose_models_test/logs}/bytetrack_%j.err
 
+POSE_LOG_DIR="${POSE_LOG_DIR:-/home/aparnabg/orcd/pool/files_from_scratch/pose_models_test/logs}"
 cd /src/sailsprep/tracking_pose_model_testing
-mkdir -p /home/aparnabg/orcd/pool/files_from_scratch/pose_models_test/logs
+mkdir -p "${POSE_LOG_DIR}"
 
 module load miniforge
 module load cuda
 module load cudnn
 conda deactivate
-source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
+CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 conda activate pose_model_test
 
 echo "Running bytetrack.py"

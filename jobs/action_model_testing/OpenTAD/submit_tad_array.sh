@@ -52,10 +52,12 @@ module load deprecated-modules
 module load cuda/11.8.0-x86_64
 module load cudnn
 conda deactivate
-source /home/aparnabg/orcd/pool/miniconda3/etc/profile.d/conda.sh
+CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/pool/miniconda3/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 conda activate opentad
 export PYTHONNOUSERSITE=1
-export LD_LIBRARY_PATH=/orcd/pool/007/aparnabg/miniconda3/envs/opentad/lib/python3.10/site-packages/torch/lib:$LD_LIBRARY_PATH
+TORCH_LIB_PATH="${TORCH_LIB_PATH:-/orcd/pool/007/aparnabg/miniconda3/envs/opentad/lib/python3.10/site-packages/torch/lib}"
+export LD_LIBRARY_PATH="${TORCH_LIB_PATH}:$LD_LIBRARY_PATH"
 cd /src/sailsprep/action_model_testing/OpenTAD
 mkdir -p logs
 

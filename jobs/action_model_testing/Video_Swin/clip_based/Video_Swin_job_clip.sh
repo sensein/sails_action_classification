@@ -42,7 +42,8 @@ module load miniforge
 module load cuda
 module load cudnn
 conda deactivate 2>/dev/null || true
-source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
+CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 conda activate pytorchvideo_env
 
 echo "=========================================="

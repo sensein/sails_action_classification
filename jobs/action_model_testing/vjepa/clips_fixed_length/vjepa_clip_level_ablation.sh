@@ -5,17 +5,19 @@
 #SBATCH --mem=120GB
 #SBATCH --gres=gpu:h200:1
 #SBATCH --time=04:00:00
-#SBATCH --output=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_crop/logs/%x_%A.out
-#SBATCH --error=/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_crop/logs/%x_%A.err
+#SBATCH --output=${SCRIPT_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_crop}/logs/%x_%A.out
+#SBATCH --error=${SCRIPT_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_crop}/logs/%x_%A.err
 
-mkdir -p /home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_crop/logs
+SCRIPT_DIR="${SCRIPT_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_crop}"
+mkdir -p "${SCRIPT_DIR}/logs"
 
 module load miniforge/24.3.0-0
 module load cuda
 module load cudnn
-source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
+CONDA_SH="${CONDA_SH:-/home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh}"
+source "${CONDA_SH}"
 conda activate vjepa2-312
-cd /home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_crop
+cd "${SCRIPT_DIR}"
 
 LABEL=$1
 SEED=$2
