@@ -5,10 +5,10 @@
 #SBATCH --mem=120GB
 #SBATCH --gres=gpu:h200:1
 #SBATCH --time=04:00:00
-#SBATCH --output=${SCRIPT_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_crop}/logs/%x_%A.out
-#SBATCH --error=${SCRIPT_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_crop}/logs/%x_%A.err
+#SBATCH --output=${SCRIPT_DIR:-/src/sailsprep/action_model_testing/vjepa/clips_fixed_length}/logs/%x_%A.out
+#SBATCH --error=${SCRIPT_DIR:-/src/sailsprep/action_model_testing/vjepa/clips_fixed_length}/logs/%x_%A.err
 
-SCRIPT_DIR="${SCRIPT_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_crop}"
+SCRIPT_DIR="${SCRIPT_DIR:-/src/sailsprep/action_model_testing/vjepa/clips_fixed_length}"
 mkdir -p "${SCRIPT_DIR}/logs"
 
 module load miniforge/24.3.0-0

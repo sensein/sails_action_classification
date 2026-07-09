@@ -6,10 +6,10 @@
 #SBATCH --gres=gpu:1
 #SBATCH --time=06:00:00
 #SBATCH --array=0-14
-#SBATCH --output=${CODE_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjeap_full_video}/logs/ablation_%A_%a.out
-#SBATCH --error=${CODE_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjeap_full_video}/logs/ablation_%A_%a.err
+#SBATCH --output=${CODE_DIR:-/src/sailsprep/action_model_testing/vjepa/clips_without_coi_crop}/logs/ablation_%A_%a.out
+#SBATCH --error=${CODE_DIR:-/src/sailsprep/action_model_testing/vjepa/clips_without_coi_crop}/logs/ablation_%A_%a.err
 
-CODE_DIR="${CODE_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjeap_full_video}"
+CODE_DIR="${CODE_DIR:-/src/sailsprep/action_model_testing/vjepa/clips_without_coi_crop}"
 export HF_HOME="${HF_HOME:-/home/aparnabg/.cache/huggingface}"
 export PYTHONUNBUFFERED=1
 

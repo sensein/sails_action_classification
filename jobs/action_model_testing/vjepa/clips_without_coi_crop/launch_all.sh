@@ -12,16 +12,16 @@
 LOG_DIR="/orcd/data/satra/002/projects/SAILS/vjepa_features/models_output_seeds/clips/vjepa/logs"
 mkdir -p $LOG_DIR
 
-CODE_DIR="${CODE_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjeap_full_video}"
+JOB_DIR="${JOB_DIR:-/jobs/action_model_testing/vjepa/clips_without_coi_crop}"
 
 # --- Step 1: Submit feature extraction ---
-EXTRACT_JOB=$(sbatch --parsable ${CODE_DIR}/submit_extract.sh)
+EXTRACT_JOB=$(sbatch --parsable ${JOB_DIR}/submit_extract.sh)
 echo "Submitted feature extraction job: $EXTRACT_JOB"
 
 # --- Step 2: Submit seed training jobs (depend on extraction finishing) ---
 SEED_JOB=$(sbatch --parsable \
     --dependency=afterok:${EXTRACT_JOB} \
-    ${CODE_DIR}/submit_seeds.sh)
+    ${JOB_DIR}/submit_seeds.sh)
 echo "Submitted seed training jobs (array): $SEED_JOB"
 echo "  -> Seeds 42, 456, 123 will start after job $EXTRACT_JOB completes"
 

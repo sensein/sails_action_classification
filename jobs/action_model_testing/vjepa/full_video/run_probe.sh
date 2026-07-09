@@ -6,8 +6,8 @@
 #SBATCH --gres=gpu:h200:1
 #SBATCH --time=06:00:00
 #SBATCH --array=0-2
-#SBATCH --output=${SCRIPT_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_code_frame_window}/logs/%x_%A_%a.out
-#SBATCH --error=${SCRIPT_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_code_frame_window}/logs/%x_%A_%a.err
+#SBATCH --output=${SCRIPT_DIR:-/src/sailsprep/action_model_testing/vjepa/full_video}/logs/%x_%A_%a.out
+#SBATCH --error=${SCRIPT_DIR:-/src/sailsprep/action_model_testing/vjepa/full_video}/logs/%x_%A_%a.err
 
 # ── Usage ──────────────────────────────────────────────────────────────
 # sbatch --job-name=flat_loco        run_probe.sh locomotion flat
@@ -48,7 +48,7 @@ conda activate vjepa2-312
 SEEDS=(42 456 123)
 SEED=${SEEDS[$SLURM_ARRAY_TASK_ID]}
 
-SCRIPT_DIR="${SCRIPT_DIR:-/home/aparnabg/orcd/scratch/all_project_files/action_sota_models/vjepa_code_frame_window}"
+SCRIPT_DIR="${SCRIPT_DIR:-/src/sailsprep/action_model_testing/vjepa/full_video}"
 
 if [[ "$MODE" == "flat" ]]; then
     SCRIPT="${SCRIPT_DIR}/train_probe_framelevel.py"
