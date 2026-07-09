@@ -91,6 +91,7 @@ Included model families:
 - `pyskl/` - PySKL config/logit utilities.
 - `vlm_models/` - Qwen/Ovis vision-language model classifiers.
 - `feature_extraction/` - I3D/R(2+1)D and V-JEPA feature extraction.
+- `vjepa/` - vjepa model variants.
 - `dlc_action/` - DLC2Action data preparation workflow.
 
 ### Fusion Models
