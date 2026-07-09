@@ -30,7 +30,7 @@ from torch.utils.data import DataLoader, Dataset
 SPLITS_CSV    = "/home/aparnabg/orcd/scratch/latest_split_csv_new.csv"
 OUTPUT_BASE   = "/orcd/data/satra/002/projects/SAILS/vjepa_features/models_output_seeds/vjepa/framelevel_hierarchical/"
 
-EMBED_DIM     = 1408
+EMBED_DIM     = 1024
 CONTEXT       = 5
 WINDOW_SIZE   = 2 * CONTEXT + 1    # 11
 BATCH_SIZE    = 256

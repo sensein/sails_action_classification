@@ -121,7 +121,7 @@ def extract_all_features(model, processor, video_paths, labels, device):
             all_labels.append(batch_labels)
         except Exception as e:
             print(f"  Error at batch {batch_idx}: {e}")
-            errors.append(batch_idx)
+            raise
 
     all_features = torch.cat(all_features, dim=0)
     all_labels   = torch.cat(
@@ -152,9 +152,10 @@ def main():
 
     # Load encoder
     processor = AutoVideoProcessor.from_pretrained(HF_MODEL_NAME)
+    dtype = torch.float16 if torch.cuda.is_available() else torch.float32
     encoder   = AutoModel.from_pretrained(
         HF_MODEL_NAME,
-        torch_dtype=torch.float16,
+        torch_dtype=dtype,
         attn_implementation="sdpa",
     )
     encoder.eval()

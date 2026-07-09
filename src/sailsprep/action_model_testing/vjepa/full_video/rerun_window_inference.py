@@ -29,7 +29,7 @@ import torch.nn as nn
 SPLITS_CSV    = "/home/aparnabg/orcd/scratch/latest_split_csv_new.csv"
 BASE_DIR      = "/orcd/data/satra/002/projects/SAILS/vjepa_features/models_output_seeds/vjepa/"
 
-EMBED_DIM     = 1408
+EMBED_DIM     = 1024
 WINDOW_FRAMES = 30
 STRIDE_FRAMES = 15
 BATCH_SIZE    = 256

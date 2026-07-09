@@ -235,6 +235,9 @@ class ClipDataset(Dataset):
         total_vid = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 
         bbox_map  = load_bbox_map(s["h5_path"])
+        if not bbox_map:
+            cap.release()
+            raise ValueError("empty bbox map")
         bbox_keys = np.array(sorted(bbox_map.keys()))
 
         ann_frames = np.arange(s["start_frame"], s["end_frame"] + 1)
@@ -423,8 +426,7 @@ def extract_features(encoder, samples, label_map, device, batch_size=4):
             all_labels.append(labels)
         except Exception as e:
             print(f"    batch {i} error: {e}")
-            all_feats.append(torch.zeros(clips.shape[0], 1, EMBED_DIM))
-            all_labels.append(labels)
+            raise
 
     return torch.cat(all_feats, 0), torch.cat(all_labels, 0)
 

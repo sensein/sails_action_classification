@@ -202,8 +202,9 @@ class VJEPAFineTune(pl.LightningModule):
         self.save_hyperparameters(ignore=["class_weights"])
         self.full_finetune = full_finetune
 
+        dtype = torch.float16 if torch.cuda.is_available() else torch.float32
         self.encoder = AutoModel.from_pretrained(
-            MODEL_NAME, torch_dtype=torch.float16, attn_implementation="sdpa",
+            MODEL_NAME, torch_dtype=dtype, attn_implementation="sdpa",
         )
         if not full_finetune:
             for p in self.encoder.parameters(): p.requires_grad = False
@@ -230,8 +231,8 @@ class VJEPAFineTune(pl.LightningModule):
 
     def _step(self, batch, stage):
         inputs, labels = batch
-        # Cast float inputs to half to match encoder
-        inputs = {k: (v.half() if v.is_floating_point() else v) for k, v in inputs.items()}
+        # Cast float inputs to match encoder dtype
+        inputs = {k: (v.to(self.encoder.dtype) if v.is_floating_point() else v) for k, v in inputs.items()}
         logits = self(inputs)
         loss = F.cross_entropy(logits, labels,
                                weight=self.class_weights if stage == "train" else None)
@@ -324,7 +325,7 @@ def run_inference(model, test_samples, label_map, processor, device):
         try:
             frames, label = ds[i]
             inputs = processor([frames], return_tensors="pt")
-            inputs = {k: (v.half().to(device) if v.is_floating_point() else v.to(device))
+            inputs = {k: (v.to(device=device, dtype=model.encoder.dtype) if v.is_floating_point() else v.to(device))
                       for k, v in inputs.items()}
             with torch.no_grad():
                 logits = model(inputs)
