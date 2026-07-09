@@ -1,12 +1,6 @@
 """End-to-end V-JEPA 2 fine-tuning on H5-bbox-cropped action segments.
 
-Mirrors the SlowFast pipeline:
-  - Same split CSV (video_path, label_path, h5_file_path)
-  - Same on-the-fly bbox crop from interpolated H5
-  - Same action segment extraction (label runs >= MIN_RUN frames)
-  - Same stratified split, class weights, metrics
-
-Default mode: frozen encoder + attentive probe (recommended for small data).
+Default mode: frozen encoder + attentive probe.
 Use --full_finetune to unfreeze the encoder.
 """
 

@@ -392,8 +392,8 @@ def main():
     print(f"  Clips    : {len(labels)}",    flush=True)
     print(f"  Labels   : {label_map}",      flush=True)
 
-    json.dump(label_map,
-              open(os.path.join(seed_dir, "label_mapping.json"), "w"), indent=2)
+    with open(os.path.join(seed_dir, "label_mapping.json"), "w") as f:
+        json.dump(label_map, f, indent=2)
 
     # --- Train / test split (identical to original train_probe.py) ---
     indices = np.arange(len(labels))

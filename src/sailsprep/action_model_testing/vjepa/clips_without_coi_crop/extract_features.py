@@ -20,8 +20,8 @@ from transformers import AutoModel, AutoVideoProcessor
 
 try:
     from decord import VideoReader, cpu
-except ImportError:
-    raise ImportError("Please install decord: pip install eva-decord")
+except ImportError as e:
+    raise ImportError("Please install decord: pip install eva-decord") from e
 
 # ============================================================
 # CONFIG

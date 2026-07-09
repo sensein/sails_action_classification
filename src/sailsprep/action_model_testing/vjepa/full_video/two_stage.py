@@ -384,7 +384,7 @@ def run_inference(probe, test_windows_raw, stage1_map, stage2_map,
     loader  = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     rows = []
-    for feats, s1_lbls, s2_lbls, lbl_strs in loader:
+    for feats, _s1_lbls, _s2_lbls, lbl_strs in loader:
         feats = feats.to(device)
 
         logits1, logits2 = probe(feats)

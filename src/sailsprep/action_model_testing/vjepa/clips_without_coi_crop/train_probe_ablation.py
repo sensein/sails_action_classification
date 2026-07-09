@@ -298,7 +298,7 @@ def run_inference(probe, test_features, test_labels_enc, original_labels,
     loader  = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     results, idx = [], 0
-    for feats, labels in loader:
+    for feats, _labels in loader:
         probs = softmax(probe(feats.to(device)))
         for i in range(probs.shape[0]):
             top  = int(probs[i].argmax().item())
@@ -381,8 +381,8 @@ def main():
     print(f"  Clips    : {len(labels)}")
     print(f"  Labels   : {label_map}")
 
-    json.dump(label_map,
-              open(os.path.join(seed_dir, "label_mapping.json"), "w"), indent=2)
+    with open(os.path.join(seed_dir, "label_mapping.json"), "w") as f:
+        json.dump(label_map, f, indent=2)
 
     # --- Train / test split (same logic as train_probe.py) ---
     indices = np.arange(len(labels))

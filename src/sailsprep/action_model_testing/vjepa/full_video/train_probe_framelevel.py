@@ -303,7 +303,7 @@ def run_inference_per_video(probe, splits_csv, task_column,
         )
 
         rows = []
-        for windows, labels, lbl_strs, frame_idxs in vid_loader:
+        for windows, _labels, lbl_strs, frame_idxs in vid_loader:
             windows = windows.to(device)
             logits  = probe(windows)
             probs   = softmax(logits)

@@ -1,25 +1,12 @@
 """
 VJEPA2 Clip-Level Classification — Head Ablation
 =================================================
-Same clip-level pipeline as vjepa_clip_level.py (SlowFast-style chunking,
-no NA class), but adds --head to ablate five classification heads:
 
   linear       : mean-pool tokens -> single Linear layer
   mlp_small    : mean-pool -> LayerNorm -> 512-dim MLP -> classifier
   mlp_large    : mean-pool -> LayerNorm -> 1024 -> 512-dim MLP -> classifier
   attentive    : cross-attention query token -> Linear  (original)
   transformer  : 2-layer Transformer encoder -> CLS token -> Linear
-
-Features are extracted ONCE per (label, run) and cached to disk.
-Each head is then trained & evaluated independently.
-
-Clipping rules (mirrors SlowFast exactly):
-  < 15 frames              -> skip
-  15-44 frames             -> 1 clip
-  45-59 frames             -> 2 clips
-  >= 60 frames             -> 30-frame chunks (last kept if >= 15 frames)
-
-NA frames break a run. NA is NOT a class.
 
 Usage:
     # Single head
@@ -32,8 +19,6 @@ Usage:
     # Skip encoder inference if features already cached
     python vjepa_clip_level_ablation.py --label loco --head all --skip_extraction
 
-CSV columns expected:
-    video_path, label_path, interpolated_anno_h5, split
 """
 
 import argparse
@@ -530,7 +515,7 @@ def run_inference(probe, te_feats, test_samples, label_map, device,
     rows   = []
     idx    = 0
 
-    for feats, labels in loader:
+    for feats, _labels in loader:
         probs = softmax(probe(feats.to(device)))
         for i in range(probs.shape[0]):
             top  = int(probs[i].argmax().item())
@@ -642,7 +627,8 @@ def main():
     labels = sorted({s["label_str"] for s in all_s})
     lmap   = {lab: i for i, lab in enumerate(labels)}
     print(f"\nLabel map: {lmap}")
-    json.dump(lmap, open(os.path.join(base_dir, "label_mapping.json"), "w"), indent=2)
+    with open(os.path.join(base_dir, "label_mapping.json"), "w") as f:
+        json.dump(lmap, f, indent=2)
     pd.DataFrame(test_s).to_csv(os.path.join(base_dir, "test_split.csv"), index=False)
 
     # Inverse-frequency class weights from train split
