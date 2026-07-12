@@ -99,9 +99,9 @@ def load_pose_from_json(json_path: str) -> np.ndarray:
         arr = np.zeros((NUM_KEYPOINTS, COORDS_PER_KPT), dtype=np.float32)
 
         for kp_name, kp_val in frame_kps.items():
-            # kp_name is like "kp_001", "kp_023", etc.
+            # kp_name is like "kp_000", "kp_023", etc. (0-indexed)
             try:
-                idx = int(kp_name.split("_")[1]) - 1  # "kp_001" -> 0
+                idx = int(kp_name.split("_")[1])  # "kp_000" -> 0
             except (IndexError, ValueError):
                 continue
 
