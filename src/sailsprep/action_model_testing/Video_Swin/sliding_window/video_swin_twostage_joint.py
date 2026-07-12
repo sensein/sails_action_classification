@@ -35,6 +35,8 @@ import torch.nn.functional as F
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader, Dataset
 
+from common.utils import load_bbox_map
+
 # ---------------------------------------------------------------------------
 # Task configuration
 # ---------------------------------------------------------------------------
@@ -102,23 +104,6 @@ SWIN_CKPT_LOCAL: str = os.path.expanduser(
 # ---------------------------------------------------------------------------
 # 1. Bounding-box loading
 # ---------------------------------------------------------------------------
-def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
-    """Load per-frame bounding boxes from a full-video HDF5 file.
-
-    Args:
-        h5_path: Path to the interpolated full-video HDF5 file.
-
-    Returns:
-        Mapping from annotation frame index to ``(x1, y1, x2, y2)`` bbox.
-    """
-    with h5py.File(h5_path, "r") as f:
-        table = f["bboxes/table"][()]
-    vb1 = table["values_block_1"]
-    return {
-        int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in vb1
-    }
-
-
 # ---------------------------------------------------------------------------
 # 2. Sliding-window builder (returns BOTH binary and action labels)
 # ---------------------------------------------------------------------------
@@ -622,7 +607,7 @@ def build_video_swin_twostage(
         ImportError: If ``video_swin_transformer`` is not installed.
     """
     try:
-        from video_swin_transformer import SwinTransformer3D
+        from common.video_swin_transformer import SwinTransformer3D
     except ImportError as e:
         raise ImportError(
             "Please install: pip install "

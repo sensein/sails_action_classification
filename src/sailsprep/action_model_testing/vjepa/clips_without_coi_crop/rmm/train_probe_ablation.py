@@ -25,6 +25,7 @@ Output per (seed, head):
 import argparse
 import json
 import os
+import sys
 
 import numpy as np
 import pandas as pd
@@ -34,6 +35,9 @@ import torch.nn.functional as F
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from clips_without_coi_crop.common.datasets import FeatureDataset
 
 # ============================================================
 # CONFIG  (matches RMM train_probe.py)
@@ -186,21 +190,6 @@ def build_probe(head_name, embed_dim, num_classes):
     n_params = sum(p.numel() for p in probe.parameters())
     print(f"  Head '{head_name}': {n_params:,} parameters", flush=True)
     return probe
-
-
-# ============================================================
-# 3. FEATURE DATASET
-# ============================================================
-class FeatureDataset(Dataset):
-    def __init__(self, features, labels):
-        self.features = features
-        self.labels   = labels
-
-    def __len__(self):
-        return len(self.labels)
-
-    def __getitem__(self, idx):
-        return self.features[idx], self.labels[idx]
 
 
 # ============================================================

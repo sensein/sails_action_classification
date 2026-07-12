@@ -24,6 +24,7 @@ Usage:
 import argparse
 import json
 import os
+import sys
 from collections import Counter, defaultdict
 
 import cv2
@@ -35,6 +36,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader, Dataset
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common.probes import LinearProbe, MLPSmallProbe, MLPLargeProbe
+from common.bbox_utils import load_bbox_map
 
 # ============================================================
 # ARGUMENT PARSING
@@ -139,16 +144,6 @@ def find_action_runs(ann, label_col):
         runs.append((frames[i], frames[j], lab))
         i = j + 1
     return runs
-
-
-# ============================================================
-# 3. H5 BBOX LOADING
-# ============================================================
-def load_bbox_map(h5_path):
-    with h5py.File(h5_path, "r") as f:
-        table = f["bboxes/table"][()]
-    vb1 = table["values_block_1"]
-    return {int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in vb1}
 
 
 # ============================================================
@@ -285,61 +280,6 @@ class ClipDataset(Dataset):
 # ============================================================
 # 6. CLASSIFICATION HEADS  (ablation variants)
 # ============================================================
-
-class LinearProbe(nn.Module):
-    """
-    Simplest baseline: mean-pool all patch tokens -> single Linear layer.
-    No nonlinearity. Purely tests linear separability of VJEPA features.
-    """
-    def __init__(self, embed_dim, num_classes, **kwargs):
-        super().__init__()
-        self.norm = nn.LayerNorm(embed_dim)
-        self.head = nn.Linear(embed_dim, num_classes)
-
-    def forward(self, x):           # x: [B, N, D]
-        return self.head(self.norm(x.mean(dim=1)))
-
-
-class MLPSmallProbe(nn.Module):
-    """
-    Mean-pool -> LayerNorm -> one hidden layer (512) -> GELU -> Dropout -> Linear.
-    Adds nonlinearity over LinearProbe with minimal parameters.
-    """
-    def __init__(self, embed_dim, num_classes, hidden=512, dropout=0.3, **kwargs):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.LayerNorm(embed_dim),
-            nn.Linear(embed_dim, hidden),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(hidden, num_classes),
-        )
-
-    def forward(self, x):           # x: [B, N, D]
-        return self.net(x.mean(dim=1))
-
-
-class MLPLargeProbe(nn.Module):
-    """
-    Mean-pool -> LayerNorm -> 1024 -> GELU -> 512 -> GELU -> Dropout -> Linear.
-    Deeper MLP; more capacity to learn non-linear feature combinations.
-    """
-    def __init__(self, embed_dim, num_classes, dropout=0.3, **kwargs):
-        super().__init__()
-        self.net = nn.Sequential(
-            nn.LayerNorm(embed_dim),
-            nn.Linear(embed_dim, 1024),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(1024, 512),
-            nn.GELU(),
-            nn.Dropout(dropout),
-            nn.Linear(512, num_classes),
-        )
-
-    def forward(self, x):           # x: [B, N, D]
-        return self.net(x.mean(dim=1))
-
 
 class AttentiveProbe(nn.Module):
     """

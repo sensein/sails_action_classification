@@ -25,6 +25,7 @@ Output per seed:
 import argparse
 import json
 import os
+import sys
 
 import numpy as np
 import pandas as pd
@@ -34,6 +35,10 @@ import torch.nn.functional as F
 from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+from clips_without_coi_crop.common.probes import AttentiveProbe
+from clips_without_coi_crop.common.datasets import FeatureDataset
 
 # ============================================================
 # CONFIG
@@ -51,40 +56,6 @@ WEIGHT_DECAY  = 0.05
 TEST_SPLIT    = 0.30
 PATIENCE      = 10
 DEVICE        = "cuda" if torch.cuda.is_available() else "cpu"
-
-
-# ============================================================
-# 1. ATTENTIVE PROBE
-# ============================================================
-class AttentiveProbe(nn.Module):
-    def __init__(self, embed_dim, num_classes, num_heads=8, num_queries=1):
-        super().__init__()
-        self.query_tokens = nn.Parameter(torch.randn(1, num_queries, embed_dim) * 0.02)
-        self.cross_attn   = nn.MultiheadAttention(embed_dim, num_heads, batch_first=True)
-        self.norm         = nn.LayerNorm(embed_dim)
-        self.classifier   = nn.Linear(embed_dim * num_queries, num_classes)
-
-    def forward(self, x):
-        B       = x.shape[0]
-        queries = self.query_tokens.expand(B, -1, -1)
-        out, _  = self.cross_attn(queries, x, x)
-        out     = self.norm(out).reshape(B, -1)
-        return self.classifier(out)
-
-
-# ============================================================
-# 2. FEATURE DATASET
-# ============================================================
-class FeatureDataset(Dataset):
-    def __init__(self, features, labels):
-        self.features = features
-        self.labels   = labels
-
-    def __len__(self):
-        return len(self.labels)
-
-    def __getitem__(self, idx):
-        return self.features[idx], self.labels[idx]
 
 
 # ============================================================

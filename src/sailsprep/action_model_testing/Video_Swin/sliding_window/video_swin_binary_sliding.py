@@ -31,6 +31,8 @@ import torch.nn.functional as F
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader, Dataset
 
+from common.utils import VideoSwinClassifier, collate_fn, load_bbox_map
+
 # ---------------------------------------------------------------------------
 # Task configuration (binary: 2 classes for all tasks)
 # ---------------------------------------------------------------------------
@@ -96,23 +98,6 @@ SWIN_CKPT_LOCAL: str = os.path.expanduser(
 # ---------------------------------------------------------------------------
 # 1. Bounding-box loading
 # ---------------------------------------------------------------------------
-def load_bbox_map(h5_path: str) -> dict[int, tuple[int, int, int, int]]:
-    """Load per-frame bounding boxes from a full-video HDF5 file.
-
-    Args:
-        h5_path: Path to the interpolated full-video HDF5 file.
-
-    Returns:
-        Mapping from annotation frame index to ``(x1, y1, x2, y2)`` bbox.
-    """
-    with h5py.File(h5_path, "r") as f:
-        table = f["bboxes/table"][()]
-    vb1 = table["values_block_1"]
-    return {
-        int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in vb1
-    }
-
-
 # ---------------------------------------------------------------------------
 # 2. Sliding-window builder (binary: N/A vs non-N/A)
 # ---------------------------------------------------------------------------
@@ -376,14 +361,6 @@ class BBoxCropVideoDataset(Dataset):
             )
 
 
-def collate_fn(
-    batch: list[tuple[torch.Tensor, int]],
-) -> tuple[torch.Tensor, torch.Tensor]:
-    """Stack video tensors and labels into batched tensors."""
-    videos, labels = zip(*batch)
-    return torch.stack(videos), torch.tensor(labels, dtype=torch.long)
-
-
 # ---------------------------------------------------------------------------
 # 4. Lightning DataModule
 # ---------------------------------------------------------------------------
@@ -489,40 +466,6 @@ class H5BBoxDataModule(pl.LightningDataModule):
 # ---------------------------------------------------------------------------
 # 5. Video Swin-B model
 # ---------------------------------------------------------------------------
-class VideoSwinClassifier(nn.Module):
-    """Classification wrapper around Video Swin-B backbone.
-
-    Args:
-        backbone: The Video Swin-B backbone module.
-        feat_dim: Dimensionality of the backbone's output features.
-        num_classes: Number of target classes (2 for binary).
-    """
-
-    def __init__(
-        self,
-        backbone: nn.Module,
-        feat_dim: int,
-        num_classes: int,
-    ) -> None:
-        super().__init__()
-        self.backbone = backbone
-        self.pool = nn.AdaptiveAvgPool3d(1)
-        self.head = nn.Linear(feat_dim, num_classes)
-
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass.
-
-        Args:
-            x: Input tensor of shape ``(B, C, T, H, W)``.
-
-        Returns:
-            Logits tensor of shape ``(B, num_classes)``.
-        """
-        feats = self.backbone(x)
-        feats = self.pool(feats).flatten(1)
-        return self.head(feats)
-
-
 def build_video_swin_b(
     num_classes: int,
     *,
@@ -542,7 +485,7 @@ def build_video_swin_b(
         ImportError: If ``video_swin_transformer`` is not installed.
     """
     try:
-        from video_swin_transformer import SwinTransformer3D
+        from common.video_swin_transformer import SwinTransformer3D
     except ImportError as e:
         raise ImportError(
             "Please install: pip install "

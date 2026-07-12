@@ -32,7 +32,6 @@ import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import h5py
 import cv2
 import pytorch_lightning as pl
 from collections import Counter
@@ -50,6 +49,10 @@ from sklearn.metrics import (
     top_k_accuracy_score,
 )
 from sklearn.preprocessing import label_binarize
+
+from utils.bbox import load_bbox_map
+from utils.windowing import get_window_label as _get_window_label
+from utils.checkpoint import load_pretrained_vitb_k710
 
 # ============================================================
 # TASK CONFIG
@@ -99,28 +102,10 @@ BINARY_THRESHOLDS = [0.3, 0.4, 0.5, 0.6, 0.7, 0.8]
 
 
 # ============================================================
-# 1. BBOX LOADING
-# ============================================================
-def load_bbox_map(h5_path):
-    with h5py.File(h5_path, "r") as f:
-        table = f["bboxes/table"][()]
-    vb1 = table["values_block_1"]
-    return {int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in vb1}
-
-
-# ============================================================
-# 2. SLIDING WINDOW BUILDER
+# 1. SLIDING WINDOW BUILDER
 # ============================================================
 def get_window_label(frame_to_label, ann_start, ann_end):
-    labels = []
-    for f in range(ann_start, ann_end):
-        lbl = frame_to_label.get(f, NA_LABEL)
-        if lbl in ("", "nan", "None"):
-            lbl = NA_LABEL
-        labels.append(lbl)
-    if not labels:
-        return NA_LABEL
-    return Counter(labels).most_common(1)[0][0]
+    return _get_window_label(frame_to_label, ann_start, ann_end, na_label=NA_LABEL)
 
 
 def build_samples(split_csv, label_col, fg_label_map):
@@ -445,7 +430,7 @@ class TwoStageVideoMAE2(nn.Module):
     @staticmethod
     def _load_backbone():
         try:
-            from modeling_finetune import vit_base_patch16_224
+            backbone, missing, unexpected = load_pretrained_vitb_k710(VMAE2_CKPT)
         except ImportError as e:
             raise ImportError(
                 "Download modeling_finetune.py:\n"
@@ -453,23 +438,6 @@ class TwoStageVideoMAE2(nn.Module):
                 "https://raw.githubusercontent.com/OpenGVLab/VideoMAEv2/"
                 "master/models/modeling_finetune.py"
             ) from e
-
-        # Build with K710 classes to load checkpoint, then strip the head
-        backbone = vit_base_patch16_224(num_classes=710)
-
-        if not os.path.exists(VMAE2_CKPT):
-            print(f"Downloading VideoMAE V2 ViT-B K710 → {VMAE2_CKPT}")
-            os.makedirs(os.path.dirname(VMAE2_CKPT), exist_ok=True)
-            torch.hub.download_url_to_file(
-                "https://huggingface.co/OpenGVLab/VideoMAE2/resolve/main/distill/"
-                "vit_b_k710_dl_from_giant.pth",
-                VMAE2_CKPT,
-            )
-
-        ckpt  = torch.load(VMAE2_CKPT, map_location="cpu")
-        state = ckpt.get("module", ckpt)
-        state = {k.replace("module.", ""): v for k, v in state.items()}
-        missing, unexpected = backbone.load_state_dict(state, strict=False)
         print(f"Loaded ViT-B K710: missing={len(missing)} unexpected={len(unexpected)}")
 
         # Remove the original head — we attach our own heads externally

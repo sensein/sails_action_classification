@@ -420,7 +420,7 @@ def build_action_recognition_model(motionbert_root, num_classes, device, ckpt_pa
     return model
 
 
-def finetune_action_recognition(splits, pose_dir, dirs, device="cuda"):
+def finetune_action_recognition(splits, pose_dir, dirs, device="cuda", class_weight=False):
     """
     Finetune MotionBERT for action recognition.
     Uses train split for training, val split for validation.
@@ -465,7 +465,16 @@ def finetune_action_recognition(splits, pose_dir, dirs, device="cuda"):
         filter(lambda p: p.requires_grad, model.parameters()),
         lr=FINETUNE_LR, weight_decay=0.01
     )
-    criterion = nn.CrossEntropyLoss()
+    if class_weight:
+        class_counts = [sum(1 for s in train_samples if s["label"] == idx) for idx in range(len(ACTION_CLASSES))]
+        class_weights = torch.tensor(
+            [len(train_samples) / (len(ACTION_CLASSES) * count) if count > 0 else 0.0 for count in class_counts],
+            dtype=torch.float32,
+        ).to(device)
+        print(f"  [CLASS-WEIGHT] Using class weights: {class_weights.tolist()}")
+        criterion = nn.CrossEntropyLoss(weight=class_weights)
+    else:
+        criterion = nn.CrossEntropyLoss()
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=FINETUNE_EPOCHS)
 
     best_val_acc = 0.0
@@ -723,6 +732,8 @@ def main():
     parser.add_argument("--device", type=str, default="cuda" if torch.cuda.is_available() else "cpu")
     parser.add_argument("--use-2d-for-action", action="store_true",
                         help="Use 2D poses instead of 3D for action recognition")
+    parser.add_argument("--class-weight", action="store_true",
+                        help="Use class weights in the action recognition loss (default: off, same as before)")
     args = parser.parse_args()
 
     print(f"[CONFIG] Device:            {args.device}")
@@ -783,7 +794,7 @@ def main():
         if not any(os.path.exists(os.path.join(dirs["pose_3d"], f"{v['video_id']}.npy")) for v in all_videos):
             print("[INFO] No 3D poses found, using 2D poses for action recognition.")
             pose_dir_for_action = dirs["pose_2d"]
-        finetune_action_recognition(splits, pose_dir_for_action, dirs, device=args.device)
+        finetune_action_recognition(splits, pose_dir_for_action, dirs, device=args.device, class_weight=args.class_weight)
 
     if args.step in ("all", "inference"):
         if not any(os.path.exists(os.path.join(pose_dir_for_action, f"{v['video_id']}.npy")) for v in all_videos):

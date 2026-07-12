@@ -7,6 +7,7 @@ Use --full_finetune to unfreeze the encoder.
 import json
 import math
 import os
+import sys
 
 import cv2
 import h5py
@@ -20,6 +21,9 @@ from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 from transformers import AutoModel, AutoVideoProcessor
+
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from common.bbox_utils import load_bbox_map
 
 # ============================================================
 # CONFIG
@@ -52,13 +56,6 @@ os.makedirs(OUTPUT_DIR, exist_ok=True)
 # ============================================================
 # H5 + segment helpers (identical to SlowFast pipeline)
 # ============================================================
-def load_bbox_map(h5_path):
-    with h5py.File(h5_path, "r") as f:
-        table = f["bboxes/table"][()]
-    vb1 = table["values_block_1"]
-    return {int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in vb1}
-
-
 def find_action_runs(ann, label_col, min_frames=MIN_RUN):
     df = ann.sort_values("Frame").reset_index(drop=True)
     frames = df["Frame"].astype(int).tolist()

@@ -24,16 +24,18 @@ import json
 import os
 
 import cv2
-import h5py
 import numpy as np
 import pandas as pd
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
-from functools import partial
 from sklearn.metrics import classification_report, confusion_matrix
 from torch.utils.data import DataLoader, Dataset
+
+from utils.bbox import load_bbox_map
+from utils.collate import collate
+from utils.checkpoint import build_videomae2_vitb as _build_videomae2_vitb
 
 
 # ============================================================
@@ -79,17 +81,7 @@ VMAE2_CKPT = os.path.expanduser("~/.cache/videomae2/vit_b_k710_dl_from_giant.pth
 
 
 # ============================================================
-# 1. BBOX LOADING
-# ============================================================
-def load_bbox_map(h5_path):
-    with h5py.File(h5_path, "r") as f:
-        table = f["bboxes/table"][()]
-    vb1 = table["values_block_1"]
-    return {int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in vb1}
-
-
-# ============================================================
-# 2. ACTION RUNS + CLIPPING
+# 1. ACTION RUNS + CLIPPING
 # ============================================================
 def find_action_runs(ann, label_col):
     df = ann.sort_values("Frame").reset_index(drop=True)
@@ -249,11 +241,6 @@ class BBoxCropVideoDataset(Dataset):
             return torch.zeros(3, self.num_frames, self.crop_size, self.crop_size), label
 
 
-def collate(batch):
-    videos, labels = zip(*batch)
-    return torch.stack(videos), torch.tensor(labels, dtype=torch.long)
-
-
 # ============================================================
 # 4. DATA MODULE
 # ============================================================
@@ -322,71 +309,10 @@ class H5BBoxDataModule(pl.LightningDataModule):
 # 5. VideoMAE V2 ViT-Base MODEL
 # ============================================================
 def build_videomae2_vitb(num_classes, freeze_all_but_last_block=True):
-    """
-    Loads VideoMAE V2 ViT-Base with K710 distilled checkpoint (86.6% K400).
-
-    Uses the official modeling_finetune.py from OpenGVLab/VideoMAEv2.
-
-    Architecture: ViT-B/16, 16 frames, tubelet_size=2
-      patch_size=16, embed_dim=768, depth=12, num_heads=12
-    """
-    try:
-        from modeling_finetune import vit_base_patch16_224
-    except ImportError as e:
-        raise ImportError(
-            "Could not import from modeling_finetune.py.\n"
-            "Download it:\n"
-            "  wget -O modeling_finetune.py "
-            "https://raw.githubusercontent.com/OpenGVLab/VideoMAEv2/master/models/modeling_finetune.py\n"
-            "Place it in the same directory as this script."
-        ) from e
-
-    # Build ViT-B with K710's 710 classes first to load the checkpoint
-    model = vit_base_patch16_224(num_classes=710)
-
-    # Load distilled K710 checkpoint
-    if not os.path.exists(VMAE2_CKPT):
-        print(f"Downloading VideoMAE V2 ViT-B K710 checkpoint -> {VMAE2_CKPT}")
-        os.makedirs(os.path.dirname(VMAE2_CKPT), exist_ok=True)
-        torch.hub.download_url_to_file(
-            "https://huggingface.co/OpenGVLab/VideoMAE2/resolve/main/distill/vit_b_k710_dl_from_giant.pth",
-            VMAE2_CKPT,
-        )
-
-    ckpt = torch.load(VMAE2_CKPT, map_location="cpu")
-    state = ckpt.get("module", ckpt)
-    # Strip 'module.' prefix if DDP wrapped
-    state = {k.replace("module.", ""): v for k, v in state.items()}
-    missing, unexpected = model.load_state_dict(state, strict=False)
-    print(f"Loaded VideoMAE V2 ViT-B K710. missing={len(missing)} unexpected={len(unexpected)}")
-    if missing:
-        print(f"  missing keys (sample): {missing[:5]}")
-    if unexpected:
-        print(f"  unexpected keys (sample): {unexpected[:5]}")
-
-    # Replace the classification head for our task
-    model.head = nn.Linear(768, num_classes)
-    # Re-init head
-    nn.init.trunc_normal_(model.head.weight, std=0.02)
-    nn.init.zeros_(model.head.bias)
-
-    if freeze_all_but_last_block:
-        print("Freezing all but last transformer block (blocks.11) + head + fc_norm")
-        for name, p in model.named_parameters():
-            trainable = False
-            if name.startswith("head."):
-                trainable = True
-            elif "blocks.11." in name:
-                trainable = True
-            elif "fc_norm" in name:
-                trainable = True
-            p.requires_grad = trainable
-
-        trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
-        total     = sum(p.numel() for p in model.parameters())
-        print(f"  Trainable params: {trainable/1e6:.2f}M / {total/1e6:.2f}M")
-
-    return model
+    return _build_videomae2_vitb(
+        num_classes, ckpt_path=VMAE2_CKPT,
+        freeze_all_but_last_block=freeze_all_but_last_block,
+    )
 
 
 # ============================================================
