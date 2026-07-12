@@ -74,48 +74,22 @@ echo "Node             : ${SLURMD_NODENAME}"
 echo "Start time       : $(date)"
 echo "=========================================="
 # Generate config for this seed
-python run_locomotion.py \
+python run/run.py \
     --task     ${TASK} \
     --model    ${MODEL} \
     --seed     ${SEED} \
     --mode     generate_config
 
 # Train then test
-python run_locomotion.py \
+python run/run.py \
     --task     ${TASK} \
     --model    ${MODEL} \
     --seed     ${SEED} \
     --mode     train_test \
     --gpus     1 \
     --port     ${PORT}
-# Generate config for this seed
-
 
 TRAIN_EXIT=$?
-
-# ---- Frame-level metrics ----
-EXP_DIR="exps/${TASK}/${MODEL}_${BACKBONE}/seed_${SEED}"
-PRED_JSON=""
-
-if [ -d "${EXP_DIR}" ]; then
-    PRED_JSON=$(find ${EXP_DIR} -name "test_results.json" -type f 2>/dev/null | head -1)
-fi
-
-if [ -n "${PRED_JSON}" ]; then
-    METRICS_DIR="$(dirname ${PRED_JSON})/frame_metrics"
-    echo ""
-    echo "=========================================="
-    echo "Running frame-level metrics..."
-    echo "  Predictions : ${PRED_JSON}"
-    echo "  Output      : ${METRICS_DIR}"
-    echo "=========================================="
-    python eval_frame_metrics.py \
-        --task       ${TASK} \
-        --pred_json  ${PRED_JSON} \
-        --output_dir ${METRICS_DIR}
-else
-    echo "WARNING: No test_results.json found in ${EXP_DIR}"
-fi
 
 echo "=========================================="
 echo "Done: ${TASK} / ${MODEL} + ${BACKBONE} / seed=${SEED}"

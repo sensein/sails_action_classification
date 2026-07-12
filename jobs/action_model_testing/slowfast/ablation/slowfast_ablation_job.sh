@@ -19,7 +19,7 @@ conda deactivate
 source /home/aparnabg/orcd/scratch/miniconda3/etc/profile.d/conda.sh
 conda activate pytorchvideo_env
 
-cd /home/aparnabg/orcd/scratch/all_project_files/action_sota_models/slowfast/
+cd /src/sailsprep/action_model_testing/slow_fast/experiments/ablation
 
 # SLURM_ARRAY_TASK_ID will be 2, 3, 4, ..., 10
 VERSION="v${SLURM_ARRAY_TASK_ID}"
@@ -32,6 +32,6 @@ echo "  Node: $(hostname)"
 echo "  GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader)"
 echo "============================================"
 
-python slowfast_ablation_study.py --version ${VERSION}
+python train.py --version ${VERSION}
 
 echo "Done with ${VERSION}"
