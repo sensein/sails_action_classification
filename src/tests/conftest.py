@@ -11,12 +11,15 @@ import fastapi.utils as _fu
 # Ensure src/ is on the path so `sailsprep` is importable
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-# Allow `from clips.xxx import ...` etc.
-VLM_ROOT = Path(__file__).parent.parent / "sailsprep" / "action_model_testing" / "vlm_models"
-sys.path.insert(0, str(VLM_ROOT))
-
-# window_classifier_ovis/qwen do `from shared_utils import ...` (bare, same-dir style)
-sys.path.insert(0, str(VLM_ROOT / "window_classification"))
+# NOTE: several action_model_testing scripts do a bare `from common.xxx
+# import ...` (sibling-package style), each expecting ITS OWN local
+# `common/` dir to be resolved. Since Python caches "common" in sys.modules
+# under one shared name, adding all of their parent dirs to sys.path here
+# would make whichever one is imported first "win" for the rest of the
+# session and break every other one. Each conflicting suite instead gets
+# its own nested conftest.py (e.g. action_model_testing/Video_Swin/conftest.py)
+# that fixes up sys.path and purges the stale "common" cache right before
+# its own tests are collected.
 
 # Patch StaticFiles before annotation.py is imported
 patch("starlette.staticfiles.StaticFiles.__init__", return_value=None).start()

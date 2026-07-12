@@ -172,9 +172,18 @@ def _make_sklearn_stub() -> None:
         sys.modules.pop("sklearn.metrics", None)
 
 
-# Install stubs before the module under test is imported.
+# Install stubs before the module under test is imported. These stub
+# modules are only good enough for loading InternVideo.py itself — leaving
+# them in sys.modules afterward would break every other action_model_testing
+# suite that needs the REAL pytorch_lightning/cv2/h5py (this file is
+# collected first, alphabetically, in a full-suite run). So snapshot
+# whatever was really there beforehand and restore it right after import.
 _real_sklearn = sys.modules.get("sklearn")
 _real_sklearn_metrics = sys.modules.get("sklearn.metrics")
+_real_pl = sys.modules.get("pytorch_lightning")
+_real_pl_callbacks = sys.modules.get("pytorch_lightning.callbacks")
+_real_cv2 = sys.modules.get("cv2")
+_real_h5py = sys.modules.get("h5py")
 
 _make_pl_stub()
 _make_cv2_stub()
@@ -196,6 +205,19 @@ _spec = importlib.util.spec_from_file_location("iv2", _mod_path)
 _mod = importlib.util.module_from_spec(_spec)  # type: ignore[arg-type]
 _spec.loader.exec_module(_mod)  # type: ignore[union-attr]
 iv2 = _mod
+
+# Restore real modules (or remove the stub) now that InternVideo.py is loaded,
+# so later-collected test suites in the same session get the real packages.
+for _name, _real in (
+    ("pytorch_lightning", _real_pl),
+    ("pytorch_lightning.callbacks", _real_pl_callbacks),
+    ("cv2", _real_cv2),
+    ("h5py", _real_h5py),
+):
+    if _real is not None:
+        sys.modules[_name] = _real
+    else:
+        sys.modules.pop(_name, None)
 
 # ---------------------------------------------------------------------------
 # Helpers

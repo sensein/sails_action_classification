@@ -1,7 +1,7 @@
 """
-Tests for src/sailsprep/action_model_testing/pyskl/train_mlp_fusion.py
+Tests for src/sailsprep/action_model_testing/pyskl/fusion/train_mlp_fusion.py
 
-src/tests/action_model_testing/pyskl/test_train_mlp_fusion.py
+src/tests/action_model_testing/pyskl/fusion/test_train_mlp_fusion.py
 
 """
 import pickle
@@ -11,7 +11,7 @@ import numpy as np
 import pytest
 import torch
 
-from sailsprep.action_model_testing.pyskl.train_mlp_fusion import FusionMLP, main
+from sailsprep.action_model_testing.pyskl.fusion.train_mlp_fusion import FusionMLP, main
 
 
 # ---------------------------------------------------------------------------

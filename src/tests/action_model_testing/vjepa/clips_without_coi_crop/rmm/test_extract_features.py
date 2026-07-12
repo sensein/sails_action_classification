@@ -36,8 +36,12 @@ try:
     from sailsprep.action_model_testing.vjepa.clips_without_coi_crop.rmm.extract_features import (
         CROP_SIZE,
         NUM_FRAMES,
-        VJEPA2VideoDataset,
         build_dataset_from_folders,
+    )
+    # VJEPA2VideoDataset now lives in the shared common/extraction.py module
+    # (extract_features.py only re-imports build_dataset_from_folders/extract_all_features).
+    from sailsprep.action_model_testing.vjepa.clips_without_coi_crop.common.extraction import (
+        VJEPA2VideoDataset,
     )
 finally:
     os.makedirs = _real_makedirs

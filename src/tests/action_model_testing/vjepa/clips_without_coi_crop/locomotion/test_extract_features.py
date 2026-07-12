@@ -1,5 +1,5 @@
 """
-Tests for sailsprep/action_model_testing/vjepa/clips_without_coi_crop/extract_features.py
+Tests for sailsprep/action_model_testing/vjepa/clips_without_coi_crop/locomotion/extract_features.py
 No disk I/O beyond tmp_path, no GPU, no HF downloads, no video codec required.
 
 Run: poetry run pytest
@@ -34,11 +34,15 @@ if "decord" not in sys.modules:
 _real_makedirs = os.makedirs
 os.makedirs = lambda *a, **k: None
 try:
-    from sailsprep.action_model_testing.vjepa.clips_without_coi_crop.extract_features import (
+    from sailsprep.action_model_testing.vjepa.clips_without_coi_crop.locomotion.extract_features import (
         CROP_SIZE,
         NUM_FRAMES,
-        VJEPA2VideoDataset,
         build_dataset_from_folders,
+    )
+    # VJEPA2VideoDataset now lives in the shared common/extraction.py module
+    # (extract_features.py only re-imports build_dataset_from_folders/extract_all_features).
+    from sailsprep.action_model_testing.vjepa.clips_without_coi_crop.common.extraction import (
+        VJEPA2VideoDataset,
     )
 finally:
     os.makedirs = _real_makedirs

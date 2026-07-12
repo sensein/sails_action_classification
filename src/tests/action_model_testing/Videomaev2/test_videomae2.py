@@ -46,8 +46,14 @@ def _load(script_name: str, module_alias: str):
     import importlib.util
     spec = importlib.util.spec_from_file_location(module_alias, src)
     mod  = importlib.util.module_from_spec(spec)
-    with patch.dict(sys.modules, _HEAVY_MOCKS):
-        spec.loader.exec_module(mod)
+    # videomae2_*.py scripts do `from utils.bbox import load_bbox_map`,
+    # relying on Videomaev2/ being on sys.path so `utils` resolves.
+    sys.path.insert(0, str(_VMAE2_DIR))
+    try:
+        with patch.dict(sys.modules, _HEAVY_MOCKS):
+            spec.loader.exec_module(mod)
+    finally:
+        sys.path.remove(str(_VMAE2_DIR))
     return mod
 
 

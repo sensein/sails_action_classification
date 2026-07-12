@@ -1,7 +1,7 @@
 """
-Tests for src/sailsprep/action_model_testing/pyskl/pyskl_dataset.py
+Tests for src/sailsprep/action_model_testing/pyskl/scripts/pyskl_dataset.py
 
- src/tests/action_model_testing/pyskl/test_pyskl_dataset.py
+ src/tests/action_model_testing/pyskl/scripts/test_pyskl_dataset.py
 
 """
 import json
@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from sailsprep.action_model_testing.pyskl import pyskl_dataset as pds
+from sailsprep.action_model_testing.pyskl.scripts import pyskl_dataset as pds
 
 
 # ---------------------------------------------------------------------------

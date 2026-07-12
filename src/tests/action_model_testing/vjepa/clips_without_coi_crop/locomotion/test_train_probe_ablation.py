@@ -10,7 +10,7 @@ from __future__ import annotations
 import torch
 from torch.utils.data import DataLoader
 
-from sailsprep.action_model_testing.vjepa.clips_without_coi_crop.train_probe_ablation import (
+from sailsprep.action_model_testing.vjepa.clips_without_coi_crop.locomotion.train_probe_ablation import (
     EMBED_DIM,
     HEAD_CHOICES,
     AttentiveProbe,
@@ -84,7 +84,7 @@ class TestTrainProbe:
         return DataLoader(FeatureDataset(feats, labels), batch_size=batch_size)
 
     def test_runs_one_epoch_and_saves_log(self, tmp_path, monkeypatch):
-        import sailsprep.action_model_testing.vjepa.clips_without_coi_crop.train_probe_ablation as mod
+        import sailsprep.action_model_testing.vjepa.clips_without_coi_crop.locomotion.train_probe_ablation as mod
         monkeypatch.setattr(mod, "MAX_EPOCHS", 1)
         monkeypatch.setattr(mod, "PATIENCE", 1)
 
