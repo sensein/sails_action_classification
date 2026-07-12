@@ -8,7 +8,7 @@
 #SBATCH --output=/orcd/data/satra/002/projects/SAILS/vjepa_features/models_output_seeds/clips/vjepa/logs/extract_%j.out
 #SBATCH --error=/orcd/data/satra/002/projects/SAILS/vjepa_features/models_output_seeds/clips/vjepa/logs/extract_%j.err
 
-CODE_DIR="${CODE_DIR:-/src/sailsprep/action_model_testing/vjepa/clips_without_coi_crop}"
+CODE_DIR="${CODE_DIR:-/src/sailsprep/action_model_testing/vjepa/clips_without_coi_crop/locomotion}"
 export HF_HOME="${HF_HOME:-/home/aparnabg/.cache/huggingface}"
 export PYTHONUNBUFFERED=1
 
