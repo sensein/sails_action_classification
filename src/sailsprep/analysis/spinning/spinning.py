@@ -35,6 +35,14 @@ from statsmodels.genmod.families import Gaussian
 from statsmodels.genmod.generalized_estimating_equations import GEE
 from statsmodels.stats.multitest import multipletests
 
+from sailsprep.analysis.common.banners import hr_v2 as hr
+from sailsprep.analysis.common.parsing import extract_pid, parse_timestamps_v2 as parse_timestamps
+from sailsprep.analysis.common.keypoints import get_kp, assign_age_band
+from sailsprep.analysis.common.effect_size import cohen_d_v3 as cohen_d
+from sailsprep.analysis.common.signal_processing import butter_lp_v2 as butter_lp
+from sailsprep.analysis.common.misc import run_spearman_age
+from sailsprep.analysis.common.handflapping_spinning_stats import bootstrap_ci_d
+
 matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -170,42 +178,14 @@ plt.rcParams.update({
 # ═══════════════════════════════════════════════════════════════════
 # SHARED UTILITIES
 # ═══════════════════════════════════════════════════════════════════
-def hr(title): print(f"\n{'='*70}\n  {title}\n{'='*70}")
 
 def save_fig(fig, name):
     fig.savefig(os.path.join(FIGURE_DIR, name)); plt.close(fig)
     print(f"  Saved {name}")
 
-def extract_pid(path):
-    if not isinstance(path, str): return None
-    m = re.search(r'(sub-[A-Za-z0-9]+)', path)
-    return m.group(1) if m else None
 
-def parse_timestamps(ts_str, fps=FPS):
-    if not isinstance(ts_str, str): return []
-    segs = []
-    for part in ts_str.split(','):
-        m = re.match(r'(\d+):(\d+)\s*-\s*(\d+):(\d+)', part.strip())
-        if m:
-            s = int(m.group(1))*60 + int(m.group(2))
-            e = int(m.group(3))*60 + int(m.group(4))
-            if e > s: segs.append((int(s*fps), int(e*fps)))
-    return segs
 
-def get_kp(fd, key, min_conf=MIN_CONF):
-    if key not in fd: return None
-    kp = fd[key]
-    if not isinstance(kp, dict): return None
-    if kp.get('confidence', 0) < min_conf: return None
-    return kp
 
-def butter_lp(data, cutoff=4.0, fs=15.0, order=2):
-    arr = np.array(data, dtype=float)
-    if len(arr) < 10: return arr
-    nyq = 0.5 * fs
-    b, a = butter(order, min(cutoff, nyq*0.9)/nyq, btype='low')
-    if len(arr) < 3*max(len(b), len(a)): return arr
-    return filtfilt(b, a, arr)
 
 def torso_length(fd):
     ls = get_kp(fd, KP['left_shoulder'],  min_conf=0.1)
@@ -246,17 +226,7 @@ def spectral_features(arr, fps, lo=0.5, hi=2.5):
     except:
         return np.nan, np.nan, np.nan
 
-def cohen_d(a, b):
-    a, b = np.array(a, dtype=float), np.array(b, dtype=float)
-    pooled = np.sqrt((np.var(a, ddof=1) + np.var(b, ddof=1)) / 2)
-    return (np.mean(a) - np.mean(b)) / pooled if pooled > 0 else 0.0
 
-def bootstrap_ci_d(a, b, n_boot=500, seed=42):
-    rng = np.random.default_rng(seed)
-    boot = [cohen_d(rng.choice(a, len(a), replace=True),
-                    rng.choice(b, len(b), replace=True))
-            for _ in range(n_boot)]
-    return float(np.percentile(boot, 2.5)), float(np.percentile(boot, 97.5))
 
 def fdr_annotate(df_res, p_col):
     df_res = df_res.copy()
@@ -269,10 +239,6 @@ def fdr_annotate(df_res, p_col):
     df_res['sig_raw05'] = df_res[p_col] < 0.05
     return df_res
 
-def assign_age_band(age_mo):
-    for band, (lo, hi) in AGE_BANDS.items():
-        if lo <= age_mo <= hi: return band
-    return None
 
 def add_sig_bar(ax, x1, x2, y, p, h=0.02):
     label = '***' if p<0.001 else '**' if p<0.01 else '*' if p<0.05 else 'ns'
@@ -848,19 +814,6 @@ def run_consistency_gate(feat_df, feat_cols, sig_feats):
     return pd.DataFrame(cons_recs), consistent_feats, band_mwu
 
 # ── Spearman age correlations ──────────────────────────────────────
-def run_spearman_age(clip_df, feat_cols):
-    sp_recs = []
-    for grp in GROUPS:
-        sub = clip_df[clip_df['Group'] == grp]
-        for feat in feat_cols:
-            vals = sub[['age_mo', feat]].dropna()
-            if len(vals) < 5: continue
-            r, p = stats.spearmanr(vals['age_mo'], vals[feat])
-            sp_recs.append({'Group': grp, 'feature': feat,
-                            'spearman_r': r, 'p_raw': p, 'n': len(vals)})
-    if not sp_recs: return pd.DataFrame()
-    sp_df = pd.DataFrame(sp_recs); sp_df['sig_p05'] = sp_df['p_raw'] < 0.05
-    return sp_df
 
 # ── RUN FULL BATTERY ─────────────────────────────────────────────
 print("\n--- Running full statistical battery ---")

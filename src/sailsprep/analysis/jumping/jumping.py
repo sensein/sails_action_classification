@@ -27,6 +27,15 @@ from statsmodels.genmod.generalized_estimating_equations import GEE
 from statsmodels.stats.multitest import multipletests
 import statsmodels.formula.api as smf
 
+from sailsprep.analysis.common.banners import hr_v1 as hr
+from sailsprep.analysis.common.parsing import extract_pid, parse_timestamps_v1 as parse_timestamps
+from sailsprep.analysis.common.keypoints import get_kp, assign_age_band
+from sailsprep.analysis.common.effect_size import cohen_d_v3 as cohen_d
+from sailsprep.analysis.common.significance import fdr_annotate_v2 as fdr_annotate
+from sailsprep.analysis.common.signal_processing import butter_lp_v1 as butter_lp
+from sailsprep.analysis.common.bayes import _savage_dickey_bf, _standardise
+from sailsprep.analysis.common.misc import run_spearman_age
+
 matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -169,40 +178,10 @@ SHORT_LABELS = {
 # SHARED UTILITIES
 # ═══════════════════════════════════════════════════════════════════════
 
-def hr(title):
-    print(f"\n{'='*70}\n  {title}\n{'='*70}")
 
-def extract_pid(path):
-    if not isinstance(path, str): return None
-    m = re.search(r'(sub-[A-Za-z0-9]+)', path)
-    return m.group(1) if m else None
 
-def parse_timestamps(ts_str, fps=FPS):
-    if not isinstance(ts_str, str): return []
-    segs = []
-    for part in ts_str.split(','):
-        m = re.match(r'(\d+):(\d+)\s*-\s*(\d+):(\d+)', part.strip())
-        if m:
-            s = int(m.group(1))*60 + int(m.group(2))
-            e = int(m.group(3))*60 + int(m.group(4))
-            if e > s:
-                segs.append((int(s*fps), int(e*fps)))
-    return segs
 
-def get_kp(fd, key, min_conf=MIN_CONF):
-    if key not in fd: return None
-    kp = fd[key]
-    if not isinstance(kp, dict): return None
-    if kp.get('confidence', 0) < min_conf: return None
-    return kp
 
-def butter_lp(data, cutoff=6.0, fs=15.0, order=2):
-    arr = np.array(data, dtype=float)
-    if len(arr) < 10: return arr
-    nyq = 0.5 * fs
-    b, a = butter(order, min(cutoff, nyq*0.9)/nyq, btype='low')
-    if len(arr) < 3*max(len(b), len(a)): return arr
-    return filtfilt(b, a, arr)
 
 def torso_length(fd):
     ls = get_kp(fd, KP['left_shoulder'],  min_conf=0.1)
@@ -242,10 +221,6 @@ def spectral_features(arr, fps):
     except:
         return np.nan, np.nan, np.nan
 
-def cohen_d(a, b):
-    a, b = np.array(a, dtype=float), np.array(b, dtype=float)
-    pooled = np.sqrt((np.var(a, ddof=1) + np.var(b, ddof=1)) / 2)
-    return (np.mean(a) - np.mean(b)) / pooled if pooled > 0 else 0.0
 
 def bootstrap_ci_d(a, b, n_boot=500, seed=42):
     """Bootstrap 95% CI for Cohen's d."""
@@ -259,15 +234,6 @@ def cles(a, b):
     a, b = np.array(a), np.array(b)
     return sum(1 for ai in a for bi in b if ai > bi) / (len(a)*len(b))
 
-def fdr_annotate(df_res, p_col):
-    if len(df_res) > 1:
-        _, p_fdr, _, _ = multipletests(df_res[p_col].fillna(1), method='fdr_bh')
-        df_res = df_res.copy(); df_res['p_fdr'] = p_fdr
-    else:
-        df_res = df_res.copy(); df_res['p_fdr'] = df_res[p_col]
-    df_res['sig_fdr05'] = df_res['p_fdr'] < 0.05
-    df_res['sig_raw05'] = df_res[p_col] < 0.05
-    return df_res
 
 def add_sig_bar(ax, x1, x2, y, p, h=0.02):
     label = '***' if p<0.001 else '**' if p<0.01 else '*' if p<0.05 else 'ns'
@@ -277,10 +243,6 @@ def add_sig_bar(ax, x1, x2, y, p, h=0.02):
     ax.text((x1+x2)/2, y+h*1.05, label, ha='center', va='bottom',
             fontsize=10, color=col, fontweight='bold')
 
-def assign_age_band(age_mo):
-    for band, (lo, hi) in AGE_BANDS.items():
-        if lo <= age_mo <= hi: return band
-    return None
 
 def _add_label_dummies(df, reference=LABEL_REFERENCE):
     """Add dummy columns for jump labels (for mixed models)."""
@@ -790,19 +752,6 @@ def run_label_group_interaction(clip_df, feat_cols, subset_label='full'):
     return fdr_annotate(pd.DataFrame(records), 'p_raw').sort_values('p_raw')
 
 # ── Spearman age correlations ────────────────────────────────────────
-def run_spearman_age(clip_df, feat_cols):
-    sp_recs = []
-    for grp in GROUPS:
-        sub = clip_df[clip_df['Group'] == grp]
-        for feat in feat_cols:
-            vals = sub[['age_mo', feat]].dropna()
-            if len(vals) < 5: continue
-            r, p = stats.spearmanr(vals['age_mo'], vals[feat])
-            sp_recs.append({'Group': grp, 'feature': feat,
-                            'spearman_r': r, 'p_raw': p, 'n': len(vals)})
-    if not sp_recs: return pd.DataFrame()
-    sp_df = pd.DataFrame(sp_recs); sp_df['sig_p05'] = sp_df['p_raw'] < 0.05
-    return sp_df
 
 
 # ═══════════════════════════════════════════════════════════════════════
@@ -978,10 +927,6 @@ def run_lme_suite(feat_df, child_df, primary_feats, output_dir, variant_name):
 # BAYESIAN SUITE  (Part 7)  — now with prior sensitivity + PPC
 # ═══════════════════════════════════════════════════════════════════════
 
-def _standardise(series):
-    m, s = series.mean(), series.std()
-    s = s if s > 1e-10 else 1.0
-    return ((series - m) / s).values, m, s
 
 def _build_bayes_df(df, feat, reference=LABEL_REFERENCE):
     cols = ['pid','Group','age_mo','label_lower',feat]
@@ -1009,12 +954,6 @@ def _build_bayes_df(df, feat, reference=LABEL_REFERENCE):
         'y_mean': ym, 'y_std': ys, 'n_obs': len(tmp),
     }
 
-def _savage_dickey_bf(post, prior_sd=0.5):
-    prior_at_0 = spnorm.pdf(0, 0, prior_sd)
-    try:
-        post_at_0 = gaussian_kde(post)(0)[0]
-        return float(prior_at_0 / post_at_0) if post_at_0 > 0 else np.nan
-    except: return np.nan
 
 def _fit_bayes_main(bd, prior_sd=0.5, draws=BAYES_DRAWS, tune=BAYES_TUNE,
                     chains=BAYES_CHAINS, seed=42):

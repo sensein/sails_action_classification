@@ -30,6 +30,15 @@ from statsmodels.genmod.cov_struct import Exchangeable
 from statsmodels.genmod.families import Gaussian
 from statsmodels.genmod.generalized_estimating_equations import GEE
 
+from sailsprep.analysis.common.banners import hr_v1 as hr
+from sailsprep.analysis.common.parsing import extract_pid, extract_session
+from sailsprep.analysis.common.keypoints import get_kp, assign_age_band, torso_length, get_scale
+from sailsprep.analysis.common.mixed_models import _use_random_slope
+from sailsprep.analysis.common.significance import add_sig_bar_v2 as add_sig_bar
+from sailsprep.analysis.common.effect_size import cohen_d_v2 as cohen_d
+from sailsprep.analysis.common.signal_processing import compute_angle_2d_v2 as compute_angle_2d, sparc_smoothness_v2 as sparc_smoothness, spectral_features
+from sailsprep.analysis.common.crusing_walking_stats import bootstrap_ci_d
+
 matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -214,57 +223,17 @@ FEAT_LABEL = lambda f: CRUISING_FEAT_SHORT.get(f, f.replace('_', ' '))
 # ═══════════════════════════════════════════════════════════════════
 # SHARED UTILITIES
 # ═══════════════════════════════════════════════════════════════════
-def hr(title):
-    print(f"\n{'='*70}\n  {title}\n{'='*70}")
 
 def savefig(fig, name):
     fig.savefig(os.path.join(FIG_DIR, name), bbox_inches='tight', dpi=150)
     plt.close(fig)
     print(f"  Saved: {name}")
 
-def extract_pid(path):
-    if not isinstance(path, str): return None
-    m = re.search(r'(sub-[A-Za-z0-9]+)', path)
-    return m.group(1) if m else None
 
-def extract_session(path):
-    if not isinstance(path, str): return None
-    m = re.search(r'ses-(\d+)', path)
-    return int(m.group(1)) if m else None
 
-def assign_age_band(age_mo):
-    for band, (lo, hi) in AGE_BANDS.items():
-        if lo <= age_mo <= hi: return band
-    return None
 
-def get_kp(fd, key, min_conf=MIN_CONF):
-    if key not in fd: return None
-    kp = fd[key]
-    if not isinstance(kp, dict): return None
-    if kp.get('confidence', 0) < min_conf: return None
-    return kp
 
-def torso_length(fd):
-    ls = get_kp(fd, KP['L_shoulder'], 0.1); rs = get_kp(fd, KP['R_shoulder'], 0.1)
-    lh = get_kp(fd, KP['L_hip'],      0.1); rh = get_kp(fd, KP['R_hip'],      0.1)
-    if not all([ls, rs, lh, rh]): return None
-    sx = (ls['x']+rs['x'])/2; sy = (ls['y']+rs['y'])/2
-    hx = (lh['x']+rh['x'])/2; hy = (lh['y']+rh['y'])/2
-    d  = np.sqrt((sx-hx)**2+(sy-hy)**2)
-    return d if d > 5 else None
 
-def get_scale(fd):
-    tl = torso_length(fd)
-    if tl: return tl
-    lh = get_kp(fd, KP['L_hip'], 0.1); rh = get_kp(fd, KP['R_hip'], 0.1)
-    if lh and rh:
-        d = np.sqrt((lh['x']-rh['x'])**2+(lh['y']-rh['y'])**2)
-        if d > 5: return d
-    ls = get_kp(fd, KP['L_shoulder'], 0.1); rs = get_kp(fd, KP['R_shoulder'], 0.1)
-    if ls and rs:
-        d = np.sqrt((ls['x']-rs['x'])**2+(ls['y']-rs['y'])**2)
-        if d > 5: return d
-    return None
 
 def butter_lp(data, cutoff=3.0, fs=15.0, order=2):
     arr = np.array(data, dtype=float)
@@ -274,31 +243,8 @@ def butter_lp(data, cutoff=3.0, fs=15.0, order=2):
     if len(arr) < 3*max(len(b), len(a)): return arr
     return filtfilt(b, a, arr)
 
-def compute_angle_2d(p1, p2, p3):
-    v1 = np.array([p1[0]-p2[0], p1[1]-p2[1]])
-    v2 = np.array([p3[0]-p2[0], p3[1]-p2[1]])
-    n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
-    if n1 < 1e-8 or n2 < 1e-8: return np.nan
-    return float(np.degrees(np.arccos(np.clip(np.dot(v1,v2)/(n1*n2), -1, 1))))
 
-def spectral_features(arr, fps, lo=0.5, hi=2.0):
-    if len(arr) < 16: return np.nan, np.nan, np.nan
-    try:
-        freqs, psd = welch(arr, fs=fps, nperseg=min(len(arr), 64))
-        dom_freq   = float(freqs[np.argmax(psd)])
-        psd_n      = psd/(psd.sum()+1e-12)
-        entropy    = float(-np.sum(psd_n[psd_n>0]*np.log2(psd_n[psd_n>0])))
-        band_pwr   = float(psd[(freqs>=lo)&(freqs<=hi)].sum()/(psd.sum()+1e-12))
-        return dom_freq, entropy, band_pwr
-    except: return np.nan, np.nan, np.nan
 
-def sparc_smoothness(vel, fps):
-    if len(vel) < 8: return np.nan
-    try:
-        fv, pv = welch(vel, fs=fps, nperseg=min(len(vel), 32))
-        pv_n   = pv/(pv.max()+1e-12)
-        return float(-np.sum(np.sqrt(np.diff(fv)**2+np.diff(pv_n)**2)))
-    except: return np.nan
 
 def mean_jerk(pos, fps):
     if len(pos) < 6: return np.nan
@@ -324,17 +270,7 @@ def detect_lateral_steps(ankle_x, fps=15.0, min_distance=5):
             for i in range(len(events)-1)
             if 0.2 <= (events[i+1]-events[i])/fps <= 3.0]
 
-def cohen_d(a, b):
-    a, b   = np.asarray(a, float), np.asarray(b, float)
-    pooled = np.sqrt((np.var(a, ddof=1)+np.var(b, ddof=1))/2)
-    return float((np.mean(a)-np.mean(b))/pooled) if pooled > 1e-10 else 0.0
 
-def bootstrap_ci_d(a, b, n_boot=500, seed=42):
-    rng  = np.random.default_rng(seed)
-    boot = [cohen_d(rng.choice(a, len(a), replace=True),
-                    rng.choice(b, len(b), replace=True))
-            for _ in range(n_boot)]
-    return float(np.percentile(boot, 2.5)), float(np.percentile(boot, 97.5))
 
 def fdr_annotate(df_res, p_col):
     df_res = df_res.copy()
@@ -347,12 +283,6 @@ def fdr_annotate(df_res, p_col):
     df_res['sig_raw05'] = df_res[p_col]  < 0.05
     return df_res
 
-def add_sig_bar(ax, x1, x2, y, p, h=0.02):
-    label = '***' if p<0.001 else '**' if p<0.01 else '*' if p<0.05 else 'ns'
-    col   = '#cc0000' if p<0.001 else '#e06600' if p<0.01 else '#888800' if p<0.05 else '#888888'
-    ax.plot([x1,x1,x2,x2],[y,y+h,y+h,y], lw=1.2, color='black')
-    ax.text((x1+x2)/2, y+h*1.05, label, ha='center', va='bottom',
-            fontsize=10, color=col, fontweight='bold')
 
 # ═══════════════════════════════════════════════════════════════════
 # PART 0: LOAD DATA
@@ -767,9 +697,6 @@ print(icc_df.head(10).to_string(index=False))
 print(f"\n  ICC>0.10: {(icc_df['ICC']>0.10).sum()}/{len(icc_df)}")
 
 # ── Step 1: LME with KR + random slope + interaction ────────────
-def _use_random_slope(df, pid_col='pid'):
-    ns=df.groupby(pid_col)['session'].nunique()
-    return float(ns.median())>=MIN_SESSIONS_FOR_SLOPE
 
 def run_lme_kr(clip_df, feat_cols, subset_label='ALL',
                covariates='age_mo_c', interaction=True, allow_random_slope=True):

@@ -34,6 +34,18 @@ from statsmodels.genmod.families import Gaussian
 from statsmodels.genmod.generalized_estimating_equations import GEE
 from statsmodels.stats.multitest import multipletests
 
+from sailsprep.analysis.common.banners import hr_v1 as hr
+from sailsprep.analysis.common.parsing import extract_pid, extract_session
+from sailsprep.analysis.common.keypoints import get_kp, assign_age_band, torso_length, get_scale
+from sailsprep.analysis.common.mixed_models import _use_random_slope
+from sailsprep.analysis.common.significance import add_sig_bar_v2 as add_sig_bar
+from sailsprep.analysis.common.effect_size import cohen_d_v2 as cohen_d
+from sailsprep.analysis.common.signal_processing import compute_angle_2d_v2 as compute_angle_2d, sparc_smoothness_v2 as sparc_smoothness, spectral_features
+from sailsprep.analysis.common.icc import compute_icc
+from sailsprep.analysis.common.consensus import make_consensus
+from sailsprep.analysis.common.cross_validation import run_loso_child
+from sailsprep.analysis.common.crusing_walking_stats import bootstrap_ci_d
+
 matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -168,57 +180,17 @@ WALKING_FEAT_SHORT = {
 # ═══════════════════════════════════════════════════════════════════
 # SHARED UTILITIES
 # ═══════════════════════════════════════════════════════════════════
-def hr(title):
-    print(f"\n{'='*70}\n  {title}\n{'='*70}")
 
 def savefig(fig, name):
     fig.savefig(os.path.join(FIG_DIR, name), bbox_inches='tight', dpi=150)
     plt.close(fig)
     print(f"  Saved: {name}")
 
-def extract_pid(path):
-    if not isinstance(path, str): return None
-    m = re.search(r'(sub-[A-Za-z0-9]+)', path)
-    return m.group(1) if m else None
 
-def extract_session(path):
-    if not isinstance(path, str): return None
-    m = re.search(r'ses-(\d+)', path)
-    return int(m.group(1)) if m else None
 
-def assign_age_band(age_mo):
-    for band, (lo, hi) in AGE_BANDS.items():
-        if lo <= age_mo <= hi: return band
-    return None
 
-def get_kp(fd, key, min_conf=MIN_CONF):
-    if key not in fd: return None
-    kp = fd[key]
-    if not isinstance(kp, dict): return None
-    if kp.get('confidence', 0) < min_conf: return None
-    return kp
 
-def torso_length(fd):
-    ls = get_kp(fd, KP['L_shoulder'], 0.1); rs = get_kp(fd, KP['R_shoulder'], 0.1)
-    lh = get_kp(fd, KP['L_hip'],      0.1); rh = get_kp(fd, KP['R_hip'],      0.1)
-    if not all([ls, rs, lh, rh]): return None
-    sx = (ls['x']+rs['x'])/2; sy = (ls['y']+rs['y'])/2
-    hx = (lh['x']+rh['x'])/2; hy = (lh['y']+rh['y'])/2
-    d  = np.sqrt((sx-hx)**2+(sy-hy)**2)
-    return d if d > 5 else None
 
-def get_scale(fd):
-    tl = torso_length(fd)
-    if tl: return tl
-    lh = get_kp(fd, KP['L_hip'], 0.1); rh = get_kp(fd, KP['R_hip'], 0.1)
-    if lh and rh:
-        d = np.sqrt((lh['x']-rh['x'])**2+(lh['y']-rh['y'])**2)
-        if d > 5: return d
-    ls = get_kp(fd, KP['L_shoulder'], 0.1); rs = get_kp(fd, KP['R_shoulder'], 0.1)
-    if ls and rs:
-        d = np.sqrt((ls['x']-rs['x'])**2+(ls['y']-rs['y'])**2)
-        if d > 5: return d
-    return None
 
 def butter_lp(data, cutoff=4.0, fs=15.0, order=2):
     arr = np.array(data, dtype=float)
@@ -228,31 +200,8 @@ def butter_lp(data, cutoff=4.0, fs=15.0, order=2):
     if len(arr) < 3*max(len(b), len(a)): return arr
     return filtfilt(b, a, arr)
 
-def compute_angle_2d(p1, p2, p3):
-    v1 = np.array([p1[0]-p2[0], p1[1]-p2[1]])
-    v2 = np.array([p3[0]-p2[0], p3[1]-p2[1]])
-    n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
-    if n1 < 1e-8 or n2 < 1e-8: return np.nan
-    return float(np.degrees(np.arccos(np.clip(np.dot(v1,v2)/(n1*n2), -1, 1))))
 
-def spectral_features(arr, fps, lo=0.5, hi=2.0):
-    if len(arr) < 16: return np.nan, np.nan, np.nan
-    try:
-        freqs, psd = welch(arr, fs=fps, nperseg=min(len(arr), 64))
-        dom_freq   = float(freqs[np.argmax(psd)])
-        psd_n      = psd/(psd.sum()+1e-12)
-        entropy    = float(-np.sum(psd_n[psd_n>0]*np.log2(psd_n[psd_n>0])))
-        band_pwr   = float(psd[(freqs>=lo)&(freqs<=hi)].sum()/(psd.sum()+1e-12))
-        return dom_freq, entropy, band_pwr
-    except: return np.nan, np.nan, np.nan
 
-def sparc_smoothness(vel, fps):
-    if len(vel) < 8: return np.nan
-    try:
-        fv, pv = welch(vel, fs=fps, nperseg=min(len(vel), 32))
-        pv_n   = pv/(pv.max()+1e-12)
-        return float(-np.sum(np.sqrt(np.diff(fv)**2+np.diff(pv_n)**2)))
-    except: return np.nan
 
 def mean_jerk(pos, fps):
     if len(pos) < 6: return np.nan
@@ -275,17 +224,7 @@ def detect_gait_cycles(ankle_y, fps=15.0, min_distance=5):
             for i in range(len(peaks)-1)
             if 0.3 <= (peaks[i+1]-peaks[i])/fps <= 2.0]
 
-def cohen_d(a, b):
-    a, b   = np.asarray(a, float), np.asarray(b, float)
-    pooled = np.sqrt((np.var(a, ddof=1)+np.var(b, ddof=1))/2)
-    return float((np.mean(a)-np.mean(b))/pooled) if pooled > 1e-10 else 0.0
 
-def bootstrap_ci_d(a, b, n_boot=500, seed=42):
-    rng  = np.random.default_rng(seed)
-    boot = [cohen_d(rng.choice(a, len(a), replace=True),
-                    rng.choice(b, len(b), replace=True))
-            for _ in range(n_boot)]
-    return float(np.percentile(boot, 2.5)), float(np.percentile(boot, 97.5))
 
 def fdr_annotate(df_res, p_col):
     if len(df_res) > 1:
@@ -297,12 +236,6 @@ def fdr_annotate(df_res, p_col):
     df_res['sig_raw05'] = df_res[p_col]  < 0.05
     return df_res
 
-def add_sig_bar(ax, x1, x2, y, p, h=0.02):
-    label = '***' if p<0.001 else '**' if p<0.01 else '*' if p<0.05 else 'ns'
-    col   = '#cc0000' if p<0.001 else '#e06600' if p<0.01 else '#888800' if p<0.05 else '#888888'
-    ax.plot([x1,x1,x2,x2],[y,y+h,y+h,y], lw=1.2, color='black')
-    ax.text((x1+x2)/2, y+h*1.05, label, ha='center', va='bottom',
-            fontsize=10, color=col, fontweight='bold')
 
 FEAT_LABEL = lambda f: WALKING_FEAT_SHORT.get(f, f.replace('_',' '))
 
@@ -629,22 +562,6 @@ print(f"  ASD={( child_df['Group']=='ASD').sum()}  Non-ASD={(child_df['Group']==
 hr("PART 2: STATISTICAL ANALYSIS")
 
 # ── Step 0: ICC ─────────────────────────────────────────────────
-def compute_icc(clip_df, feat_cols):
-    records=[]
-    for feat in feat_cols:
-        sub=clip_df[['pid',feat]].dropna()
-        if len(sub)<10: continue
-        groups=[g[feat].values for _,g in sub.groupby('pid') if len(g)>=2]
-        if len(groups)<5: continue
-        f_stat,p_anova=stats.f_oneway(*groups)
-        n_total=sum(len(g) for g in groups); k=len(groups)
-        n0=(n_total-sum(len(g)**2/n_total for g in groups))/(k-1)
-        grand=np.concatenate(groups)
-        ms_b=sum(len(g)*(np.mean(g)-np.mean(grand))**2 for g in groups)/(k-1)
-        ms_w=sum(sum((g-np.mean(g))**2) for g in groups)/(n_total-k)
-        icc=max(0.0,(ms_b-ms_w)/(ms_b+(n0-1)*ms_w))
-        records.append({'feature':feat,'ICC':round(icc,4),'f_stat':round(f_stat,3),'p_anova':round(p_anova,4)})
-    return pd.DataFrame(records).sort_values('ICC',ascending=False)
 
 print("\n--- Step 0: ICC ---")
 icc_df=compute_icc(feat_df,PRIMARY_FEATS)
@@ -653,9 +570,6 @@ print(icc_df.head(10).to_string(index=False))
 print(f"\n  ICC>0.10: {(icc_df['ICC']>0.10).sum()}/{len(icc_df)}")
 
 # ── Step 1: LME with KR + random slope + interaction ────────────
-def _use_random_slope(df, pid_col='pid'):
-    ns=df.groupby(pid_col)['session'].nunique()
-    return float(ns.median())>=MIN_SESSIONS_FOR_SLOPE
 
 def run_lme_kr(clip_df, feat_cols, subset_label='ALL',
                covariates='age_mo_c', interaction=True, allow_random_slope=True):
@@ -920,30 +834,6 @@ if len(mw_all):
     print(f"  Sig raw={mw_all['sig_raw05'].sum()}  FDR={mw_all['sig_fdr05'].sum()}")
 
 # ── Step 7: Consensus ────────────────────────────────────────────
-def make_consensus(results_dict, feat_cols, threshold=0.05):
-    rows=[]
-    for feat in feat_cols:
-        row={'feature':feat}; n_sig=0
-        for mname,res_df in results_dict.items():
-            if res_df is None or len(res_df)==0: row[f'p_{mname}']=np.nan; continue
-            match=res_df[res_df['feature']==feat]
-            if len(match)==0: row[f'p_{mname}']=np.nan
-            else:
-                p=match['p_raw'].values[0]; row[f'p_{mname}']=round(p,4)
-                if p<threshold: n_sig+=1
-        row['n_methods_sig']=n_sig; rows.append(row)
-    cons=pd.DataFrame(rows)
-    lme_df = next(
-        (results_dict.get(k) for k in ('LME_KR', 'LME_noKR', 'LME')
-         if results_dict.get(k) is not None and not results_dict[k].empty),
-        None
-    )
-    if lme_df is not None and len(lme_df) and 'cohens_d' in lme_df.columns:
-        cons['cohens_d_LME']=cons['feature'].map(lme_df.set_index('feature')['cohens_d'].to_dict())
-        if 'd_ci_lo' in lme_df.columns:
-            cons['d_ci_lo']=cons['feature'].map(lme_df.set_index('feature')['d_ci_lo'].to_dict())
-            cons['d_ci_hi']=cons['feature'].map(lme_df.set_index('feature')['d_ci_hi'].to_dict())
-    return cons.sort_values('n_methods_sig',ascending=False)
 
 print("\n--- Step 7: Consensus ---")
 all_results_dict={
@@ -1202,44 +1092,6 @@ else:
 # ═══════════════════════════════════════════════════════════════════
 hr("PART 4: CLASSIFICATION — CHILD-LEVEL LOSO")
 
-def run_loso_child(cdf, feat_cols, clf_name='LR', n_perm=500, seed=42, subset_name=''):
-    df_=cdf.copy()
-    df_['y']=(df_['Group']=='ASD').astype(int)
-    if df_['y'].sum()<4 or (1-df_['y']).sum()<4: return None
-    usable=[f for f in feat_cols if f in df_.columns and df_[f].notna().mean()>0.5]
-    if len(usable)<2: return None
-    df_[usable]=df_[usable].fillna(df_[usable].median())
-    if clf_name=='LR':
-        clf=LogisticRegression(max_iter=2000,C=0.1,class_weight='balanced',random_state=seed)
-    elif clf_name=='SVM':
-        clf=SVC(kernel='rbf',class_weight='balanced',probability=True,random_state=seed)
-    else:
-        clf=RandomForestClassifier(n_estimators=200,class_weight='balanced',random_state=seed,n_jobs=-1)
-    pipe=Pipeline([('imp',SimpleImputer(strategy='median')),('sc',StandardScaler()),('clf',clf)])
-    y_true,y_score=[],[]
-    for pid in df_['pid'].unique():
-        test=df_[df_['pid']==pid]; train=df_[df_['pid']!=pid]
-        if len(train['y'].unique())<2: continue
-        try:
-            pipe.fit(train[usable].values,train['y'].values)
-            y_score.extend(pipe.predict_proba(test[usable].values)[:,1].tolist())
-            y_true.extend(test['y'].values.tolist())
-        except: continue
-    if len(set(y_true))<2: return None
-    auc=roc_auc_score(y_true,y_score); ap=average_precision_score(y_true,y_score)
-    rng=np.random.default_rng(seed)
-    perm_aucs=[roc_auc_score(rng.permuted(np.array(y_true)),y_score) for _ in range(n_perm)]
-    p_perm=float((np.array(perm_aucs)>=auc).mean())
-    print(f"  [{subset_name} {clf_name}] AUC={auc:.3f}  AP={ap:.3f}  p_perm={p_perm:.4f}  n_feat={len(usable)}")
-    fi_df=pd.DataFrame()
-    if clf_name=='RF':
-        rf_m=RandomForestClassifier(n_estimators=200,class_weight='balanced',random_state=seed)
-        rf_m.fit(SimpleImputer(strategy='median').fit_transform(df_[usable]),df_['y'])
-        fi_df=pd.DataFrame({'feature':usable,'importance':rf_m.feature_importances_}
-                           ).sort_values('importance',ascending=False)
-    return {'auc':auc,'ap':ap,'perm_p':p_perm,'n_features':len(usable),
-            'n_subjects':df_['pid'].nunique(),'y_true':y_true,'y_score':y_score,
-            'perm_aucs':perm_aucs,'clf':clf_name,'feature_importance':fi_df}
 
 all_clf_results={}
 print("\n--- Combined child level ---")
