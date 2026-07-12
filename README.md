@@ -80,14 +80,14 @@ classification experiments.
 
 Included model families:
 
-- `Video_Swin/` - clip-based, binary sliding-window, full-video sliding-window,
+- `video_swin/` - clip-based, binary sliding-window, full-video sliding-window,
   and two-stage Video Swin pipelines.
-- `Videomaev2/` - VideoMAE v2 finetuning and sliding-window variants.
-- `InternVideo_v2/` - InternVideo2 finetuning and inference.
+- `videomae2/` - VideoMAE v2 finetuning and sliding-window variants.
+- `internvideo2/` - InternVideo2 finetuning and inference.
 - `slow_fast/` - SlowFast finetuning.
 - `motionbert/` - MotionBERT pose/action pipeline.
 - `mstcn2/` - MS-TCN++ sequence model over extracted features.
-- `OpenTAD/` - temporal action detection experiments.
+- `open_tad/` - temporal action detection experiments.
 - `pyskl/` - PySKL config/logit utilities.
 - `vlm_models/` - Qwen/Ovis vision-language model classifiers.
 - `feature_extraction/` - I3D/R(2+1)D and V-JEPA feature extraction.
@@ -169,7 +169,7 @@ Examples:
 poetry install --with dev,pose-estimation,tracking
 
 # Video Swin experiments
-poetry install --with dev,Video_Swin
+poetry install --with dev,video_swin
 
 # VideoMAE / feature extraction style experiments
 poetry install --with dev,feature-extraction
@@ -318,27 +318,27 @@ Representative examples:
 
 ```bash
 # Video Swin full-video sliding-window classifier
-python -m sailsprep.action_model_testing.Video_Swin.sliding_window.video_swin_fullvideo_sliding \
+python -m sailsprep.action_model_testing.video_swin.sliding_window.video_swin_fullvideo_sliding \
   --task loco \
   --seed 42
 
 # Video Swin binary N/A vs non-N/A classifier
-python -m sailsprep.action_model_testing.Video_Swin.sliding_window.video_swin_binary_sliding \
+python -m sailsprep.action_model_testing.video_swin.sliding_window.video_swin_binary_sliding \
   --task rmm \
   --seed 42
 
 # Video Swin two-stage classifier
-python -m sailsprep.action_model_testing.Video_Swin.sliding_window.video_swin_twostage_joint \
+python -m sailsprep.action_model_testing.video_swin.sliding_window.video_swin_twostage_joint \
   --task loco \
   --seed 42
 
 # VideoMAE2 full-video sliding-window classifier
-python -m sailsprep.action_model_testing.Videomaev2.videomae2_fullvideo_sliding \
+python -m sailsprep.action_model_testing.videomae2.videomae2_fullvideo_sliding \
   --task loco \
   --seed 42
 
 # VideoMAE2 two-stage classifier
-python -m sailsprep.action_model_testing.Videomaev2.videomae2_twostage_sliding \
+python -m sailsprep.action_model_testing.videomae2.videomae2_twostage_sliding \
   --task rmm \
   --seed 42
 
@@ -451,10 +451,10 @@ Common edits:
 
 Representative job scripts:
 
-- `jobs/action_model_testing/Video_Swin/sliding_window/Video_Swin_full_video_multi_job.sh`
-- `jobs/action_model_testing/Video_Swin/sliding_window/Video_Swin_full_video_multi_job_twostage.sh`
-- `jobs/action_model_testing/Video_Swin/sliding_window/full_video_window_job_video_swin.sh`
-- `jobs/action_model_testing/Videomaev2/Videomaev2_submit_all.sh`
+- `jobs/action_model_testing/video_swin/sliding_window/video_swin_full_video_multi_job.sh`
+- `jobs/action_model_testing/video_swin/sliding_window/video_swin_full_video_multi_job_twostage.sh`
+- `jobs/action_model_testing/video_swin/sliding_window/full_video_window_job_video_swin.sh`
+- `jobs/action_model_testing/videomae2/videomae2_submit_all.sh`
 - `jobs/action_model_testing/mstcn2/mstcn2.sh`
 - `jobs/action_model_testing/slow_fast/slow_fast.sh`
 - `jobs/action_model_testing/vlm_models/clips/submit_qwen_clip.sh`

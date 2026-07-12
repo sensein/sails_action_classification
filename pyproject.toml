@@ -122,10 +122,10 @@ matplotlib = ">=3.6,<3.9"
 pytorch-lightning = ">=2.0,<3.0"
 pytorchvideo      = ">=0.1.5"
 
-[tool.poetry.group.Video_Swin]
+[tool.poetry.group.video_swin]
 optional = true
 
-[tool.poetry.group.Video_Swin.dependencies]
+[tool.poetry.group.video_swin.dependencies]
 torch              = ">=2.0,<3.0"
 pytorch-lightning  = ">=2.0,<3.0"
 opencv-python-headless = "^4.8"
@@ -342,7 +342,7 @@ module = [
     "tests.id_tracking_model.tracker.test_batch_tracker",
     "tests.id_tracking_model.tracker.clip.test_tracker_clip",
     "tests.id_tracking_model.target_id.test_batch_identify_target",
-    "tests.action_model_testing.InternVideo_v2.test_internvideo",
+    "tests.action_model_testing.internvideo2.test_internvideo2_finetune",
     "tests.action_model_testing.vlm_models.test_vlm_models",
     "tests.fusion_model.late_fusion.test_two_model",
     "tests.analysis.jumping.test_jumping",

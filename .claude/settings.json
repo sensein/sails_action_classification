@@ -1,0 +1,22 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git check-ignore *)",
+      "Bash(xxd)",
+      "Bash(set -e)",
+      "Bash(sed -i '' -e s/Videomaev2/videomae2/g jobs/action_model_testing/videomae2/videomae2_job.sh jobs/action_model_testing/videomae2/videomae2_submit_all.sh)",
+      "Bash(sed -i '' -e s/OpenTAD/open_tad/g jobs/action_model_testing/open_tad/submit_tad_array.sh)",
+      "Bash(sed -i '' -e s/Video_Swin/video_swin/g jobs/action_model_testing/video_swin/sliding_window/full_video_window_job_video_swin.sh jobs/action_model_testing/video_swin/sliding_window/video_swin_full_video_multi_job.sh jobs/action_model_testing/video_swin/clip_based/video_swin_job_clip.sh jobs/action_model_testing/video_swin/sliding_window/video_swin_full_video_multi_job_twostage.sh)",
+      "Bash(sed -i '' -e s/InternVideo_v2/internvideo2/g -e 's/InternVideo\\\\.py/internvideo2_finetune.py/g' jobs/action_model_testing/internvideo2/internvideo2_finetune.sh)",
+      "Bash(echo \"=== exit code: $? ===\")",
+      "Bash(cd /Users/aparnabg/Desktop/sails_action_classification *)",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(poetry check *)",
+      "Bash(git stash *)",
+      "Bash(git add *)"
+    ],
+    "additionalDirectories": [
+      "/tmp"
+    ]
+  }
+}

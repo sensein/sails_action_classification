@@ -17,7 +17,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 # under one shared name, adding all of their parent dirs to sys.path here
 # would make whichever one is imported first "win" for the rest of the
 # session and break every other one. Each conflicting suite instead gets
-# its own nested conftest.py (e.g. action_model_testing/Video_Swin/conftest.py)
+# its own nested conftest.py (e.g. action_model_testing/video_swin/conftest.py)
 # that fixes up sys.path and purges the stale "common" cache right before
 # its own tests are collected.
 
