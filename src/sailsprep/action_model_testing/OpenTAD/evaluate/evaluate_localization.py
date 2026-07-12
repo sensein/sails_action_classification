@@ -6,8 +6,9 @@ Usage:
     python evaluate_localization.py
 """
 
-import json, numpy as np
+import json
 
+import numpy as np
 from common import iou_1d, discover_results
 
 THRESHOLDS = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7]
@@ -106,7 +107,7 @@ for (task, model), entries in sorted(groups.items()):
     seed_r05      = []
     seed_r07      = []
 
-    for seed, rfile in entries:
+    for _seed, rfile in entries:
         pred = load_pred(rfile)
         maps = [agnostic_map(pred, gt, t) for t in THRESHOLDS]
         seed_amaps.append(float(np.mean(maps)) * 100)

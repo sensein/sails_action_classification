@@ -99,8 +99,8 @@ def parse_label_csv_multiclass(
         return [], 0
 
     col_map = {c.lower(): c for c in df.columns}
-    frame_col = col_map.get("frame", None)
-    target_col = col_map.get(column_name.lower(), None)
+    frame_col = col_map.get("frame")
+    target_col = col_map.get(column_name.lower())
 
     if frame_col is None:
         print(f"  WARNING: label CSV missing 'Frame' column: {label_path}")
@@ -124,7 +124,7 @@ def parse_label_csv_multiclass(
         x = x.strip()
         if not x:
             return None
-        cid = class_to_id.get(x, None)
+        cid = class_to_id.get(x)
         return int(cid) if cid is not None else None
 
     # Use a plain Python list — pandas silently converts None to NaN in object columns

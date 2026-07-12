@@ -11,9 +11,10 @@ For 1 seed: single-seed result.
 Saves: evaluation_results.csv  evaluation_results.txt
 """
 
-import json, csv
-import numpy as np
+import json
+import csv
 
+import numpy as np
 from common import iou_1d, discover_results
 
 THRESHOLDS = [0.3, 0.4, 0.5, 0.6, 0.7]
