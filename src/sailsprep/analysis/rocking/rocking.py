@@ -27,6 +27,12 @@ from statsmodels.genmod.generalized_estimating_equations import GEE
 from statsmodels.stats.multitest import multipletests
 import statsmodels.formula.api as smf
 
+from sailsprep.analysis.common.banners import hr_v1 as hr
+from sailsprep.analysis.common.parsing import extract_pid, parse_timestamps_v2 as parse_timestamps
+from sailsprep.analysis.common.keypoints import get_kp, assign_age_band
+from sailsprep.analysis.common.signal_processing import butter_lp_v2 as butter_lp
+from sailsprep.analysis.common.bayes import _standardise
+
 matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -150,43 +156,14 @@ plt.rcParams.update({
 # ═══════════════════════════════════════════════════════════════════
 # SHARED UTILITIES
 # ═══════════════════════════════════════════════════════════════════
-def hr(title):
-    print(f"\n{'='*70}\n  {title}\n{'='*70}")
 
 def save_fig(fig, name):
     fig.savefig(os.path.join(FIGURE_DIR, name)); plt.close(fig)
     print(f"  Saved {name}")
 
-def extract_pid(path):
-    if not isinstance(path, str): return None
-    m = re.search(r'(sub-[A-Za-z0-9]+)', path)
-    return m.group(1) if m else None
 
-def parse_timestamps(ts_str, fps=FPS):
-    if not isinstance(ts_str, str): return []
-    segs = []
-    for part in ts_str.split(','):
-        m = re.match(r'(\d+):(\d+)\s*-\s*(\d+):(\d+)', part.strip())
-        if m:
-            s = int(m.group(1))*60 + int(m.group(2))
-            e = int(m.group(3))*60 + int(m.group(4))
-            if e > s: segs.append((int(s*fps), int(e*fps)))
-    return segs
 
-def get_kp(fd, key, min_conf=MIN_CONF):
-    if key not in fd: return None
-    kp = fd[key]
-    if not isinstance(kp, dict): return None
-    if kp.get('confidence', 0) < min_conf: return None
-    return kp
 
-def butter_lp(data, cutoff=4.0, fs=15.0, order=2):
-    arr = np.array(data, dtype=float)
-    if len(arr) < 10: return arr
-    nyq = 0.5 * fs
-    b, a = butter(order, min(cutoff, nyq*0.9)/nyq, btype='low')
-    if len(arr) < 3*max(len(b), len(a)): return arr
-    return filtfilt(b, a, arr)
 
 def torso_length(fd):
     ls = get_kp(fd, KP['left_shoulder'],  min_conf=0.1)
@@ -258,15 +235,7 @@ def add_sig_bar(ax, x1, x2, y, p, h=0.02):
     ax.text((x1+x2)/2, y+h*1.05, label, ha='center', va='bottom',
             fontsize=10, color=col, fontweight='bold')
 
-def assign_age_band(age_mo):
-    for band, (lo, hi) in AGE_BANDS.items():
-        if lo <= age_mo <= hi: return band
-    return None
 
-def _standardise(series):
-    m, s = series.mean(), series.std()
-    s = s if s > 1e-10 else 1.0
-    return ((series - m) / s).values, m, s
 
 def _savage_dickey_bf(posterior_samples, prior_sd=0.5):
     prior_at_0 = spnorm.pdf(0, 0, prior_sd)

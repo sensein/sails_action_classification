@@ -30,6 +30,10 @@ from statsmodels.genmod.generalized_estimating_equations import GEE
 from statsmodels.stats.multitest import multipletests
 import statsmodels.formula.api as smf
 
+from sailsprep.analysis.common.banners import hr_v1 as hr
+from sailsprep.analysis.common.parsing import extract_pid, extract_session
+from sailsprep.analysis.common.significance import fdr_annotate_v1 as fdr_annotate
+
 matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -153,8 +157,6 @@ FEAT_LABELS = {
 # ═══════════════════════════════════════════════════════════════════
 # SHARED UTILITIES
 # ═══════════════════════════════════════════════════════════════════
-def hr(title):
-    print(f"\n{'='*70}\n  {title}\n{'='*70}")
 
 def savefig(fig, name):
     path = os.path.join(FIG_DIR, name)
@@ -162,15 +164,7 @@ def savefig(fig, name):
     plt.close(fig)
     print(f"  Saved: {name}")
 
-def extract_pid(path):
-    if not isinstance(path, str): return None
-    m = re.search(r'(sub-[A-Za-z0-9]+)', path)
-    return m.group(1) if m else None
 
-def extract_session(path):
-    if not isinstance(path, str): return None
-    m = re.search(r'ses-(\d+)', path)
-    return int(m.group(1)) if m else None
 
 def get_kp(fd, name, min_conf=MIN_CONF):
     key = KP.get(name)
@@ -246,15 +240,6 @@ def bootstrap_ci_d(a, b, n_boot=1000, seed=42):
           for _ in range(n_boot)]
     return float(np.percentile(boot,2.5)), float(np.percentile(boot,97.5))
 
-def fdr_annotate(df_res, p_col):
-    if len(df_res)>1:
-        _,p_fdr,_,_=multipletests(df_res[p_col].fillna(1),method='fdr_bh')
-        df_res=df_res.copy(); df_res['p_fdr']=p_fdr
-    else:
-        df_res=df_res.copy(); df_res['p_fdr']=df_res[p_col]
-    df_res['sig_fdr05']=df_res['p_fdr']<0.05
-    df_res['sig_raw05']=df_res[p_col]<0.05
-    return df_res
 
 def add_sig_bar(ax,x1,x2,y,p,h=0.02):
     label='***' if p<0.001 else '**' if p<0.01 else '*' if p<0.05 else 'ns'

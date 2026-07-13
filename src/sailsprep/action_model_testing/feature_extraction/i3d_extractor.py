@@ -22,6 +22,8 @@ import torch.nn as nn
 import torchvision.models.video as video_models
 import torchvision.transforms as T
 
+from common.bbox import crop_frame_with_bbox, load_bbox_map
+
 
 # ============================================================
 # Constants
@@ -50,26 +52,6 @@ def build_backbones(gpu: int, active_backbones: list[str] = BACKBONES):
         models[name] = m
         print(f"  Loaded backbone: {name}")
     return models, device
-
-
-# ============================================================
-# H5 bbox loading  (identical to V-JEPA script)
-# ============================================================
-def load_bbox_map(h5_path: str) -> dict:
-    with h5py.File(h5_path, "r") as f:
-        table = f["bboxes/table"][()]
-    vb1 = table["values_block_1"]
-    return {int(r[0]): (int(r[2]), int(r[3]), int(r[4]), int(r[5])) for r in vb1}
-
-
-def crop_frame_with_bbox(frame: np.ndarray, bbox, out_size: int = CROP_SIZE) -> np.ndarray:
-    """Crop frame to bbox and resize. frame is HWC uint8 RGB."""
-    H, W = frame.shape[:2]
-    x1, y1, x2, y2 = bbox
-    x1 = max(0, min(x1, W - 1)); x2 = max(x1 + 1, min(x2, W))
-    y1 = max(0, min(y1, H - 1)); y2 = max(y1 + 1, min(y2, H))
-    crop = frame[y1:y2, x1:x2]
-    return cv2.resize(crop, (out_size, out_size))
 
 
 # ============================================================

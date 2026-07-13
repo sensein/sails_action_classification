@@ -30,6 +30,8 @@ from statsmodels.genmod.generalized_estimating_equations import GEE
 from statsmodels.stats.multitest import multipletests
 import statsmodels.formula.api as smf
 
+from sailsprep.analysis.common.banners import hr_v2 as hr
+
 matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
@@ -137,7 +139,6 @@ plt.rcParams.update({
 # ═══════════════════════════════════════════════════════════════════
 # SHARED UTILITIES
 # ═══════════════════════════════════════════════════════════════════
-def hr(title): print(f"\n{'='*70}\n  {title}\n{'='*70}")
 
 def save_fig(fig,name):
     fig.savefig(os.path.join(FIGURE_DIR,name)); plt.close(fig); print(f"  Saved {name}")

@@ -3,7 +3,7 @@
 This repository contains action classification and statistical analysis for
 locomotion and repetitive motor movement behaviors in the SAILS video dataset.
 
-The project is organized as a research pipeline:
+The project is organized as:
 
 1. Detect people and estimate whole-body pose from videos.
 2. Track people across frames and identify the target child.
@@ -40,7 +40,9 @@ The project is organized as a research pipeline:
 Code: `src/sailsprep/id_tracking_model/`
 
 This part of the repository generates detection and pose caches, tracks people
-across frames, and selects the target child track.
+across frames, and selects the target child track. See
+[`src/sailsprep/id_tracking_model/README.md`](src/sailsprep/id_tracking_model/README.md)
+for the full pipeline and command reference.
 
 Important modules:
 
@@ -57,7 +59,10 @@ Important modules:
 Code: `src/sailsprep/tracking_pose_model_testing/`
 
 This directory contains scripts for testing or wrapping individual tracking and
-pose-estimation methods:
+pose-estimation methods. See
+[`src/sailsprep/tracking_pose_model_testing/README.md`](src/sailsprep/tracking_pose_model_testing/README.md)
+for which scripts are single-video demos versus CSV/SLURM batch pipelines,
+and the corresponding install groups:
 
 - YOLO pose
 - HRNet
@@ -76,29 +81,37 @@ and visualized outputs.
 Code: `src/sailsprep/action_model_testing/`
 
 This directory contains the model-training and inference scripts used for action
-classification experiments.
+classification experiments. See
+[`src/sailsprep/action_model_testing/README.md`](src/sailsprep/action_model_testing/README.md)
+for the full list of model folders, and each model folder's own README for
+setup and usage specific to that model.
 
 Included model families:
 
-- `Video_Swin/` - clip-based, binary sliding-window, full-video sliding-window,
+- `video_swin/` - clip-based, binary sliding-window, full-video sliding-window,
   and two-stage Video Swin pipelines.
-- `Videomaev2/` - VideoMAE v2 finetuning and sliding-window variants.
-- `InternVideo_v2/` - InternVideo2 finetuning and inference.
+- `videomae2/` - VideoMAE v2 finetuning and sliding-window variants.
+- `internvideo2/` - InternVideo2 finetuning and inference.
 - `slow_fast/` - SlowFast finetuning.
 - `motionbert/` - MotionBERT pose/action pipeline.
 - `mstcn2/` - MS-TCN++ sequence model over extracted features.
-- `OpenTAD/` - temporal action detection experiments.
-- `pyskl/` - PySKL config/logit utilities.
-- `vlm_models/` - Qwen/Ovis vision-language model classifiers.
-- `feature_extraction/` - I3D/R(2+1)D and V-JEPA feature extraction.
-- `vjepa/` - vjepa model variants.
-- `dlc_action/` - DLC2Action data preparation workflow.
+- `open_tad/` - temporal action detection experiments (requires the OpenTAD
+  codebase).
+- `pyskl/` - PySKL config generation, training helpers, and logit fusion
+  (requires the PySKL codebase).
+- `vlm_models/` - Qwen2.5-VL/Ovis2 vision-language model classifiers.
+- `feature_extraction/` - I3D/R(2+1)D and V-JEPA2 feature extraction.
+- `vjepa/` - V-JEPA2 feature extraction, probe training, and fine-tuning
+  variants.
+- `dlc_action/` - DLC2Action data preparation and training pipeline.
 
 ### Fusion Models
 
 Code: `src/sailsprep/fusion_model/`
 
-Fusion scripts combine predictions from multiple model families.
+Fusion scripts combine predictions from multiple model families. See
+[`src/sailsprep/fusion_model/README.md`](src/sailsprep/fusion_model/README.md)
+for full usage.
 
 - `late_fusion/two_model.py` - late fusion between two prediction sources.
 - `late_fusion/three_model.py` - late fusion among three prediction sources.
@@ -111,7 +124,9 @@ Fusion scripts combine predictions from multiple model families.
 Code: `src/sailsprep/analysis/`
 
 Behavior-specific analysis scripts extract kinematic features from pose tracks
-and run statistical analyses. Behaviors include:
+and run statistical analyses. See
+[`src/sailsprep/analysis/README.md`](src/sailsprep/analysis/README.md) for
+run order, inputs, and outputs. Behaviors include:
 
 - walking
 - running
@@ -133,7 +148,9 @@ leave-one-subject-out classification.
 Code: `src/sailsprep/annotation/`
 
 The annotation tool is a FastAPI application with a browser UI for reviewing
-videos and assigning frame-level behavior labels.
+videos and assigning frame-level behavior labels. See
+[`src/sailsprep/annotation/README.md`](src/sailsprep/annotation/README.md)
+for the API endpoints and label set.
 
 ```bash
 uvicorn sailsprep.annotation.annotation:app --reload
@@ -159,40 +176,54 @@ poetry install --with dev
 poetry run pytest
 ```
 
-Many model pipelines require optional heavy dependencies. Install only the
-groups needed for the experiment you want to reproduce.
-
-Examples:
+Many model pipelines require optional heavy dependencies. `pyproject.toml`
+defines the following optional Poetry groups; install only the ones needed
+for the experiment you want to reproduce.
 
 ```bash
 # Pose/tracking experiments
 poetry install --with dev,pose-estimation,tracking
 
-# Video Swin experiments
-poetry install --with dev,Video_Swin
+# EntitySAM
+poetry install --with dev,entity-sam
 
-# VideoMAE / feature extraction style experiments
+# ViTPose
+poetry install --with dev,vitpose
+
+# Clip-level tracker (MMDetection/MMPose-based)
+poetry install --with dev,clip_tracker
+
+# DLC2Action
+poetry install --with dev,dlc2action
+
+# Video Swin experiments
+poetry install --with dev,video_swin
+
+# I3D / R(2+1)D / V-JEPA2 feature extraction
 poetry install --with dev,feature-extraction
 
-# Vision-language model experiments
+# Vision-language model experiments (Qwen2.5-VL / Ovis2)
 poetry install --with dev,vlm
 
 # OpenTAD experiments
 poetry install --with dev,opentad
 
+# Statistical analysis (statsmodels, optionally rpy2/pymc/arviz)
+poetry install --with dev,stats-analysis
+
 # Documentation
 poetry install --with docs
 ```
 
-Some third-party model stacks, especially PySKL, OpenTAD, MMDetection, MMPose,
-and CUDA-specific video libraries, may require separate environment setup on an
-HPC system. The job scripts in `jobs/` show the environments used for the
-original experiments.
+There is no Poetry group for VideoMAE2, InternVideo2, SlowFast, MotionBERT,
+MS-TCN++, or PySKL — those model folders list their own dependencies to
+`pip install` directly in their README. Some third-party model stacks,
+especially PySKL, OpenTAD, MMDetection, MMPose, and CUDA-specific video
+libraries, may require separate environment setup.
 
 ## Data Requirements
 
-The SAILS videos and derived data are not included in this repository. To
-reproduce the full results, prepare the following inputs:
+To reproduce the full results, prepare the following inputs:
 
 1. Raw or standardized SAILS videos (this repo used videos from bids preprocessed folder).
 2. A split CSV with train/validation/test assignments.
@@ -314,40 +345,35 @@ need to be generated.
 
 ### 5. Train Action Models
 
-Representative examples:
+The scripts in `action_model_testing/` mostly import their shared helpers with
+bare imports (e.g. `from common.utils import ...`, `from utils.bbox import
+...`), so each script is meant to be run with its own folder as the current
+directory, not as a `python -m` module. See the model's own README (linked
+from
+[`src/sailsprep/action_model_testing/README.md`](src/sailsprep/action_model_testing/README.md))
+for exact commands. Representative examples:
 
 ```bash
 # Video Swin full-video sliding-window classifier
-python -m sailsprep.action_model_testing.Video_Swin.sliding_window.video_swin_fullvideo_sliding \
-  --task loco \
-  --seed 42
+cd src/sailsprep/action_model_testing/video_swin/sliding_window
+python video_swin_fullvideo_sliding.py --task loco --seed 42
 
 # Video Swin binary N/A vs non-N/A classifier
-python -m sailsprep.action_model_testing.Video_Swin.sliding_window.video_swin_binary_sliding \
-  --task rmm \
-  --seed 42
+python video_swin_binary_sliding.py --task rmm --seed 42
 
 # Video Swin two-stage classifier
-python -m sailsprep.action_model_testing.Video_Swin.sliding_window.video_swin_twostage_joint \
-  --task loco \
-  --seed 42
+python video_swin_twostage_joint.py --task loco --seed 42
 
 # VideoMAE2 full-video sliding-window classifier
-python -m sailsprep.action_model_testing.Videomaev2.videomae2_fullvideo_sliding \
-  --task loco \
-  --seed 42
+cd ../../videomae2
+python videomae2_fullvideo_sliding.py --task loco --seed 42
 
 # VideoMAE2 two-stage classifier
-python -m sailsprep.action_model_testing.Videomaev2.videomae2_twostage_sliding \
-  --task rmm \
-  --seed 42
+python videomae2_twostage_sliding.py --task rmm --seed 42
 
 # MS-TCN++ over extracted features
-python -m sailsprep.action_model_testing.mstcn2.mstcn2 \
-  --label loco \
-  --feature_type i3d \
-  --action train \
-  --seed 42
+cd ../mstcn2
+python mstcn2.py --label loco --feature_type i3d --action train --seed 42
 ```
 
 Most reported model experiments are run over three seeds:
@@ -451,14 +477,22 @@ Common edits:
 
 Representative job scripts:
 
-- `jobs/action_model_testing/Video_Swin/sliding_window/Video_Swin_full_video_multi_job.sh`
-- `jobs/action_model_testing/Video_Swin/sliding_window/Video_Swin_full_video_multi_job_twostage.sh`
+- `jobs/action_model_testing/Video_Swin/sliding_window/video_swin_full_video_multi_job.sh`
+- `jobs/action_model_testing/Video_Swin/sliding_window/video_swin_full_video_multi_job_twostage.sh`
 - `jobs/action_model_testing/Video_Swin/sliding_window/full_video_window_job_video_swin.sh`
-- `jobs/action_model_testing/Videomaev2/Videomaev2_submit_all.sh`
+- `jobs/action_model_testing/videomae2/videomae2_job.sh`
+- `jobs/action_model_testing/videomae2/videomae2_submit_all.sh`
+- `jobs/action_model_testing/internvideo2/internvideo2_finetune.sh`
+- `jobs/action_model_testing/motionbert/motionbert.sh`
 - `jobs/action_model_testing/mstcn2/mstcn2.sh`
 - `jobs/action_model_testing/slow_fast/slow_fast.sh`
+- `jobs/action_model_testing/slow_fast/ablation/slowfast_ablation_job.sh`
+- `jobs/action_model_testing/feature_extraction/i3d_r2p1d_feature_extracion.sh`
+- `jobs/action_model_testing/feature_extraction/vjepa_feature_extracion.sh`
 - `jobs/action_model_testing/vlm_models/clips/submit_qwen_clip.sh`
 - `jobs/action_model_testing/vlm_models/clips/submit_ovis_clip.sh`
+- `jobs/action_model_testing/pyskl/pyskl_job.sh`
+- `jobs/action_model_testing/pyskl/test_job.sh`
 - `jobs/fusion_model/pyskl/train_pyskl_sw.sh`
 - `jobs/fusion_model/pyskl/test_pyskl_sw.sh`
 - `jobs/analysis/analysis_job.sh`

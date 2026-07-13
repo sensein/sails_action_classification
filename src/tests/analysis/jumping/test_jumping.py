@@ -23,6 +23,29 @@ import pytest
 # for modules that aren't installed.  _savage_dickey_bf needs the real gaussian_kde.
 from scipy.stats import gaussian_kde as _real_gaussian_kde
 from scipy.stats import norm as _real_norm
+from scipy.stats import f_oneway as _real_f_oneway
+from scipy.stats import mannwhitneyu as _real_mannwhitneyu
+from scipy.stats import spearmanr as _real_spearmanr
+from scipy.stats import linregress as _real_linregress
+from scipy.stats import kruskal as _real_kruskal
+from scipy.signal import butter as _real_butter
+from scipy.signal import filtfilt as _real_filtfilt
+from scipy.signal import welch as _real_welch
+from sklearn.linear_model import LogisticRegression as _real_LogisticRegression
+from sklearn.metrics import roc_auc_score as _real_roc_auc_score
+from sklearn.metrics import roc_curve as _real_roc_curve
+from sklearn.pipeline import Pipeline as _real_Pipeline
+from sklearn.preprocessing import StandardScaler as _real_StandardScaler
+import matplotlib as _real_matplotlib_mod
+import matplotlib.pyplot as _real_plt_mod
+_real_matplotlib_use = _real_matplotlib_mod.use
+_real_plt_rcParams = _real_plt_mod.rcParams
+_real_plt_subplots = _real_plt_mod.subplots
+from statsmodels.stats.multitest import multipletests as _real_multipletests
+from statsmodels.genmod.generalized_estimating_equations import GEE as _real_GEE
+from statsmodels.genmod.families import Gaussian as _real_Gaussian
+from statsmodels.genmod.cov_struct import Exchangeable as _real_Exchangeable
+from statsmodels.formula.api import mixedlm as _real_mixedlm
 
 # ---------------------------------------------------------------------------
 # Module import: the entry-point is guarded by if __name__ == "__main__",
@@ -120,6 +143,41 @@ _sklearn_pipe.Pipeline = MagicMock()  # type: ignore[attr-defined]
 _sklearn_pre = sys.modules["sklearn.preprocessing"]
 _sklearn_pre.StandardScaler = MagicMock()  # type: ignore[attr-defined]
 
+# Undo the module-level scipy.signal/scipy.stats/sklearn/matplotlib/statsmodels
+# stubbing above BEFORE executing jumping.py's own body. These are the real,
+# shared modules (not isolated stubs) - if they were still mocked while
+# jumping.py's imports run, any *other* real shared module that gets imported
+# for the first time during that exec (e.g. sailsprep.analysis.common.bayes,
+# which does `from scipy.stats import gaussian_kde, norm` at ITS OWN import
+# time) would permanently capture the MagicMock references into its own
+# module dict - a corruption that survives even after these lines run, since
+# Python only executes a module's top-level `from X import Y` once and caches
+# the result forever in sys.modules. Restoring here, before exec, ensures
+# every module first-imported during jumping.py's load sees the real thing.
+sys.modules["scipy.signal"].butter = _real_butter  # type: ignore[attr-defined]
+sys.modules["scipy.signal"].filtfilt = _real_filtfilt  # type: ignore[attr-defined]
+sys.modules["scipy.signal"].welch = _real_welch  # type: ignore[attr-defined]
+sys.modules["scipy.stats"].gaussian_kde = _real_gaussian_kde  # type: ignore[attr-defined]
+sys.modules["scipy.stats"].norm = _real_norm  # type: ignore[attr-defined]
+sys.modules["scipy.stats"].f_oneway = _real_f_oneway  # type: ignore[attr-defined]
+sys.modules["scipy.stats"].mannwhitneyu = _real_mannwhitneyu  # type: ignore[attr-defined]
+sys.modules["scipy.stats"].spearmanr = _real_spearmanr  # type: ignore[attr-defined]
+sys.modules["scipy.stats"].linregress = _real_linregress  # type: ignore[attr-defined]
+sys.modules["scipy.stats"].kruskal = _real_kruskal  # type: ignore[attr-defined]
+sys.modules["sklearn.linear_model"].LogisticRegression = _real_LogisticRegression  # type: ignore[attr-defined]
+sys.modules["sklearn.metrics"].roc_auc_score = _real_roc_auc_score  # type: ignore[attr-defined]
+sys.modules["sklearn.metrics"].roc_curve = _real_roc_curve  # type: ignore[attr-defined]
+sys.modules["sklearn.pipeline"].Pipeline = _real_Pipeline  # type: ignore[attr-defined]
+sys.modules["sklearn.preprocessing"].StandardScaler = _real_StandardScaler  # type: ignore[attr-defined]
+sys.modules["matplotlib"].use = _real_matplotlib_use  # type: ignore[attr-defined]
+sys.modules["matplotlib.pyplot"].rcParams = _real_plt_rcParams  # type: ignore[attr-defined]
+sys.modules["matplotlib.pyplot"].subplots = _real_plt_subplots  # type: ignore[attr-defined]
+sys.modules["statsmodels.stats.multitest"].multipletests = _real_multipletests  # type: ignore[attr-defined]
+sys.modules["statsmodels.genmod.generalized_estimating_equations"].GEE = _real_GEE  # type: ignore[attr-defined]
+sys.modules["statsmodels.genmod.families"].Gaussian = _real_Gaussian  # type: ignore[attr-defined]
+sys.modules["statsmodels.genmod.cov_struct"].Exchangeable = _real_Exchangeable  # type: ignore[attr-defined]
+sys.modules["statsmodels.formula.api"].mixedlm = _real_mixedlm  # type: ignore[attr-defined]
+
 # Now it is safe to import the module
 
 
@@ -156,9 +214,9 @@ _jmp = importlib.util.module_from_spec(_spec)
 sys.modules["jumping"] = _jmp  # so dataclasses/typing introspection works if needed
 exec(compile(_tree, _MOD_PATH, "exec"), _jmp.__dict__)  # noqa: S102
 
-# Re-inject real scipy callables so _savage_dickey_bf works correctly.
-# The stub loop replaced sys.modules["scipy.stats"], so the module picked up
-# MagicMock objects for gaussian_kde and spnorm; overwrite them here.
+# _jmp's own `from scipy.stats import gaussian_kde, norm as spnorm` (jumping.py)
+# ran while scipy.stats was already restored to real (see above), so this is
+# only a defensive re-assertion, not a fix for a live corruption.
 _jmp.gaussian_kde = _real_gaussian_kde  # type: ignore[attr-defined]
 _jmp.spnorm = _real_norm  # type: ignore[attr-defined]
 
@@ -408,14 +466,20 @@ class TestSpectralFeatures:
         dom, ent, bp = spectral_features(np.ones(5), fps=15.0)
         assert all(np.isnan(v) for v in [dom, ent, bp])
 
-    def test_returns_three_floats(self) -> None:
-        # Patch the stubbed welch to return real-looking data
+    def test_returns_three_floats(self, monkeypatch) -> None:
+        # Patch welch on jumping's own module object only (_jmp), not the
+        # shared scipy.signal module - mutating the latter would leak the
+        # mock into every other test file that imports welch afterward.
         arr = np.sin(2 * np.pi * 2.0 * np.arange(64) / 15.0)
-        sys.modules["scipy.signal"].welch = MagicMock(  # type: ignore[attr-defined]
-            return_value=(
-                np.linspace(0, 7.5, 33),
-                np.abs(np.fft.rfft(arr)) ** 2,
-            )
+        monkeypatch.setattr(
+            _jmp,
+            "welch",
+            MagicMock(
+                return_value=(
+                    np.linspace(0, 7.5, 33),
+                    np.abs(np.fft.rfft(arr)) ** 2,
+                )
+            ),
         )
         dom, ent, bp = spectral_features(arr, fps=15.0)
         assert isinstance(dom, float)

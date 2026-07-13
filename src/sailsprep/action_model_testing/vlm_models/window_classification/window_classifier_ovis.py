@@ -28,7 +28,9 @@ import torch
 from transformers import AutoConfig, AutoModelForCausalLM
 from PIL import Image
 
-from shared_utils import (
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+from common.shared_utils import (
     TASK_CONFIG,
     add_metadata_to_metrics,
     compute_binary_metrics,
@@ -41,6 +43,7 @@ from shared_utils import (
     sample_frames_from_window,
     save_predictions_csv,
 )
+from common.window_parsers import parse_binary, parse_finegrained, parse_multiclass
 
 
 def _patch_aimv2_registration() -> None:
@@ -347,82 +350,15 @@ class OvisClassifier:
     # Parsers
     # ------------------------------------------------------------------
     def _parse_multiclass(self, resp: str) -> str | None:
-        if not resp:
-            return None
-
-        upper = resp.upper()
-        if "ACTION:" in upper:
-            after = (
-                resp[upper.find("ACTION:") + 7:]
-                .strip().split("\n")[0].strip().strip("\"'")
-            )
-            for cls in self.all_classes:
-                if cls.lower() == after.lower():
-                    return cls
-            for cls in self.all_classes:
-                if cls.replace("_", " ").lower() == after.lower():
-                    return cls
-
-        for cls in self.active_classes:
-            if cls.lower() in resp.lower():
-                return cls
-
-        no_variants = [
-            self.no_label.lower(),
-            self.no_label.replace("_", " ").lower(),
-        ]
-        if any(v in resp.lower() for v in no_variants):
-            return self.no_label
-
-        return None
+        return parse_multiclass(
+            resp, self.all_classes, self.active_classes, self.no_label
+        )
 
     def _parse_binary(self, resp: str) -> bool | None:
-        if not resp:
-            return None
-
-        upper = resp.upper()
-        if "ANSWER:" in upper:
-            after = upper.split("ANSWER:")[-1].strip().split()[0]
-            if after.startswith("YES"):
-                return True
-            if after.startswith("NO"):
-                return False
-
-        stripped = upper.strip().rstrip(".")
-        if stripped == "YES":
-            return True
-        if stripped == "NO":
-            return False
-
-        return None
+        return parse_binary(resp)
 
     def _parse_finegrained(self, resp: str) -> str | None:
-        if not resp:
-            return None
-
-        upper = resp.upper()
-        if "ACTION:" in upper:
-            after = (
-                resp[upper.find("ACTION:") + 7:]
-                .strip().split("\n")[0].strip().strip("\"'")
-            )
-            for cls in self.active_classes:
-                if cls.lower() == after.lower():
-                    return cls
-            for cls in self.active_classes:
-                if cls.replace("_", " ").lower() == after.lower():
-                    return cls
-            if self.task == "rmm" and "flap" in after.lower():
-                return "Hands_flapping"
-
-        for cls in self.active_classes:
-            if cls.lower() in resp.lower():
-                return cls
-
-        if self.task == "rmm" and "flap" in resp.lower():
-            return "Hands_flapping"
-
-        return None
+        return parse_finegrained(resp, self.active_classes, self.task)
 
     # ------------------------------------------------------------------
     # Approach A — multi-class via temporal grid
