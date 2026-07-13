@@ -474,28 +474,7 @@ Common edits:
 - project workspace path
 - input/output/log directories
 - task labels passed to scripts
-
-Representative job scripts:
-
-- `jobs/action_model_testing/Video_Swin/sliding_window/video_swin_full_video_multi_job.sh`
-- `jobs/action_model_testing/Video_Swin/sliding_window/video_swin_full_video_multi_job_twostage.sh`
-- `jobs/action_model_testing/Video_Swin/sliding_window/full_video_window_job_video_swin.sh`
-- `jobs/action_model_testing/videomae2/videomae2_job.sh`
-- `jobs/action_model_testing/videomae2/videomae2_submit_all.sh`
-- `jobs/action_model_testing/internvideo2/internvideo2_finetune.sh`
-- `jobs/action_model_testing/motionbert/motionbert.sh`
-- `jobs/action_model_testing/mstcn2/mstcn2.sh`
-- `jobs/action_model_testing/slow_fast/slow_fast.sh`
-- `jobs/action_model_testing/slow_fast/ablation/slowfast_ablation_job.sh`
-- `jobs/action_model_testing/feature_extraction/i3d_r2p1d_feature_extracion.sh`
-- `jobs/action_model_testing/feature_extraction/vjepa_feature_extracion.sh`
-- `jobs/action_model_testing/vlm_models/clips/submit_qwen_clip.sh`
-- `jobs/action_model_testing/vlm_models/clips/submit_ovis_clip.sh`
-- `jobs/action_model_testing/pyskl/pyskl_job.sh`
-- `jobs/action_model_testing/pyskl/test_job.sh`
-- `jobs/fusion_model/pyskl/train_pyskl_sw.sh`
-- `jobs/fusion_model/pyskl/test_pyskl_sw.sh`
-- `jobs/analysis/analysis_job.sh`
+  
 
 ## Outputs
 
