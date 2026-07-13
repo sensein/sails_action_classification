@@ -125,7 +125,11 @@ python entitysam.py \
 Corresponding SLURM job scripts for all nine methods live under
 `jobs/tracking_pose_model_testing/`
 (`yolo_pose.sh`, `hrnet.sh`, `vit_pose.sh`, `deepsort.sh`, `deepsort_reid.sh`,
-`bytetrack.sh`, `entitysam.sh`, `mediapipe_holistic.sh`, `face_mediapipe.sh`).
+`bytetrack.sh`, `entitysam.sh`, `mediapipe_holistic.sh`, `face_mediapipe.sh`,`openpose_batch.sh`).
+`openpose_batch.sh` runs `openpose_video.py` (with
+CSV/output-dir/model-folder overrides) inside an Apptainer/Singularity
+container (`openpose-final.sif`) rather than the bare Poetry env the other
+job scripts use, since `pyopenpose` needs a full OpenPose build. 
 
 ## Requirements
 
@@ -137,11 +141,8 @@ panopticapi, used by `entitysam.py` and `sam2_yolov8.py`).
 `deepsort_reid.py` additionally needs `torchreid`, which is not covered by
 any Poetry group and must be installed separately.
 
-None of the remaining new scripts are covered by a Poetry group; each
-depends on a separate external install:
+There is models that depends on a separate external install:
 
-- `movenet.py` — `tensorflow`, `tensorflow_hub`, `tensorflow_docs`, `imageio`
-- `openpifpaf.py` — `openpifpaf`
 - `rtmlib.py` — `rtmlib` (ONNX/OpenVINO runtime, no mm-stack needed)
 - `deva.py` — a `Tracking-Anything-with-DEVA` checkout plus Grounding DINO
   (or `GroundingDINO`) and its SAM checkpoints
