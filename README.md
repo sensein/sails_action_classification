@@ -3,7 +3,7 @@
 This repository contains action classification and statistical analysis for
 locomotion and repetitive motor movement behaviors in the SAILS video dataset.
 
-The project is organized as a research pipeline:
+The project is organized as:
 
 1. Detect people and estimate whole-body pose from videos.
 2. Track people across frames and identify the target child.
