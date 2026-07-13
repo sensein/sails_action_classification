@@ -219,13 +219,11 @@ There is no Poetry group for VideoMAE2, InternVideo2, SlowFast, MotionBERT,
 MS-TCN++, or PySKL — those model folders list their own dependencies to
 `pip install` directly in their README. Some third-party model stacks,
 especially PySKL, OpenTAD, MMDetection, MMPose, and CUDA-specific video
-libraries, may require separate environment setup on an HPC system. The job
-scripts in `jobs/` show the environments used for the original experiments.
+libraries, may require separate environment setup.
 
 ## Data Requirements
 
-The SAILS videos and derived data are not included in this repository. To
-reproduce the full results, prepare the following inputs:
+To reproduce the full results, prepare the following inputs:
 
 1. Raw or standardized SAILS videos (this repo used videos from bids preprocessed folder).
 2. A split CSV with train/validation/test assignments.
