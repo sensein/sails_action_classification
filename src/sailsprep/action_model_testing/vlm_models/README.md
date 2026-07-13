@@ -24,14 +24,11 @@ window_classification/
 
 ## Requirements
 
-- Python 3.10+
-- `torch`, `transformers`
-- `opencv-python` (`cv2`)
-- `numpy`, `pandas`
-- `scikit-learn`
-- `Pillow`
-- `qwen_vl_utils` (for the Qwen classifiers)
-- A CUDA-capable GPU is expected for model inference
+Installed via the `vlm` Poetry group (`poetry install --with dev,vlm`):
+torch, torchvision, transformers, accelerate, safetensors, huggingface-hub,
+timm, einops, qwen-vl-utils, tokenizers, opencv-python-headless, av, pillow,
+numpy, pandas, scikit-learn. A CUDA-capable GPU is expected for model
+inference.
 
 ## Clip classifiers
 

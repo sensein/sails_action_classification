@@ -20,16 +20,9 @@ sliding_window/
 
 ## Requirements
 
-- Python 3.9+
-- torch
-- pytorch_lightning
-- h5py
-- opencv-python (cv2)
-- numpy
-- pandas
-- scikit-learn
-- einops
-- timm
+Installed via the `video_swin` Poetry group (`poetry install --with
+dev,video_swin`): torch, pytorch-lightning, opencv-python-headless, h5py,
+scikit-learn, einops, timm, pandas, numpy.
 
 ## Setup
 

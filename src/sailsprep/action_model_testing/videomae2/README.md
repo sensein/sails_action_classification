@@ -6,9 +6,9 @@ for two classification tasks:
 - **loco** — `Locomotion`
 - **rmm** — `Repetitive_Motor_Movements`
 
-Three training pipelines cover different windowing/labeling strategies, plus
-a standalone class-weighted variant that drives the upstream VideoMAEv2
-`run_class_finetuning.py` script directly.
+Three training pipelines cover different windowing/labeling strategies:
+per-action-run clips, full-video sliding windows, and a two-stage
+(binary + fine-grained) sliding-window variant.
 
 ## Layout
 
@@ -61,16 +61,10 @@ python videomae2_twostage_sliding.py --task loco --seed 42
 checkpoints, label mappings, predictions, and metrics to its own
 `output_dir/seed_<seed>/` (see `TASK_CONFIG` in each file).
 
-The class-weighted variant is configured via environment variables instead
-of flags:
-
-
 ## Shared code
 
-`load_bbox_map`, `get_window_label`, `collate`, and the K710
-checkpoint-download/load path used by `build_videomae2_vitb` were identical
-(or behaviorally identical) copy-pasted across two or more of the three
-sliding/clip scripts. They now live in `utils/` and are imported rather than
-redefined. Each script still owns its own dataset class, data module, model
-wiring, and metrics/inference logic, since those genuinely differ between
-the per-clip, single-head-sliding, and two-stage approaches.
+`utils/` holds code shared across the three scripts: `load_bbox_map`,
+`get_window_label`, `collate`, and the K710 checkpoint-download/load path
+used by `build_videomae2_vitb`. Each script still owns its own dataset
+class, data module, model wiring, and metrics/inference logic, since those
+differ between the per-clip, single-head-sliding, and two-stage approaches.

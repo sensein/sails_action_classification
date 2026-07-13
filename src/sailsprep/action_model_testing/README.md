@@ -1,82 +1,52 @@
-# pyskl custom pipeline
+# Action Model Testing
 
-This repo does **not** contain the [pyskl](https://github.com/kennymckormick/pyskl)
-codebase itself. It's a set of custom scripts (data conversion, config
-generation, SLURM job scripts, and late-fusion training) that must be dropped
-into an actual clone of the upstream `pyskl` repo to run.
+Training and inference scripts for the action-recognition experiments run on
+the SAILS locomotion (`loco`) and repetitive motor movement (`rmm`) tasks.
+Each subfolder below is a separate model family with its own inputs, and most
+have their own README with setup and run instructions.
 
-## Setup
+## Model folders
 
-1. Clone the upstream repo and install it (see its README for full
-   environment setup, e.g. mmcv, torch, etc.):
+| Folder | Model | README |
+|---|---|---|
+| `video_swin/` | Video Swin Transformer (clip-based, binary/full-video/two-stage sliding window) | [video_swin/README.md](video_swin/README.md) |
+| `videomae2/` | VideoMAE V2 finetuning (per-clip, full-video sliding window, two-stage) | [videomae2/README.md](videomae2/README.md) |
+| `internvideo2/` | InternVideo2-6B finetuning | [internvideo2/README.md](internvideo2/README.md) |
+| `slow_fast/` | SlowFast finetuning (single clip pipeline + ablation experiments) | [slow_fast/README.md](slow_fast/README.md) |
+| `motionbert/` | MotionBERT 2D->3D pose lifting + skeleton action recognition | [motionbert/README.md](motionbert/README.md) |
+| `mstcn2/` | MS-TCN++ frame-level action segmentation over pre-extracted features | [mstcn2/README.md](mstcn2/README.md) |
+| `feature_extraction/` | I3D, R(2+1)D, and V-JEPA2 per-frame feature extraction | [feature_extraction/README.md](feature_extraction/README.md) |
+| `vjepa/` | V-JEPA2 feature extraction, attentive-probe training, and fine-tuning variants | [vjepa/README.md](vjepa/README.md) |
+| `open_tad/` | Feature-based temporal action detection with OpenTAD | [open_tad/README.md](open_tad/README.md) |
+| `pyskl/` | PySKL skeleton-based action recognition configs, training helpers, and logit fusion | [pyskl/README.md](pyskl/README.md) |
+| `vlm_models/` | Qwen2.5-VL / Ovis2 vision-language model classifiers | [vlm_models/README.md](vlm_models/README.md) |
+| `dlc_action/` | DLC2Action pipeline for pose-based locomotion classification | [dlc_action/README.md](dlc_action/README.md) |
 
-   ```bash
-   git clone https://github.com/kennymckormick/pyskl.git
-   cd pyskl
-   pip install -e .
-   ```
+## Tasks
 
-2. Copy the contents of this repo into the root of that clone:
+Nearly every script here trains for one of two label sets from the SAILS
+annotation CSVs:
 
-   ```bash
-   cp -r scripts fusion jobs /path/to/pyskl/
-   ```
+| Task flag | Annotation column | Classes |
+|---|---|---|
+| `loco` | `Locomotion` | Crawling, Cruising, Running, Vehicle, Walking |
+| `rmm` | `Repetitive_Motor_Movements` | Hands_flapping, Jumping, Rocking, Spinning |
 
-   (`tools/dist_train.sh`, `tools/dist_test.sh`, and the `pyskl` Python
-   package used by `extract_logits.py` all come from the upstream clone —
-   they are not included here.)
+## Conventions across these scripts
 
-## Pipeline / run order
+- Most scripts read a single split CSV (with `video_path`, `label_path`, and a
+  `split` column of `train`/`val`/`test`) and take `--task`/`--label` plus
+  `--seed` as CLI flags. Paths to that CSV, along with checkpoint/output
+  directories, are set as constants near the top of each script rather than
+  passed as flags — edit those constants for your environment.
+- Reported experiments are generally run over three seeds: `42`, `123`, `456`.
+- Several folders import shared helpers with bare imports (e.g.
+  `from common.utils import ...`, `from utils.bbox import ...`). Those scripts
+  must be run with their own folder as the working directory, not with
+  `python -m`. Each model's README states which convention it uses.
+- `pyskl/` and `open_tad/` are standalone scripts that operate inside a
+  separate upstream repo checkout (PySKL, OpenTAD) rather than importing
+  `sailsprep` directly — see their READMEs for the copy-in setup.
 
-All commands below are run **from the root of the upstream `pyskl` clone**
-(i.e. `cd /path/to/pyskl` first), after copying these files in — not from
-inside `scripts/` or `fusion/`. The scripts read/write paths like
-`configs/custom/...` and `work_dirs/...` relative to your current directory,
-not relative to the script's own location.
-
-1. **Convert raw pose JSONs to pyskl's `.pkl` annotation format:**
-
-   ```bash
-   python scripts/pyskl_dataset.py --task rmm  --out /path/to/rmm_pyskl.pkl
-   python scripts/pyskl_dataset.py --task loco --out /path/to/loco_pyskl.pkl
-   ```
-
-2. **Generate model configs** (writes into `configs/custom/<model>_<dataset>/`):
-
-   ```bash
-   python scripts/generate_stgcnpp_configs.py
-   python scripts/generate_ctrgcn_configs.py
-   python scripts/generate_posec3d_configs.py
-   ```
-
-3. **Train** all model/feature combinations across 3 seeds via SLURM
-   (edit `WORKSPACE` in the script, or set it as an env var, to match your
-   cluster paths):
-
-   ```bash
-   bash jobs/pyskl/pyskl_job.sh
-   ```
-
-4. **Test** the best checkpoint from each run:
-
-   ```bash
-   bash jobs/pyskl/test_job.sh
-   ```
-
-5. **Extract per-model logits** on val + test splits, for fusion:
-
-   ```bash
-   python fusion/extract_logits.py --dataset rmm  --split val
-   python fusion/extract_logits.py --dataset rmm  --split test
-   python fusion/extract_logits.py --dataset loco --split val
-   python fusion/extract_logits.py --dataset loco --split test
-   ```
-
-6. **Train the fusion MLP** over the concatenated logits and evaluate:
-
-   ```bash
-   python fusion/train_mlp_fusion.py --dataset rmm
-   python fusion/train_mlp_fusion.py --dataset loco
-   ```
-
-
+Corresponding SLURM job scripts for these models live under
+`jobs/action_model_testing/`.

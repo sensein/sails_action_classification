@@ -30,14 +30,6 @@ experiments/
 whether you invoke it as `python train.py` or
 `python -m experiments.ablation.train`.
 
-There used to be two more folders here (`class_weight/` and
-`without_classweight/`, later merged into `class_weighting/`) that isolated
-the class-weighting comparison on its own. They were removed because
-`ablation --version v1` (baseline, unweighted) vs `--version v2`
-(class-weighted, nothing else changed) already test exactly that comparison
-— keeping a second, hand-duplicated script around for the same comparison
-just risked the two drifting out of sync. See "History" below.
-
 ## Shared input: the CSV
 
 `ablation/train.py` reads a CSV of pre-cut clips (path configurable via the
