@@ -1,7 +1,6 @@
 import os
 import sys
 import time
-from getopt import GetoptError as error
 from getopt import error, getopt
 from os.path import join, normpath
 
@@ -35,7 +34,7 @@ def get_model(framework, model_variant):
         from tensorflow.keras.backend import set_learning_phase
         from tensorflow.keras.models import load_model
         set_learning_phase(0)
-        model = load_model(join('models', 'keras', 'EfficientPose{0}.h5'.format(model_variant.upper())), custom_objects={'BilinearWeights': helpers.keras_BilinearWeights, 'Swish': helpers.Swish(helpers.eswish), 'eswish': helpers.eswish, 'swish1': helpers.swish1})
+        model = load_model(join('models', 'keras', 'EfficientPose{}.h5'.format(model_variant.upper())), custom_objects={'BilinearWeights': helpers.keras_BilinearWeights, 'Swish': helpers.Swish(helpers.eswish), 'eswish': helpers.eswish, 'swish1': helpers.swish1})
 
     # TensorFlow
     elif framework in ['tensorflow', 'tf']:
@@ -43,7 +42,7 @@ def get_model(framework, model_variant):
         from tensorflow.compat.v1 import GraphDef
         from tensorflow.compat.v1.keras.backend import get_session
         from tensorflow.python.platform.gfile import FastGFile
-        f = FastGFile(join('models', 'tensorflow', 'EfficientPose{0}.pb'.format(model_variant.upper())), 'rb')
+        f = FastGFile(join('models', 'tensorflow', 'EfficientPose{}.pb'.format(model_variant.upper())), 'rb')
         graph_def = GraphDef()
         graph_def.ParseFromString(f.read())
         f.close()
@@ -54,7 +53,7 @@ def get_model(framework, model_variant):
     # TensorFlow Lite
     elif framework in ['tensorflowlite', 'tflite']:
         from tensorflow import lite
-        model = lite.Interpreter(model_path=join('models', 'tflite', 'EfficientPose{0}.tflite'.format(model_variant.upper())))
+        model = lite.Interpreter(model_path=join('models', 'tflite', 'EfficientPose{}.tflite'.format(model_variant.upper())))
         model.allocate_tensors()
 
     # PyTorch
@@ -63,13 +62,13 @@ def get_model(framework, model_variant):
 
         from torch import backends, load, quantization
         try:
-            MainModel = load_source('MainModel', join('models', 'pytorch', 'EfficientPose{0}.py'.format(model_variant.upper())))
+            MainModel = load_source('MainModel', join('models', 'pytorch', 'EfficientPose{}.py'.format(model_variant.upper())))
         except:
             print('\n##########################################################################################################')
-            print('Desired model "EfficientPose{0}Lite" not available in PyTorch. Please select among "RT", "I", "II", "III" or "IV".'.format(model_variant.split('lite')[0].upper()))
+            print('Desired model "EfficientPose{}Lite" not available in PyTorch. Please select among "RT", "I", "II", "III" or "IV".'.format(model_variant.split('lite')[0].upper()))
             print('##########################################################################################################\n')
             return False, False
-        model = load(join('models', 'pytorch', 'EfficientPose{0}'.format(model_variant.upper())))
+        model = load(join('models', 'pytorch', 'EfficientPose{}'.format(model_variant.upper())))
         model.eval()
         qconfig = quantization.get_default_qconfig('qnnpack')
         backends.quantized.engine = 'qnnpack'
@@ -183,7 +182,7 @@ def analyze_camera(model, framework, resolution, lite):
     cv2.destroyAllWindows()
 
      # Print total operation time
-    print('Camera operated in {0} seconds'.format(time.time() - start_time))
+    print('Camera operated in {} seconds'.format(time.time() - start_time))
     print('##########################################################################################################\n')
 
     return coordinates
@@ -226,7 +225,7 @@ def analyze_image(file_path, model, framework, resolution, lite):
 
     # Print processing time
     print('\n##########################################################################################################')
-    print('Image processed in {0} seconds'.format('%.3f' % (time.time() - start_time)))
+    print('Image processed in {} seconds'.format('%.3f' % (time.time() - start_time)))
     print('##########################################################################################################\n')
 
     return coordinates
@@ -266,7 +265,7 @@ def analyze_video(file_path, model, framework, resolution, lite):
         frame_height, frame_width = next(vreader(file_path)).shape[:2]
     except Exception as e:
         print('error',e,'error')
-        print('Video "{0}" could not be loaded. Please verify that the file is working.'.format(file_path))
+        print('Video "{}" could not be loaded. Please verify that the file is working.'.format(file_path))
         print('##########################################################################################################\n')
         return False
 
@@ -279,10 +278,10 @@ def analyze_video(file_path, model, framework, resolution, lite):
 
         # Fetch batch of frames
         batch = [next(videogen, None) for _ in range(batch_size)]
-        if not type(batch[0]) == np.ndarray:
+        if type(batch[0]) is not np.ndarray:
             break
-        elif not type(batch[-1]) == np.ndarray:
-            batch = [frame if type(frame) == np.ndarray else np.zeros((frame_height, frame_width, 3)) for frame in batch]
+        elif type(batch[-1]) is not np.ndarray:
+            batch = [frame if type(frame) is np.ndarray else np.zeros((frame_height, frame_width, 3)) for frame in batch]
 
          # Preprocess batch
         batch = helpers.preprocess(batch, resolution, lite)
@@ -296,7 +295,7 @@ def analyze_video(file_path, model, framework, resolution, lite):
 
         # Print partial processing time
         if batch_num % part_size == 0:
-            print('{0} of {1}: Part processed in {2} seconds | Video processed for {3} seconds'.format(int(batch_num / part_size), int(np.ceil(num_batches / part_size)), '%.3f' % (time.time() - part_start_time), '%.3f' % (time.time() - start_time)))
+            print('{} of {}: Part processed in {} seconds | Video processed for {} seconds'.format(int(batch_num / part_size), int(np.ceil(num_batches / part_size)), '%.3f' % (time.time() - part_start_time), '%.3f' % (time.time() - start_time)))
             part_start_time = time.time()
         batch_num += 1
 
@@ -446,22 +445,19 @@ def save(video, file_path, coordinates):
     # Initialize CSV
     import csv
     csv_path = normpath(file_path.split('.')[0] + '_coordinates.csv') if file_path is not None else normpath('camera_coordinates.csv')
-    csv_file = open(csv_path, 'w')
     headers = ['frame'] if video else []
     [headers.extend([body_part + '_x', body_part + '_y']) for body_part, _, _ in coordinates[0]]
-    writer = csv.DictWriter(csv_file, fieldnames=headers)
-    writer.writeheader()
+    with open(csv_path, 'w') as csv_file:
+        writer = csv.DictWriter(csv_file, fieldnames=headers)
+        writer.writeheader()
 
-    # Write coordinates to CSV
-    for i, image_coordinates in enumerate(coordinates):
-        row = {'frame': i + 1} if video else {}
-        for body_part, body_part_x, body_part_y in image_coordinates:
-            row[body_part + '_x'] = body_part_x
-            row[body_part + '_y'] = body_part_y
-        writer.writerow(row)
-
-    csv_file.flush()
-    csv_file.close()
+        # Write coordinates to CSV
+        for i, image_coordinates in enumerate(coordinates):
+            row = {'frame': i + 1} if video else {}
+            for body_part, body_part_x, body_part_y in image_coordinates:
+                row[body_part + '_x'] = body_part_x
+                row[body_part + '_y'] = body_part_y
+            writer.writerow(row)
 
 def perform_tracking(video, file_path, model_name, framework_name, visualize, store):
     """
@@ -490,19 +486,19 @@ def perform_tracking(video, file_path, model_name, framework_name, visualize, st
     model_variant = model_name.lower()
     if framework not in ['keras', 'k', 'tensorflow', 'tf', 'tensorflowlite', 'tflite', 'pytorch', 'torch']:
         print('\n##########################################################################################################')
-        print('Desired framework "{0}" not available. Please select among "tflite", "tensorflow", "keras" or "pytorch".'.format(framework_name))
+        print('Desired framework "{}" not available. Please select among "tflite", "tensorflow", "keras" or "pytorch".'.format(framework_name))
         print('##########################################################################################################\n')
         return False
     elif model_variant not in ['efficientposert', 'rt', 'efficientposei', 'i', 'efficientposeii', 'ii', 'efficientposeiii', 'iii', 'efficientposeiv', 'iv', 'efficientposert_lite', 'rt_lite', 'efficientposei_lite', 'i_lite', 'efficientposeii_lite', 'ii_lite']:
         print('\n##########################################################################################################')
-        print('Desired model "{0}" not available. Please select among "RT", "I", "II", "III", "IV", "RT_Lite", "I_Lite" or "II_Lite".'.format(model_name))
+        print('Desired model "{}" not available. Please select among "RT", "I", "II", "III", "IV", "RT_Lite", "I_Lite" or "II_Lite".'.format(model_name))
         print('##########################################################################################################\n')
         return False
 
     # LOAD MODEL
     else:
         model_variant = model_variant[13:] if len(model_variant) > 7 else model_variant
-        lite = True if model_variant.endswith('_lite') else False
+        lite = bool(model_variant.endswith('_lite'))
         model, resolution = get_model(framework, model_variant)
         if not model:
             return True
@@ -540,7 +536,7 @@ def main(file_path, model_name, framework_name, visualize, store):
     # LIVE ANALYSIS FROM CAMERA
     if file_path is None:
         print('\n##########################################################################################################')
-        print('Click "Q" to end camera-based tracking.'.format(file_path))
+        print('Click "Q" to end camera-based tracking.')
         print('##########################################################################################################\n')
         perform_tracking(video=True, file_path=None, model_name=model_name, framework_name=framework_name, visualize=False, store=store)
 
@@ -554,7 +550,7 @@ def main(file_path, model_name, framework_name, visualize, store):
 
     else:
         print('\n##########################################################################################################')
-        print('Ensure supplied file "{0}" is a video or image'.format(file_path))
+        print('Ensure supplied file "{}" is a video or image'.format(file_path))
         print('##########################################################################################################\n')
 
 
