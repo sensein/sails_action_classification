@@ -16,19 +16,36 @@ bytetrack.py             YOLO-Pose + Ultralytics ByteTrack
 entitysam.py            EntitySAM-based video segmentation 
 mediapipe_holistic.py    MediaPipe Holistic (pose + face + hands) 
 face_mediapipe.py        YOLO person detection + MediaPipe Face Mesh 
+movenet.py               MoveNet (TF-Hub) single-person pose w/ adaptive cropping
+poseformer.py            PoseFormer 3D pose (delegates to an external poseformer_demo repo)
+openpose_video.py        OpenPose (pyopenpose) body + face + hands, CSV-batch
+openpifpaf.py            OpenPifPaf multi-person pose estimation
+rtmlib.py                RTMLib Wholebody pose (ONNX/OpenVINO, no mm-stack)
+rtmpose.py               RTMPose wholebody pose (RTMDet + mmpose)
+sam2_yolov8.py           YOLOv8 detection + SAM2 video segmentation/tracking
+deva.py                  DEVA + Grounding DINO text-prompted segmentation/tracking
+efficientpose.py         EfficientPose (Keras/TF/TFLite/PyTorch) pose estimation
 ```
 
 ## Single-video demo scripts
 
-`deepsort.py`, `deepsort_reid.py`, and `bytetrack.py` hardcode
-`video_path = "video.mp4"` (and `output_folder`/`output_path`) at the top of
-their `main()`. Edit that path and run directly:
+`deepsort.py`, `deepsort_reid.py`, `bytetrack.py`, `movenet.py`, and
+`poseformer.py` hardcode a single input video path (`video_path` /
+`video_name`, and `output_folder`/`output_path`) near the top of the file.
+Edit that path and run directly:
 
 ```bash
 python deepsort.py
 python deepsort_reid.py
 python bytetrack.py
+python movenet.py
+python poseformer.py
 ```
+
+`poseformer.py` only trims the input to 10s with ffmpeg and copies the
+result out of an external `poseformer_demo` checkout (`/content/poseformer_demo`
+in the script) — that repo's own demo pipeline does the actual 3D pose
+inference and must be run separately.
 
 ## CSV-batch scripts
 
@@ -41,6 +58,35 @@ python yolo_pose.py
 python mediapipe_holistic.py
 python face_mediapipe.py
 ```
+
+`openpose_video.py` follows the same CSV/`BidsProcessed` pattern but also
+accepts optional positional overrides for `csv_path`, `output_dir`, and
+`model_folder`:
+
+```bash
+python openpose_video.py [csv_path] [output_dir] [model_folder]
+```
+
+## Folder-batch scripts
+
+`openpifpaf.py`, `rtmlib.py`, `rtmpose.py`, `sam2_yolov8.py`, `deva.py`, and
+`efficientpose.py` hardcode an input folder and output folder near the top
+of the file and process every video (or, for `efficientpose.py`, every
+`.mp4`) found there:
+
+```bash
+python openpifpaf.py
+python rtmlib.py
+python rtmpose.py
+python sam2_yolov8.py
+python deva.py
+python efficientpose.py
+```
+
+`sam2_yolov8.py` uses YOLOv8 to detect people on one anchor frame per video,
+then propagates SAM2 video segmentation from those boxes across the clip.
+`deva.py` uses Grounding DINO with a fixed `'person'` text prompt to drive
+DEVA's text-conditioned segmentation/tracking.
 
 ## SLURM array batch scripts
 
@@ -85,7 +131,23 @@ Corresponding SLURM job scripts for all nine methods live under
 
 Covered by a mix of Poetry groups depending on the method: `tracking`
 (ultralytics, deep-sort-realtime, mediapipe), `pose-estimation` /
-`clip_tracker` (mmcv/mmdet/mmpose, used by `hrnet.py`), `vitpose`
-(transformers-based ViTPose), and `entity-sam` (SAM2 + panopticapi).
+`clip_tracker` (mmcv/mmdet/mmpose, used by `hrnet.py` and `rtmpose.py`),
+`vitpose` (transformers-based ViTPose), and `entity-sam` (SAM2 +
+panopticapi, used by `entitysam.py` and `sam2_yolov8.py`).
 `deepsort_reid.py` additionally needs `torchreid`, which is not covered by
 any Poetry group and must be installed separately.
+
+None of the remaining new scripts are covered by a Poetry group; each
+depends on a separate external install:
+
+- `movenet.py` — `tensorflow`, `tensorflow_hub`, `tensorflow_docs`, `imageio`
+- `openpifpaf.py` — `openpifpaf`
+- `rtmlib.py` — `rtmlib` (ONNX/OpenVINO runtime, no mm-stack needed)
+- `deva.py` — a `Tracking-Anything-with-DEVA` checkout plus Grounding DINO
+  (or `GroundingDINO`) and its SAM checkpoints
+- `openpose_video.py` — a built `openpose` install exposing `pyopenpose`,
+  plus `ffmpeg` on `PATH` for H.264 encoding (falls back to OpenCV X264/mp4v)
+- `poseformer.py` — an external `poseformer_demo` checkout and `ffmpeg`
+- `efficientpose.py` — `pymediainfo`, `scikit-video` (`skvideo`), and
+  whichever of `tensorflow`/`torch` matches the chosen framework, plus the
+  corresponding EfficientPose model weights under `models/`
